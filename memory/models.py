@@ -29,6 +29,7 @@ class Node(StrictModel):
     key: Text
     name: Text
     kind: Text
+    owner_key: Text | None = None
     aliases: list[Text] = Field(default_factory=list, max_length=30)
     message_indices: list[int] = Field(min_length=1, max_length=200)
 
@@ -53,6 +54,17 @@ class Graph(StrictModel):
         keys = {n.key for n in self.nodes}
         if len(keys) != len(self.nodes):
             raise ValueError("Duplicate node keys")
+        owners = {n.key: n.owner_key for n in self.nodes}
+        for node in self.nodes:
+            seen = {node.key}
+            owner = node.owner_key
+            while owner is not None:
+                if owner not in keys:
+                    raise ValueError("Unknown node owner")
+                if owner in seen:
+                    raise ValueError("Cyclic node ownership")
+                seen.add(owner)
+                owner = owners[owner]
         for item in [*self.nodes, *self.edges]:
             if any(i < 0 or i >= count for i in item.message_indices):
                 raise ValueError("Invalid evidence message index")

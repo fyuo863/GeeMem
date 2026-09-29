@@ -104,7 +104,7 @@ def test_legacy_migration_preserves_reverse_edge_evidence_and_quotes(tmp_path):
         for mid in ('m1', 'm2'):
             db.execute("INSERT INTO messages VALUES (?,?,?,?,?,?)", (mid,'u',mid,'user',mid,0))
         for nid in ('a', 'b'):
-            db.execute("INSERT INTO nodes VALUES (?,?,?,?,?,?)", (nid,'u',nid,nid,'person','[]'))
+            db.execute("INSERT INTO nodes (id,user_id,node_key,name,kind,aliases) VALUES (?,?,?,?,?,?)", (nid,'u',nid,nid,'person','[]'))
         db.execute("INSERT INTO edges VALUES ('edge1','u','b','a','询问')")
         db.execute("INSERT INTO edges VALUES ('edge2','u','a','b','询问')")
         for eid,mid in [('edge1','m1'),('edge2','m2')]:

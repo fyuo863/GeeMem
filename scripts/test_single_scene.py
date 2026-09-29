@@ -34,7 +34,7 @@ for(let step=0;step<500;step++){let forces=nodes.map(()=>({x:0,y:0}));for(let i=
 function element(tag,attrs){let e=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))e.setAttribute(k,v);return e;}
 function details(title,indices,extra=''){let box=document.getElementById('detail');box.replaceChildren();let h=document.createElement('h2');h.textContent=title;box.append(h);let p=document.createElement('p');p.textContent=extra;box.append(p);for(const i of [...new Set(indices)]){let d=document.createElement('div');d.className='evidence';let small=document.createElement('small');small.textContent=ms[i].dia_id+' · '+ms[i].speaker;let t=document.createElement('p');t.textContent=ms[i].text;d.append(small,t);box.append(d);}}
 g.edges.forEach((e,i)=>{const a=lookup[e.source],b=lookup[e.target],dx=b.x-a.x,dy=b.y-a.y,d=Math.max(1,Math.hypot(dx,dy));let x1=a.x+dx/d*22,y1=a.y+dy/d*22,x2=b.x-dx/d*26,y2=b.y-dy/d*26;let path=element('path',{d:`M ${x1} ${y1} Q ${(x1+x2)/2-dy*.1} ${(y1+y2)/2+dx*.1} ${x2} ${y2}`,class:'edge'});let title=element('title',{});title.textContent=a.name+' — '+e.relation+' — '+b.name;path.append(title);path.onclick=()=>details(title.textContent,e.message_indices,'关系证据');document.getElementById('edges').append(path);let label=element('text',{x:(x1+x2)/2-dy*.05,y:(y1+y2)/2+dx*.05-5,'text-anchor':'middle'});label.textContent=e.relation;document.getElementById('edges').append(label);});
-for(const n of nodes){let el=element('g',{class:'node',transform:`translate(${n.x},${n.y})`});el.append(element('circle',{r:21,fill:['person','user','assistant'].includes(n.kind.toLowerCase())?'#bc672c':'#4c8295'}));let text=element('text',{y:39,'text-anchor':'middle'});text.textContent=n.name;el.append(text);el.onclick=()=>details(n.name,n.message_indices,n.kind+' · '+n.key);document.getElementById('nodes').append(el);}
+for(const n of nodes){let el=element('g',{class:'node',transform:`translate(${n.x},${n.y})`});el.append(element('circle',{r:21,fill:['person','user','assistant'].includes(n.kind.toLowerCase())?'#bc672c':'#4c8295'}));let text=element('text',{y:39,'text-anchor':'middle'});text.textContent=n.name+(n.owner_key?'（归属：'+lookup[n.owner_key].name+'）':'');el.append(text);el.onclick=()=>details(n.name,n.message_indices,n.kind+' · '+n.key+' · 归属：'+(n.owner_key?lookup[n.owner_key].name:'未指定 / 不适用'));document.getElementById('nodes').append(el);}
 details('构图结果',[],nodes.length+' 个节点，'+g.edges.length+' 条无向关系。选择一个节点或连边查看证据。');
 </script></html>'''
     (out / "graph.html").write_text(page.replace("__PAYLOAD__", payload), encoding="utf-8")
@@ -97,6 +97,8 @@ def main():
     report["llm_model"] = llm.model
     report["commit"] = subprocess.check_output(
         ["git", "-c", f"safe.directory={ROOT.as_posix()}", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    report["working_tree_dirty"] = bool(subprocess.check_output(
+        ["git", "-c", f"safe.directory={ROOT.as_posix()}", "status", "--porcelain"], cwd=ROOT, text=True).strip())
     report["input_sha256"] = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     store = Store(out / "memory.sqlite3")
     with TestClient(create_app(store, llm)) as client:
@@ -114,6 +116,9 @@ def main():
         report.update(nodes=added["nodes"], edges=added["edges"])
         graph = json.loads((out / "graph.json").read_text(encoding="utf-8"))
         names = {n["key"]: n["name"] for n in graph["nodes"]}
+        report["node_ownership"] = [dict(key=n["key"], name=n["name"],
+            owner_key=n.get("owner_key"), owner_name=names.get(n.get("owner_key")),
+            evidence=[source[i]["dia_id"] for i in n["message_indices"]]) for n in graph["nodes"]]
         report["question_edges"] = [dict(source=names[e["source"]], target=names[e["target"]],
                                           relation=e["relation"], evidence=[source[i]["dia_id"] for i in e["message_indices"]])
                                     for e in graph["edges"] if e["relation"] == "询问"]

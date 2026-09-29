@@ -49,6 +49,8 @@ class Store:
                 PRIMARY KEY(edge_id, message_id));
             """)
             self._migrate_undirected(db)
+            if "owner_id" not in {r["name"] for r in db.execute("PRAGMA table_info(nodes)")}:
+                db.execute("ALTER TABLE nodes ADD COLUMN owner_id TEXT REFERENCES nodes(id)")
 
     @staticmethod
     def _migrate_undirected(db):
@@ -111,20 +113,37 @@ class Store:
                     mid, request.user_id, request.session_id, message.role,
                     message.content, message.timestamp))
             node_ids = {}
-            for node in graph.nodes:
+            # Resolve owners first, regardless of LLM output order. Validation
+            # above rejects missing references and cycles before any writes.
+            pending = list(graph.nodes)
+            ordered = []
+            ready = set()
+            while pending:
+                for node in pending[:]:
+                    if node.owner_key is None or node.owner_key in ready:
+                        ordered.append(node)
+                        ready.add(node.key)
+                        pending.remove(node)
+            for node in ordered:
+                owner_id = node_ids.get(node.owner_key)
                 key = normalize(node.key)
+                if owner_id is not None:
+                    identity = json.dumps([key, owner_id], ensure_ascii=False)
+                    key = "owned:" + hashlib.sha256(identity.encode()).hexdigest()
                 row = db.execute("SELECT * FROM nodes WHERE user_id=? AND node_key=?",
                                  (request.user_id, key)).fetchone()
+                if row and row["owner_id"] != owner_id:
+                    raise ValueError("Node identity collides with a different owner")
                 nid = row["id"] if row else str(uuid4())
-                aliases = set(node.aliases + [node.name])
+                aliases = set(node.aliases + [node.name, node.key])
                 if row:
                     aliases.update(json.loads(row["aliases"]))
                     db.execute("UPDATE nodes SET aliases=? WHERE id=?",
                                (json.dumps(sorted(aliases), ensure_ascii=False), nid))
                 else:
-                    db.execute("INSERT INTO nodes VALUES (?,?,?,?,?,?)", (
+                    db.execute("INSERT INTO nodes (id,user_id,node_key,name,kind,aliases,owner_id) VALUES (?,?,?,?,?,?,?)", (
                         nid, request.user_id, key, node.name, node.kind,
-                        json.dumps(sorted(aliases), ensure_ascii=False)))
+                        json.dumps(sorted(aliases), ensure_ascii=False), owner_id))
                 node_ids[node.key] = nid
                 db.executemany("INSERT OR IGNORE INTO node_evidence VALUES (?,?)",
                                [(nid, ids[i]) for i in node.message_indices])

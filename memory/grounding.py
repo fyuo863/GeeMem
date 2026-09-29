@@ -31,6 +31,16 @@ Use concise relation labels such as 询问, 支持, 参与, 鼓励, 情绪关联
 Do not create inverse predicates or encode who acts on whom in endpoint order.
 Who did what, temporal order and negation remain in the EXACT source quotes.
 A speaker's family is its OWN group node, not the other conversation participant.
+Every node has owner_key: the key of the entity it belongs to, or null if
+ownership is unknown or not applicable. Ownership is not the storage user_id,
+the speaker mentioning something, or mere participation in an event.
+Resolve possessives (my/our/his/her) using the actual speaker and context.
+Never merge families, possessions or personal experiences of DIFFERENT owners.
+Create a distinct node for each owner, with a unique owner-qualified key and
+display name (e.g. group:alice_family, Alice's family, owner_key=person:alice).
+Keep the owner node in the graph. Never use a list of different owners to paper
+over distinct entities. Do not guess missing owners; use null instead.
+Only assign ownership supported by the cited node messages and conversation.
 Connect the entities actually mentioned in the evidence. Do not connect an event
 to the person merely commenting on it. Capture all explicit questions as 询问
 associations between the speakers, retaining each supporting question message.
