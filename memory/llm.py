@@ -2,7 +2,7 @@ import json
 from .config import load_settings
 import httpx
 from .models import AddRequest, Graph, Keywords
-from .grounding import GroundedGraph, GraphPatch, RELATION_RULES, apply_patch, admit_graph
+from .grounding import GroundedGraph, RELATION_RULES, admit_graph
 
 def strict_json_schema(schema):
     """Adapt Pydantic defaults to OpenAI strict structured-output requirements."""
@@ -65,63 +65,28 @@ class LLM:
             dict(message, message_index=index)
             for index, message in enumerate(payload["messages"])
         ]
-        graph = self.complete(
-            "Build a complete directed semantic evidence graph from this conversation. "
-            "First identify the speaker of each message from its role and names in context. "
-            "The first message can be from the assistant; never assume alternation or "
-            "infer the speaker from the person being addressed. "
-            "Use the explicit message_index field for evidence (zero-based), not turn numbers. "
-            "Extract people AND salient places, organizations, activities, events and facts. "
-            "Represent asserted facts with specific semantic relations between those nodes, "
-            "so activities, events and their participants are searchable. A graph containing "
-            "only speaker nodes is insufficient when concrete events or activities are stated. "
-            "Resolve pronouns only when supported by context. Preserve negation, uncertainty "
-            "and temporal qualifiers; do not infer unsupported facts. "
-            "Additionally, for an actual question by A addressed to B, add A -> B with "
-            "relation 询问 and cite the question message itself. A reply, compliment, or "
-            "statement is NOT an inquiry. Do not replace factual relations with inquiry edges. "
-            "Use speaker key user:<user_id> for role=user and assistant:<session_id> for "
-            "role=assistant, with their actual names when known. Other nodes use stable "
-            "<kind>:<canonical name> keys. Use source-language labels and useful aliases. "
-            "Every node/edge needs message_indices that directly support it. "
-            "Combine repeated identical source/target/relation triples into a single edge "
-            "with all supporting indices. Before returning, check entity/event coverage, "
-            "question versus assertion, speaker direction, and every evidence index. "
-            "For EACH edge provide evidence quotes copied EXACTLY from its cited source messages. "
-            "Each evidence entry has message_index and text. Use person for speakers; "
-            "use group for families, and outcome/emotion for results. " + RELATION_RULES,
+        candidate = self.complete(
+            "Extract an undirected evidence network from the full conversation. "
+            "Identify people, groups, events, activities and salient facts. "
+            "Use person for speakers, group for families. Resolve pronouns using role "
+            "and context; the first message may be assistant. A name being addressed "
+            "is not the speaker's name. Preserve uncertainty and negation in evidence. "
+            "Use user:<user_id> and assistant:<session_id> as stable speaker keys. "
+            "Other entities use <kind>:<canonical name> keys and useful aliases. "
+            "Every edge must have exact source quotes and matching zero-based "
+            "message_indices using the explicit message_index fields. "
+            "Only include associations supported by the source; do not infer facts "
+            "from questions. " + RELATION_RULES,
             payload, GroundedGraph,
         )
-        candidate = graph
         self.on_graph_candidate(candidate)
-        patch = self.complete(
-            "You are an independent skeptical evidence auditor. Review the candidate graph "
-            "against the SOURCE messages, not against the extractor's assumptions. "
-            "Check each relation's subject, object, direction, negation, time and quoted evidence. "
-            "Check EVERY message for missed questions and salient facts. "
-            "An exact quote alone does not mean it supports the relation. Identify who is "
-            "actually helping whom and distinguish third parties from the two speakers. "
-            "Return a LOCAL PATCH: remove_edge_indices indexes the candidate edge list; "
-            "upsert_nodes only adds/updates necessary nodes; add_edges contains corrected "
-            "or missing relations with exact source quotes. Keep correct edges unchanged. "
-            "For an edge needing additional evidence, remove it and add a complete replacement. "
-            "Remove unsupported claims; do not invent facts to make the graph complete. "
-            "Include short findings explaining changes. " + RELATION_RULES,
-            {"source": payload, "candidate": candidate.model_dump()}, GraphPatch,
-        )
         try:
-            graph = admit_graph(apply_patch(candidate, patch), request)
+            return admit_graph(candidate, request)
         except ValueError as exc:
-            raise LLMError("Audited graph failed source-evidence or relation validation") from exc
-        self.on_graph_audit(candidate, patch, graph)
-        return graph
+            raise LLMError("Graph failed source-evidence validation") from exc
 
     def on_graph_candidate(self, candidate):
-        """Optional observer, called before the independent audit begins."""
-
-    def on_graph_audit(self, candidate, patch, graph):
-        """Optional per-request observer; production does not log source payloads."""
-
+        """Optional observer; production does not log source messages."""
 
     def keywords(self, query: str) -> list[str]:
         return self.complete(

@@ -19,71 +19,36 @@ class GroundedEdge(Edge):
 
 
 class GroundedGraph(StrictModel):
+    directed: Literal[False] = False
     nodes: list[GroundedNode] = Field(max_length=1000)
     edges: list[GroundedEdge] = Field(max_length=2000)
 
 
-class GraphPatch(StrictModel):
-    # Removal indices refer to the original candidate edge array, never a shifting list.
-    remove_edge_indices: list[int] = Field(default_factory=list, max_length=2000)
-    upsert_nodes: list[GroundedNode] = Field(default_factory=list, max_length=1000)
-    add_edges: list[GroundedEdge] = Field(default_factory=list, max_length=2000)
-    findings: list[str] = Field(default_factory=list, max_length=200)
-
-
 RELATION_RULES = """
-Use canonical directions: 询问 = questioner -> addressee; 支持 = supporter -> recipient;
-参加 = participant -> event/activity; 鼓励 = encourager -> recipient;
-导致 = event/activity/fact -> outcome/emotion/event/fact; 感受 = experiencer -> emotion;
-感谢 = thankful actor -> thanked actor; 认可 = actor -> fact/topic/outcome.
-Use these Chinese relation labels for these meanings, not inverse English predicates
-such as experienced, receives_encouragement or resulted_in. For other meanings use
-specific source-language labels with an unambiguous subject -> object direction.
-A family or group belonging to a speaker is its OWN group node, not the other speaker.
-Questions are speech acts, not evidence that their premises are true. Capture EVERY
-explicit question and its questioner/addressee, including several questions along
-the same edge. Merge identical triples, retaining all their evidence messages.
+Edges are UNDIRECTED associations, not subject-predicate-object statements. source
+and target are just two unordered endpoint keys. A--B and B--A are the SAME edge.
+Use concise relation labels such as 询问, 支持, 参与, 鼓励, 情绪关联, 结果关联.
+Do not create inverse predicates or encode who acts on whom in endpoint order.
+Who did what, temporal order and negation remain in the EXACT source quotes.
+A speaker's family is its OWN group node, not the other conversation participant.
+Connect the entities actually mentioned in the evidence. Do not connect an event
+to the person merely commenting on it. Capture all explicit questions as 询问
+associations between the speakers, retaining each supporting question message.
+Merge repeated unordered pairs with the same label and retain all their evidence.
 """
-
-
-def apply_patch(candidate: GroundedGraph, patch: GraphPatch) -> GroundedGraph:
-    removed = set(patch.remove_edge_indices)
-    if any(i < 0 or i >= len(candidate.edges) for i in removed):
-        raise ValueError("Audit patch references an unknown edge")
-    nodes = {node.key: node for node in candidate.nodes}
-    if len(nodes) != len(candidate.nodes):
-        raise ValueError("Duplicate candidate node key")
-    for node in patch.upsert_nodes:
-        nodes[node.key] = node
-    edges = [edge for i, edge in enumerate(candidate.edges) if i not in removed]
-    edges.extend(patch.add_edges)
-    return GroundedGraph(nodes=list(nodes.values()), edges=edges)
 
 
 def admit_graph(graph: GroundedGraph, request: AddRequest) -> Graph:
     result = Graph.model_validate(graph.model_dump())
     result.validate_references(len(request.messages))
-    nodes = {node.key: node for node in result.nodes}
-    actor = {"person", "group", "organization"}
-    constraints = {
-        "询问": (actor, actor), "支持": (actor, actor), "鼓励": (actor, actor),
-        "参加": (actor, {"event", "activity"}),
-        "导致": ({"event", "activity", "fact"}, {"outcome", "emotion", "event", "fact"}),
-        "感受": (actor, {"emotion"}),
-    }
     merged = {}
     for edge in result.edges:
-        if edge.relation in {"experienced", "receives_encouragement", "resulted_in"}:
-            raise ValueError("Noncanonical inverse or ambiguous relation")
-        if edge.relation in constraints:
-            source_kinds, target_kinds = constraints[edge.relation]
-            if nodes[edge.source].kind not in source_kinds or nodes[edge.target].kind not in target_kinds:
-                raise ValueError("Relation endpoint type violation")
         if {q.message_index for q in edge.evidence} != set(edge.message_indices):
             raise ValueError("Every relation evidence index needs an exact source quote")
         for quote in edge.evidence:
             if quote.message_index >= len(request.messages) or quote.text not in request.messages[quote.message_index].content:
                 raise ValueError("Evidence quote does not occur in the cited message")
+        edge.source, edge.target = sorted((edge.source, edge.target))
         key = (edge.source, edge.target, edge.relation)
         if key in merged:
             current = merged[key]

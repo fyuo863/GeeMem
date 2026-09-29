@@ -24,7 +24,7 @@ def graph_view(out, graph, messages):
     payload = json.dumps({"graph": graph, "messages": messages}, ensure_ascii=False).replace("<", "\\u003c")
     page = '''<!doctype html><html lang="zh"><meta charset="utf-8"><title>单场景记忆图</title>
 <style>body{margin:0;font:15px system-ui;background:#f6f7f9;color:#182736}header{padding:20px 28px;background:white;border-bottom:1px solid #ddd}h1{font-size:24px;margin:0 0 8px}main{display:grid;grid-template-columns:2fr 1fr;height:78vh}svg{width:100%;height:100%}aside{overflow:auto;background:white;padding:22px;border-left:1px solid #ddd}.edge{fill:none;stroke:#9aa7b5;stroke-width:1.5;cursor:pointer}.edge:hover{stroke:#c25319;stroke-width:4}.node{cursor:pointer}.node circle{stroke:white;stroke-width:2}text{font-size:12px;fill:#182736;pointer-events:none}.evidence{margin:14px 0;padding:12px;background:#f4f6f9;line-height:1.55}small{color:#586773}button{background:#e4eaf0;border:0;padding:8px;cursor:pointer}pre{white-space:pre-wrap}</style>
-<header><h1>单场景记忆图 · John 与 Maria</h1><small>LoCoMo-Refined / conv-41 / session-20 · 点击节点或连边查看关联原文。边的箭头表示提取方向。</small></header>
+<header><h1>单场景无向记忆图 · John 与 Maria</h1><small>LoCoMo-Refined / conv-41 / session-20 · 点击节点或连边查看关联原文。连边表示无向关联，端点顺序不表示施受方向。</small></header>
 <main><svg viewBox="0 0 1100 850"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#718294"/></marker></defs><g id="edges"></g><g id="nodes"></g></svg><aside id="detail"></aside></main>
 <script>const DATA=__PAYLOAD__;
 const ns='http://www.w3.org/2000/svg',g=DATA.graph,ms=DATA.messages;
@@ -33,9 +33,9 @@ const lookup=Object.fromEntries(nodes.map(n=>[n.key,n]));
 for(let step=0;step<500;step++){let forces=nodes.map(()=>({x:0,y:0}));for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){let dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y,d=Math.max(20,Math.hypot(dx,dy)),f=12000/(d*d);forces[i].x+=dx/d*f;forces[i].y+=dy/d*f;forces[j].x-=dx/d*f;forces[j].y-=dy/d*f;}for(const e of g.edges){let a=lookup[e.source],b=lookup[e.target],dx=b.x-a.x,dy=b.y-a.y,d=Math.max(1,Math.hypot(dx,dy)),f=(d-200)*.008;let i=nodes.indexOf(a),j=nodes.indexOf(b);forces[i].x+=dx/d*f;forces[i].y+=dy/d*f;forces[j].x-=dx/d*f;forces[j].y-=dy/d*f;}nodes.forEach((n,i)=>{n.x=Math.max(95,Math.min(1000,n.x+forces[i].x));n.y=Math.max(50,Math.min(800,n.y+forces[i].y));});}
 function element(tag,attrs){let e=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))e.setAttribute(k,v);return e;}
 function details(title,indices,extra=''){let box=document.getElementById('detail');box.replaceChildren();let h=document.createElement('h2');h.textContent=title;box.append(h);let p=document.createElement('p');p.textContent=extra;box.append(p);for(const i of [...new Set(indices)]){let d=document.createElement('div');d.className='evidence';let small=document.createElement('small');small.textContent=ms[i].dia_id+' · '+ms[i].speaker;let t=document.createElement('p');t.textContent=ms[i].text;d.append(small,t);box.append(d);}}
-g.edges.forEach((e,i)=>{const a=lookup[e.source],b=lookup[e.target],dx=b.x-a.x,dy=b.y-a.y,d=Math.max(1,Math.hypot(dx,dy));let x1=a.x+dx/d*22,y1=a.y+dy/d*22,x2=b.x-dx/d*26,y2=b.y-dy/d*26;let path=element('path',{d:`M ${x1} ${y1} Q ${(x1+x2)/2-dy*.1} ${(y1+y2)/2+dx*.1} ${x2} ${y2}`,class:'edge','marker-end':'url(#arrow)'});let title=element('title',{});title.textContent=a.name+' → '+e.relation+' → '+b.name;path.append(title);path.onclick=()=>details(title.textContent,e.message_indices,'关系证据');document.getElementById('edges').append(path);let label=element('text',{x:(x1+x2)/2-dy*.05,y:(y1+y2)/2+dx*.05-5,'text-anchor':'middle'});label.textContent=e.relation;document.getElementById('edges').append(label);});
+g.edges.forEach((e,i)=>{const a=lookup[e.source],b=lookup[e.target],dx=b.x-a.x,dy=b.y-a.y,d=Math.max(1,Math.hypot(dx,dy));let x1=a.x+dx/d*22,y1=a.y+dy/d*22,x2=b.x-dx/d*26,y2=b.y-dy/d*26;let path=element('path',{d:`M ${x1} ${y1} Q ${(x1+x2)/2-dy*.1} ${(y1+y2)/2+dx*.1} ${x2} ${y2}`,class:'edge'});let title=element('title',{});title.textContent=a.name+' — '+e.relation+' — '+b.name;path.append(title);path.onclick=()=>details(title.textContent,e.message_indices,'关系证据');document.getElementById('edges').append(path);let label=element('text',{x:(x1+x2)/2-dy*.05,y:(y1+y2)/2+dx*.05-5,'text-anchor':'middle'});label.textContent=e.relation;document.getElementById('edges').append(label);});
 for(const n of nodes){let el=element('g',{class:'node',transform:`translate(${n.x},${n.y})`});el.append(element('circle',{r:21,fill:['person','user','assistant'].includes(n.kind.toLowerCase())?'#bc672c':'#4c8295'}));let text=element('text',{y:39,'text-anchor':'middle'});text.textContent=n.name;el.append(text);el.onclick=()=>details(n.name,n.message_indices,n.kind+' · '+n.key);document.getElementById('nodes').append(el);}
-details('构图结果',[],nodes.length+' 个节点，'+g.edges.length+' 条有向关系。选择一个节点或连边查看证据。');
+details('构图结果',[],nodes.length+' 个节点，'+g.edges.length+' 条无向关系。选择一个节点或连边查看证据。');
 </script></html>'''
     (out / "graph.html").write_text(page.replace("__PAYLOAD__", payload), encoding="utf-8")
 
@@ -59,6 +59,7 @@ def main():
     save(out / "source_session.json", session)
     save(out / "add_request.json", payload)
     report = dict(dataset="LoCoMo-Refined", sample_id="conv-41", session_index=20,
+                  graph_mode="undirected", extraction_llm_calls=1,
                   message_count=len(source), output=str(out), status="started",
                   timestamp_note="Source timezone unspecified; adapter assumes UTC; same timestamp for all session turns.")
     save(out / "report.json", report)
@@ -67,10 +68,6 @@ def main():
     class RecordingLLM(LLM):
         def on_graph_candidate(self, candidate):
             save(out / "candidate_graph.json", candidate.model_dump())
-
-        def on_graph_audit(self, candidate, patch, graph):
-            save(out / "candidate_graph.json", candidate.model_dump())
-            save(out / "audit_patch.json", patch.model_dump())
 
         def extract(self, request):
             try:

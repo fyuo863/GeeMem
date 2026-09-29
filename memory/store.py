@@ -22,6 +22,7 @@ class Store:
         with self.connect() as db:
             db.executescript("""
             PRAGMA journal_mode=WAL;
+            CREATE TABLE IF NOT EXISTS schema_meta (name TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS requests (
                 user_id TEXT, request_id TEXT, digest TEXT NOT NULL, result TEXT NOT NULL,
                 PRIMARY KEY(user_id, request_id));
@@ -47,6 +48,28 @@ class Store:
                 edge_id TEXT REFERENCES edges(id), message_id TEXT REFERENCES messages(id),
                 PRIMARY KEY(edge_id, message_id));
             """)
+            self._migrate_undirected(db)
+
+    @staticmethod
+    def _migrate_undirected(db):
+        """Merge legacy reversed edges atomically, retaining all evidence and quotes."""
+        db.execute("BEGIN IMMEDIATE")
+        if db.execute("SELECT 1 FROM schema_meta WHERE name='undirected_v1'").fetchone():
+            return
+        groups = {}
+        for edge in db.execute("SELECT * FROM edges ORDER BY id").fetchall():
+            a, b = sorted((edge["source"], edge["target"]))
+            groups.setdefault((edge["user_id"], a, b, edge["relation"]), []).append(edge["id"])
+        for (_, a, b, _), ids in groups.items():
+            keep = ids[0]
+            for duplicate in ids[1:]:
+                db.execute("INSERT OR IGNORE INTO edge_evidence SELECT ?,message_id FROM edge_evidence WHERE edge_id=?", (keep, duplicate))
+                db.execute("INSERT OR IGNORE INTO edge_quotes SELECT ?,message_id,quote FROM edge_quotes WHERE edge_id=?", (keep, duplicate))
+                db.execute("DELETE FROM edge_evidence WHERE edge_id=?", (duplicate,))
+                db.execute("DELETE FROM edge_quotes WHERE edge_id=?", (duplicate,))
+                db.execute("DELETE FROM edges WHERE id=?", (duplicate,))
+            db.execute("UPDATE edges SET source=?,target=? WHERE id=?", (a, b, keep))
+        db.execute("INSERT INTO schema_meta VALUES ('undirected_v1','1')")
 
     @contextmanager
     def connect(self):
@@ -106,7 +129,7 @@ class Store:
                 db.executemany("INSERT OR IGNORE INTO node_evidence VALUES (?,?)",
                                [(nid, ids[i]) for i in node.message_indices])
             for edge in graph.edges:
-                source, target = node_ids[edge.source], node_ids[edge.target]
+                source, target = sorted((node_ids[edge.source], node_ids[edge.target]))
                 relation = normalize(edge.relation)
                 row = db.execute("SELECT id FROM edges WHERE user_id=? AND source=? AND target=? AND relation=?",
                                  (request.user_id, source, target, relation)).fetchone()
@@ -144,8 +167,7 @@ class Store:
                     edge_evidence[row["edge_id"]].add(row["message_id"])
             nodes = [dict(r) for r in db.execute("SELECT * FROM nodes WHERE user_id=?", (request.user_id,))]
             edges = [dict(r) for r in db.execute("SELECT * FROM edges WHERE user_id=?", (request.user_id,)) if edge_evidence[r["id"]]]
-        # Each keyword has its own bounded BFS. Incoming edges can be inspected for
-        # questions about an object; stored source/target direction is never changed.
+        # Undirected adjacency: both endpoints participate equally in bounded BFS.
         adjacency = defaultdict(list)
         for edge in edges:
             adjacency[edge["source"]].append((edge["target"], edge["id"]))

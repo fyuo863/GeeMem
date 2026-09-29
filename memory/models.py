@@ -37,6 +37,7 @@ class EvidenceQuote(StrictModel):
     text: str = Field(min_length=1)
 
 class Edge(StrictModel):
+    # Legacy field names: unordered endpoints, never subject/object.
     source: Text
     target: Text
     relation: Text
@@ -44,6 +45,7 @@ class Edge(StrictModel):
     message_indices: list[int] = Field(min_length=1, max_length=200)
 
 class Graph(StrictModel):
+    directed: Literal[False] = False
     nodes: list[Node] = Field(max_length=1000)
     edges: list[Edge] = Field(max_length=2000)
 

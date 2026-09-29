@@ -66,11 +66,11 @@ def test_api_contract_and_idempotency(store):
         assert client.post("/search", json={"user_id": "u", "query": "x", "max_hops": 5}).status_code == 422
 
 
-def test_direction_and_multihop(store):
+def test_undirected_and_multihop(store):
     saved = store.add(request(), graph())
     with store.connect() as db:
         edge = db.execute("SELECT s.node_key, t.node_key FROM edges e JOIN nodes s ON s.id=e.source JOIN nodes t ON t.id=e.target WHERE e.relation='询问'").fetchone()
-        assert tuple(edge) == ("a", "b")
+        assert set(edge) == {"a", "b"}
     def search(hops):
         return store.search(SearchRequest(user_id="u", query="用户A", max_hops=hops), ["用户A"])["data"]
     assert len(search(0)) == 1
@@ -142,7 +142,7 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=httpx.MockTransport(respond), **kw))
     result = LLM().extract(request())
     assert result.edges[0].relation == "询问"
-    assert len(seen) == 2
+    assert len(seen) == 1
     assert seen[0]["response_format"]["type"] == "json_schema"
     assert seen[0]["response_format"]["json_schema"]["strict"] is True
     assert result.edges[0].evidence[0].text == request().messages[0].content
