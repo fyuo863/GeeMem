@@ -84,6 +84,8 @@ def main():
                         detail["provider_error_type"] = error.get("type")
                     except (ValueError, AttributeError):
                         pass
+                if hasattr(cause, "errors"):
+                    detail["validation_errors"] = cause.errors(include_input=False, include_url=False)
                 save(out / "llm_error.json", detail)
                 print("LLM_ERROR", json.dumps(detail), flush=True)
                 raise
