@@ -133,8 +133,7 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
         seen.append(payload)
         candidate = graph().model_dump()
         for edge in candidate["edges"]:
-            edge["evidence"] = [{"message_index": i, "text": request().messages[i].content}
-                                for i in edge["message_indices"]]
+            edge.pop("evidence", None)
         content = json.dumps(candidate) if len(seen) == 1 else "{}"
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)

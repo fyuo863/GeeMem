@@ -2,7 +2,7 @@ import json
 from .config import load_settings
 import httpx
 from .models import AddRequest, Graph, Keywords
-from .grounding import GroundedGraph, RELATION_RULES, admit_graph, merge_graphs
+from .grounding import RELATION_RULES, admit_graph, merge_graphs, indexed_schema, ground_from_indices
 
 def strict_json_schema(schema):
     """Adapt Pydantic defaults to OpenAI strict structured-output requirements."""
@@ -102,18 +102,19 @@ class LLM:
             "a storage partition, NOT a person or an owner node. "
             "Other entities use <kind>:<canonical name> keys and useful aliases. "
             "Every edge endpoint and non-null owner must be defined in nodes. "
-            "Copy source quotes character-for-character including capitalization and punctuation. "
-            "Every edge must have exact source quotes and matching zero-based "
-            "message_indices using the explicit message_index fields. "
+            "Cite supporting messages ONLY through message_indices using the explicit GLOBAL "
+            "message_index fields. The server attaches the exact original message text as evidence; "
+            "do not generate quotations. Choose the messages that actually support each association. "
             "Only include associations supported by the source; do not infer facts "
             "from questions. Include explicit entities and events throughout the conversation, "
             "not just speaker nodes. " + RELATION_RULES
         )
-        candidate = self.complete(instruction, payload, GroundedGraph)
+        schema = indexed_schema(visible)
+        candidate = self.complete(instruction, payload, schema)
         for attempt in range(2):
             self.on_graph_candidate(candidate)
             try:
-                result = admit_graph(candidate, request, allowed_indices=visible)
+                result = admit_graph(ground_from_indices(candidate, request), request, allowed_indices=visible)
                 conflicts = [n.key for n in result.nodes if n.key in known and
                              (n.kind, n.owner_key) != (known[n.key].kind, known[n.key].owner_key)]
                 if conflicts:
@@ -126,11 +127,11 @@ class LLM:
                 candidate = self.complete(
                     instruction + " Repair the supplied candidate using the ORIGINAL source. "
                     "Resolve the validation error and check ALL references, ownership cycles, "
-                    "message indices and exact quotes. Preserve supported nodes and relations; "
+                    "message indices and supporting source content. Preserve supported nodes and relations; "
                     "do not empty the graph to pass validation. Unknown owners must be resolved "
                     "from evidence, never silently discarded. Return the full corrected graph.",
                     {"original_request": payload, "candidate": candidate.model_dump(),
-                     "validation_error": str(exc)}, GroundedGraph)
+                     "validation_error": str(exc)}, schema)
 
     def on_graph_candidate(self, candidate):
         """Optional observer; production does not log source messages."""

@@ -1,6 +1,6 @@
 """Source-grounded extraction contracts and deterministic admission checks."""
 from typing import Literal
-from pydantic import Field
+from pydantic import Field, create_model
 from .models import StrictModel, Text, Node, Edge, Graph, AddRequest
 
 
@@ -22,6 +22,43 @@ class GroundedGraph(StrictModel):
     directed: Literal[False] = False
     nodes: list[GroundedNode] = Field(max_length=1000)
     edges: list[GroundedEdge] = Field(max_length=2000)
+
+
+class IndexedEdge(StrictModel):
+    source: Text
+    target: Text
+    relation: Text
+    message_indices: list[int] = Field(min_length=1, max_length=200)
+
+
+def indexed_schema(visible: list[int]):
+    """Constrain generated references to the actual global IDs shown to the LLM."""
+    index_type = Literal[tuple(visible)]
+    node = create_model("IndexedNode", __base__=GroundedNode,
+                        message_indices=(list[index_type], Field(min_length=1, max_length=200)))
+    edge = create_model("IndexedEdge", __base__=IndexedEdge,
+                        message_indices=(list[index_type], Field(min_length=1, max_length=200)))
+    return create_model("IndexedGraph", __base__=StrictModel,
+                        directed=(Literal[False], False),
+                        nodes=(list[node], Field(max_length=1000)),
+                        edges=(list[edge], Field(max_length=2000)))
+
+
+def ground_from_indices(candidate, request: AddRequest) -> GroundedGraph:
+    """Attach verbatim source, without asking the model to regenerate quotations.
+
+    This validates provenance locations, NOT whether an edge is semantically
+    entailed by its referenced message. Semantic accuracy needs separate evals.
+    """
+    data = candidate.model_dump()
+    errors = [f"Invalid evidence index {i} on {item}" for item in [*data["nodes"], *data["edges"]]
+              for i in item["message_indices"] if i < 0 or i >= len(request.messages)]
+    if errors:
+        raise ValueError("\n".join(errors[:50]))
+    for edge in data["edges"]:
+        edge["evidence"] = [dict(message_index=i, text=request.messages[i].content)
+                            for i in sorted(set(edge["message_indices"]))]
+    return GroundedGraph.model_validate(data)
 
 
 RELATION_RULES = """

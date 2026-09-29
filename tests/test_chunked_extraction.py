@@ -2,6 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from memory.api import create_app
 from memory.grounding import GroundedGraph, admit_graph, merge_graphs
+from memory.grounding import indexed_schema, ground_from_indices
+from pydantic import ValidationError
 from memory.llm import LLM
 from memory.models import AddRequest
 from memory.store import Store
@@ -84,3 +86,29 @@ def test_merge_refuses_different_owners_for_same_key():
     second.nodes[0].owner_key = "b"
     with pytest.raises(ValueError, match="Conflicting"):
         merge_graphs([first, second], req)
+
+
+def test_indexed_contract_rejects_unseen_ids():
+    req = request(10)
+    data = graph([0], req).model_dump()
+    for e in data["edges"]:
+        e.pop("evidence")
+    schema = indexed_schema([0, 1, 8, 9])
+    schema.model_validate(data)
+    data["edges"][0]["message_indices"] = [2]
+    with pytest.raises(ValidationError):
+        schema.model_validate(data)
+
+
+def test_evidence_uses_original_typos_unicode_and_casing():
+    req = request(1)
+    req.messages[0].content = "I'm keen to hearabout it. 原文——大小写 iPhone。"
+    data = graph([0], req).model_dump()
+    for e in data["edges"]:
+        e.pop("evidence")
+    candidate = indexed_schema([0]).model_validate(data)
+    result = admit_graph(ground_from_indices(candidate, req), req)
+    assert result.edges[0].evidence[0].text == req.messages[0].content
+    data["edges"][0]["evidence"] = [{"message_index":0, "text":"rewritten"}]
+    with pytest.raises(ValidationError):
+        indexed_schema([0]).model_validate(data)

@@ -61,7 +61,7 @@ def test_single_extraction_and_quote_persistence(tmp_path):
     class OneCallLLM(LLM):
         def complete(self, instruction, payload, schema):
             calls.append(schema)
-            assert schema is GroundedGraph
+            assert schema.__name__ == "IndexedGraph"
             return candidate()
     store = Store(tmp_path / "db.sqlite")
     with TestClient(create_app(store, OneCallLLM())) as client:
@@ -76,7 +76,7 @@ def test_failed_admission_does_not_write_partial_graph(tmp_path):
     class BadEvidence(LLM):
         def complete(self, instruction, payload, schema):
             graph = candidate()
-            graph.edges[0].evidence[0].text = "Unsupported quote"
+            graph.edges[0].target = "unknown"
             return graph
     store = Store(tmp_path / "db.sqlite")
     with TestClient(create_app(store, BadEvidence())) as client:
