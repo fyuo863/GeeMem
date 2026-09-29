@@ -40,6 +40,9 @@ class Store:
                 id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
                 source TEXT REFERENCES nodes(id), target TEXT REFERENCES nodes(id),
                 relation TEXT NOT NULL, UNIQUE(user_id, source, target, relation));
+            CREATE TABLE IF NOT EXISTS edge_quotes (
+                edge_id TEXT REFERENCES edges(id), message_id TEXT REFERENCES messages(id),
+                quote TEXT NOT NULL, PRIMARY KEY(edge_id, message_id, quote));
             CREATE TABLE IF NOT EXISTS edge_evidence (
                 edge_id TEXT REFERENCES edges(id), message_id TEXT REFERENCES messages(id),
                 PRIMARY KEY(edge_id, message_id));
@@ -113,6 +116,8 @@ class Store:
                                (eid, request.user_id, source, target, relation))
                 db.executemany("INSERT OR IGNORE INTO edge_evidence VALUES (?,?)",
                                [(eid, ids[i]) for i in edge.message_indices])
+                db.executemany("INSERT OR IGNORE INTO edge_quotes VALUES (?,?,?)",
+                               [(eid, ids[q.message_index], q.text) for q in edge.evidence])
             result = dict(request_id=request.request_id, message_ids=ids,
                           nodes=len(graph.nodes), edges=len(graph.edges), deduplicated=False)
             db.execute("INSERT INTO requests VALUES (?,?,?,?)", (

@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import sys
 import time
+import subprocess
+import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -63,6 +65,10 @@ def main():
     print("OUTPUT", out, flush=True)
 
     class RecordingLLM(LLM):
+        def on_graph_audit(self, candidate, patch, graph):
+            save(out / "candidate_graph.json", candidate.model_dump())
+            save(out / "audit_patch.json", patch.model_dump())
+
         def extract(self, request):
             try:
                 graph = super().extract(request)
@@ -87,6 +93,9 @@ def main():
 
     llm = RecordingLLM()
     report["llm_model"] = llm.model
+    report["commit"] = subprocess.check_output(
+        ["git", "-c", f"safe.directory={ROOT.as_posix()}", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    report["input_sha256"] = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     store = Store(out / "memory.sqlite3")
     with TestClient(create_app(store, llm)) as client:
         started = time.perf_counter()

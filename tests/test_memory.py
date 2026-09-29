@@ -131,12 +131,19 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
         import json
         payload = json.loads(req.content)
         seen.append(payload)
-        return httpx.Response(200, json={"choices": [{"message": {"content": graph().model_dump_json()}}]})
+        candidate = graph().model_dump()
+        for edge in candidate["edges"]:
+            edge["evidence"] = [{"message_index": i, "text": request().messages[i].content}
+                                for i in edge["message_indices"]]
+        content = json.dumps(candidate) if len(seen) == 1 else "{}"
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
     (tmp_path / ".env").write_text("LLM_API_KEY=test-key\n", encoding="utf-8")
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=httpx.MockTransport(respond), **kw))
     result = LLM().extract(request())
     assert result.edges[0].relation == "询问"
+    assert len(seen) == 2
+    assert result.edges[0].evidence[0].text == request().messages[0].content
     assert len(seen[0]["messages"]) == 2
     assert "用户A" in seen[0]["messages"][1]["content"]
     import json

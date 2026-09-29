@@ -32,10 +32,15 @@ class Node(StrictModel):
     aliases: list[Text] = Field(default_factory=list, max_length=30)
     message_indices: list[int] = Field(min_length=1, max_length=200)
 
+class EvidenceQuote(StrictModel):
+    message_index: int = Field(ge=0, strict=True)
+    text: str = Field(min_length=1)
+
 class Edge(StrictModel):
     source: Text
     target: Text
     relation: Text
+    evidence: list[EvidenceQuote] = Field(default_factory=list, max_length=200)
     message_indices: list[int] = Field(min_length=1, max_length=200)
 
 class Graph(StrictModel):

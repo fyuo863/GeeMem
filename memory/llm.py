@@ -2,6 +2,7 @@ import json
 from .config import load_settings
 import httpx
 from .models import AddRequest, Graph, Keywords
+from .grounding import GroundedGraph, GraphPatch, RELATION_RULES, apply_patch, admit_graph
 
 class LLMError(Exception):
     pass
@@ -63,14 +64,38 @@ class LLM:
             "Every node/edge needs message_indices that directly support it. "
             "Combine repeated identical source/target/relation triples into a single edge "
             "with all supporting indices. Before returning, check entity/event coverage, "
-            "question versus assertion, speaker direction, and every evidence index.",
-            payload, Graph,
+            "question versus assertion, speaker direction, and every evidence index. "
+            "For EACH edge provide evidence quotes copied EXACTLY from its cited source messages. "
+            "Each evidence entry has message_index and text. Use person for speakers; "
+            "use group for families, and outcome/emotion for results. " + RELATION_RULES,
+            payload, GroundedGraph,
+        )
+        candidate = graph
+        patch = self.complete(
+            "You are an independent skeptical evidence auditor. Review the candidate graph "
+            "against the SOURCE messages, not against the extractor's assumptions. "
+            "Check each relation's subject, object, direction, negation, time and quoted evidence. "
+            "Check EVERY message for missed questions and salient facts. "
+            "An exact quote alone does not mean it supports the relation. Identify who is "
+            "actually helping whom and distinguish third parties from the two speakers. "
+            "Return a LOCAL PATCH: remove_edge_indices indexes the candidate edge list; "
+            "upsert_nodes only adds/updates necessary nodes; add_edges contains corrected "
+            "or missing relations with exact source quotes. Keep correct edges unchanged. "
+            "For an edge needing additional evidence, remove it and add a complete replacement. "
+            "Remove unsupported claims; do not invent facts to make the graph complete. "
+            "Include short findings explaining changes. " + RELATION_RULES,
+            {"source": payload, "candidate": candidate.model_dump()}, GraphPatch,
         )
         try:
-            graph.validate_references(len(request.messages))
+            graph = admit_graph(apply_patch(candidate, patch), request)
         except ValueError as exc:
-            raise LLMError("LLM returned invalid graph references") from exc
+            raise LLMError("Audited graph failed source-evidence or relation validation") from exc
+        self.on_graph_audit(candidate, patch, graph)
         return graph
+
+    def on_graph_audit(self, candidate, patch, graph):
+        """Optional per-request observer; production does not log source payloads."""
+
 
     def keywords(self, query: str) -> list[str]:
         return self.complete(
