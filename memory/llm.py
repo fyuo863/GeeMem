@@ -2,7 +2,7 @@ import json
 from .config import load_settings
 import httpx
 from .models import AddRequest, Graph, Keywords
-from .grounding import GroundedGraph, RELATION_RULES, admit_graph
+from .grounding import GroundedGraph, RELATION_RULES, admit_graph, merge_graphs
 
 def strict_json_schema(schema):
     """Adapt Pydantic defaults to OpenAI strict structured-output requirements."""
@@ -60,13 +60,39 @@ class LLM:
             raise LLMError("LLM request failed or returned invalid structured data") from exc
 
     def extract(self, request: AddRequest) -> Graph:
+        graphs = []
+        known = {}
+        count = len(request.messages)
+        for start in range(0, count, 8):
+            focus = list(range(start, min(start + 8, count)))
+            # Opening turns identify speakers; adjacent turns resolve pronouns.
+            visible = sorted(set(range(min(2, count))) | set(range(max(0, start-2), min(start+10, count))))
+            self.extraction_chunk_index = start // 8
+            self.extraction_visible_indices = visible
+            graph = self._extract_chunk(request, focus, visible, known)
+            graphs.append(graph)
+            known.update({node.key: node for node in graph.nodes})
+        try:
+            return merge_graphs(graphs, request)
+        except ValueError as exc:
+            raise LLMError("Chunk graphs conflict or exceed graph limits") from exc
+
+    def _extract_chunk(self, request: AddRequest, focus: list[int], visible: list[int], known: dict) -> Graph:
         payload = request.model_dump()
         payload["messages"] = [
             dict(message, message_index=index)
             for index, message in enumerate(payload["messages"])
+            if index in visible
         ]
+        payload["focus_message_indices"] = focus
+        payload["known_entities"] = [dict(key=n.key, name=n.name, kind=n.kind, owner_key=n.owner_key)
+                                     for n in known.values()]
         instruction = (
-            "Extract an undirected evidence network from the full conversation. "
+            "Extract an undirected evidence network focused on focus_message_indices. "
+            "Other supplied messages are context for speaker identity and pronouns. "
+            "message_index values are GLOBAL indices; do not renumber this chunk. "
+            "known_entities gives identities from earlier validated chunks. Reuse their keys, "
+            "kind and ownership for the SAME entity; different owners require different keys. "
             "Identify people, groups, events, activities and salient facts. "
             "Use person for speakers, group for families. Resolve pronouns using role "
             "and context; the first message may be assistant. A name being addressed "
@@ -75,6 +101,8 @@ class LLM:
             "For unnamed speakers use person:<session_id>:<role>. The API user_id is "
             "a storage partition, NOT a person or an owner node. "
             "Other entities use <kind>:<canonical name> keys and useful aliases. "
+            "Every edge endpoint and non-null owner must be defined in nodes. "
+            "Copy source quotes character-for-character including capitalization and punctuation. "
             "Every edge must have exact source quotes and matching zero-based "
             "message_indices using the explicit message_index fields. "
             "Only include associations supported by the source; do not infer facts "
@@ -85,7 +113,13 @@ class LLM:
         for attempt in range(2):
             self.on_graph_candidate(candidate)
             try:
-                return admit_graph(candidate, request)
+                result = admit_graph(candidate, request, allowed_indices=visible)
+                conflicts = [n.key for n in result.nodes if n.key in known and
+                             (n.kind, n.owner_key) != (known[n.key].kind, known[n.key].owner_key)]
+                if conflicts:
+                    raise ValueError(f"Conflicting kind/ownership for known entity keys {conflicts}; "
+                                     "preserve known identities or give DISTINCT entities distinct keys")
+                return result
             except ValueError as exc:
                 if attempt == 1:
                     raise LLMError("Graph failed source-evidence validation after one repair") from exc

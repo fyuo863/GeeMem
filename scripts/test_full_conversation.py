@@ -77,6 +77,9 @@ def main():
         def on_graph_candidate(self, candidate):
             self.candidate_count += 1
             save(self.folder / f"candidate-{self.candidate_count}.json", candidate.model_dump())
+            save(self.folder / f"candidate-{self.candidate_count}-context.json", {
+                "chunk_index": self.extraction_chunk_index,
+                "visible_indices": self.extraction_visible_indices})
             save(self.folder / "candidate.json", candidate.model_dump())
 
         def extract(self, request):

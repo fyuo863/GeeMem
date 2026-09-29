@@ -33,10 +33,10 @@ Who did what, temporal order and negation remain in the EXACT source quotes.
 A speaker's family is its OWN group node, not the other conversation participant.
 Every node has owner_key: the key of the entity it belongs to, or null if
 ownership is unknown or not applicable. Ownership is not the storage user_id,
+the speaker mentioning something, or mere participation in an event.
 Use the JSON literal null, NEVER the string "null". Every non-null owner_key
 MUST exactly match a key in nodes. People normally have owner_key=null; people
 do not belong to the API caller. Check all owner references before responding.
-the speaker mentioning something, or mere participation in an event.
 Resolve possessives (my/our/his/her) using the actual speaker and context.
 Never merge families, possessions or personal experiences of DIFFERENT owners.
 Create a distinct node for each owner, with a unique owner-qualified key and
@@ -51,22 +51,53 @@ Merge repeated unordered pairs with the same label and retain all their evidence
 """
 
 
-def admit_graph(graph: GroundedGraph, request: AddRequest) -> Graph:
+def admit_graph(graph: GroundedGraph, request: AddRequest, allowed_indices=None) -> Graph:
     result = Graph.model_validate(graph.model_dump())
+    allowed = set(range(len(request.messages))) if allowed_indices is None else set(allowed_indices)
+    errors = []
     keys = {n.key for n in result.nodes}
+    if len(keys) != len(result.nodes):
+        errors.append("Duplicate node keys")
     for node in result.nodes:
         # Only repair an unambiguous null serialization mistake. Never erase
         # unknown real owners or turn a reference to an actual 'null' node into None.
         if node.owner_key is not None and node.owner_key not in keys and node.owner_key.casefold() == "null":
             node.owner_key = None
-    result.validate_references(len(request.messages))
+    owners = {n.key: n.owner_key for n in result.nodes}
+    for node in result.nodes:
+        seen = {node.key}
+        owner = node.owner_key
+        while owner is not None:
+            if owner not in keys:
+                errors.append(f"Unknown node owner {owner!r} referenced by {node.key!r}")
+                break
+            if owner in seen:
+                errors.append(f"Cyclic node ownership at {node.key!r}")
+                break
+            seen.add(owner)
+            owner = owners[owner]
+        if not set(node.message_indices) <= allowed:
+            errors.append(f"Node {node.key!r} cites unavailable message indices {node.message_indices}")
     merged = {}
-    for edge in result.edges:
+    for number, edge in enumerate(result.edges):
+        label = f"edge[{number}] {edge.source!r} / {edge.target!r}"
+        for endpoint in (edge.source, edge.target):
+            if endpoint not in keys:
+                errors.append(f"Unknown edge endpoint {endpoint!r} in {label}; define its node with evidence")
         if {q.message_index for q in edge.evidence} != set(edge.message_indices):
-            raise ValueError("Every relation evidence index needs an exact source quote")
+            errors.append(f"{label}: Every relation evidence index needs an exact source quote")
         for quote in edge.evidence:
-            if quote.message_index >= len(request.messages) or quote.text not in request.messages[quote.message_index].content:
-                raise ValueError(f"Evidence quote does not occur in message {quote.message_index} for edge {edge.source!r} / {edge.target!r}")
+            if quote.message_index in allowed and quote.text in request.messages[quote.message_index].content:
+                continue
+            # Relocate only an exact quote appearing in ONE available message.
+            # Do not approximate, change casing, or choose among ambiguous matches.
+            matches = [i for i in sorted(allowed) if quote.text in request.messages[i].content]
+            if len(matches) == 1:
+                quote.message_index = matches[0]
+            else:
+                errors.append(f"{label}: quote {quote.text!r} does not uniquely locate in source; "
+                              f"cited={quote.message_index}, exact_matches={matches}. Copy an exact substring with its GLOBAL message_index.")
+        edge.message_indices = sorted({q.message_index for q in edge.evidence})
         edge.source, edge.target = sorted((edge.source, edge.target))
         key = (edge.source, edge.target, edge.relation)
         if key in merged:
@@ -77,4 +108,30 @@ def admit_graph(graph: GroundedGraph, request: AddRequest) -> Graph:
         else:
             merged[key] = edge.model_copy(deep=True)
     result.edges = list(merged.values())
+    if errors:
+        raise ValueError("Graph validation errors:\n" + "\n".join(errors[:50]) +
+                         (f"\n... {len(errors)-50} additional errors" if len(errors)>50 else ""))
+    result.validate_references(len(request.messages))
     return result
+
+
+def merge_graphs(graphs: list[Graph], request: AddRequest) -> Graph:
+    """Merge overlapping chunks without discarding evidence or guessing owners."""
+    nodes = {}
+    edges = []
+    for graph in graphs:
+        for node in graph.nodes:
+            if node.key not in nodes:
+                nodes[node.key] = node.model_copy(deep=True)
+                continue
+            existing = nodes[node.key]
+            if (existing.kind, existing.owner_key) != (node.kind, node.owner_key):
+                raise ValueError(f"Conflicting kind/ownership across chunks for {node.key!r}")
+            existing.message_indices = sorted(set(existing.message_indices + node.message_indices))
+            existing.aliases = sorted(set(existing.aliases + node.aliases + [node.name]) - {existing.name})[:30]
+        edges.extend(graph.edges)
+    # Each chunk was admitted already. Recheck the merged graph and merge
+    # repeated undirected edges/quotes via the same deterministic admission path.
+    combined = GroundedGraph.model_validate(dict(nodes=[n.model_dump() for n in nodes.values()],
+                                                edges=[e.model_dump() for e in edges]))
+    return admit_graph(combined, request)
