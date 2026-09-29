@@ -162,3 +162,17 @@ def test_llm_malformed_response(monkeypatch, tmp_path):
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=transport, **kw))
     with pytest.raises(LLMError):
         LLM().extract(request())
+
+
+def test_connection_retry_is_bounded(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    (tmp_path / ".env").write_text("LLM_API_KEY=test-key\n", encoding="utf-8")
+    original = httpx.Client
+    attempts = []
+    def fail(req):
+        attempts.append(req)
+        raise httpx.ConnectError("Connection unavailable", request=req)
+    monkeypatch.setattr(httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(fail), **kw))
+    with pytest.raises(LLMError):
+        LLM().keywords("test")
+    assert len(attempts) == 3

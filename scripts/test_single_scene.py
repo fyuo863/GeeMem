@@ -65,6 +65,9 @@ def main():
     print("OUTPUT", out, flush=True)
 
     class RecordingLLM(LLM):
+        def on_graph_candidate(self, candidate):
+            save(out / "candidate_graph.json", candidate.model_dump())
+
         def on_graph_audit(self, candidate, patch, graph):
             save(out / "candidate_graph.json", candidate.model_dump())
             save(out / "audit_patch.json", patch.model_dump())
