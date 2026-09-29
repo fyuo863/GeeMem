@@ -9,14 +9,13 @@ Python 3.11+，在 PowerShell 中执行：
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -e ".[test]"
-$env:LLM_BASE_URL="https://api.openai.com/v1"
-$env:LLM_API_KEY="你的密钥"
-$env:LLM_MODEL="gpt-4.1-mini"
-$env:MEMORY_DB="data/memory.sqlite3"
+# 首次配置：若 .env 不存在，从模板创建，然后填写密钥与模型
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
 .\.venv\Scripts\python -m uvicorn memory.api:app --host 127.0.0.1 --port 8000
 ```
 
-提供商须兼容 OpenAI Chat Completions 的 `response_format=json_object`。`.env.example` 是配置示例，不会自动读取 `.env`。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
+提供商须兼容 OpenAI Chat Completions 的 `response_format=json_object`。程序自动读取项目根目录的 `.env`，不依赖启动时的工作目录；系统环境变量优先于文件配置。支持 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 和 `MEMORY_DB`，修改后重启服务生效。`.env` 已被 Git 忽略。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
 
 ## 写入
 
@@ -87,7 +86,7 @@ python -m pytest -q
 - `memory/store.py`：SQLite 事务、证据映射、幂等与图路径搜索。
 - `tests/test_memory.py`：API、方向、多跳、隔离、持久化、并发幂等及 LLM 错误测试。
 
-自动测试使用可控 LLM 替身和 HTTP mock，不要求密钥；不代表真实模型的抽取质量已经验证。运行实际示例需配置上述环境变量。
+自动测试使用可控 LLM 替身和 HTTP mock，不要求密钥；不代表真实模型的抽取质量已经验证。运行实际示例需填写根目录 `.env`。
 
 ## 第一版边界
 

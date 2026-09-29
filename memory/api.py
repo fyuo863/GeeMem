@@ -1,4 +1,4 @@
-import os
+from .config import load_settings
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from .llm import LLM, LLMError
@@ -9,7 +9,7 @@ from .store import Store, Conflict
 def create_app(store=None, llm=None):
     @asynccontextmanager
     async def lifespan(app):
-        app.state.store = store if store is not None else Store(os.getenv("MEMORY_DB", "data/memory.sqlite3"))
+        app.state.store = store if store is not None else Store(load_settings().get("MEMORY_DB", "data/memory.sqlite3"))
         app.state.llm = llm if llm is not None else LLM()
         yield
 

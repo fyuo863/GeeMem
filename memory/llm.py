@@ -1,5 +1,5 @@
 import json
-import os
+from .config import load_settings
 import httpx
 from .models import AddRequest, Graph, Keywords
 
@@ -9,9 +9,10 @@ class LLMError(Exception):
 class LLM:
     """OpenAI-compatible JSON completion adapter; no silent heuristic fallback."""
     def __init__(self):
-        self.base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-        self.key = os.getenv("LLM_API_KEY", "")
-        self.model = os.getenv("LLM_MODEL", "gpt-4.1-mini")
+        settings = load_settings()
+        self.base_url = settings.get("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+        self.key = settings.get("LLM_API_KEY", "")
+        self.model = settings.get("LLM_MODEL", "gpt-4.1-mini")
 
     def complete(self, instruction, payload, schema):
         if not self.key:
