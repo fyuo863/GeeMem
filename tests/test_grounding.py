@@ -102,3 +102,13 @@ def test_failed_audit_does_not_write_partial_graph(tmp_path):
         assert client.post("/add", json=source().model_dump()).status_code == 502
     with store.connect() as db:
         assert db.execute("SELECT count(*) FROM messages").fetchone()[0] == 0
+
+
+def test_strict_schema_requires_default_fields_without_mutating_original():
+    from memory.llm import strict_json_schema
+    schema = GraphPatch.model_json_schema()
+    converted = strict_json_schema(schema)
+    assert set(converted["required"]) == set(converted["properties"])
+    assert converted["additionalProperties"] is False
+    assert "default" not in converted["properties"]["findings"]
+    assert "default" in schema["properties"]["findings"]

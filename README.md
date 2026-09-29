@@ -15,7 +15,7 @@ notepad .env
 .\.venv\Scripts\python -m uvicorn memory.api:app --host 127.0.0.1 --port 8000
 ```
 
-提供商须兼容 OpenAI Chat Completions 的 `response_format=json_object`。程序自动读取项目根目录的 `.env`，不依赖启动时的工作目录；配置仅来自该文件，忽略系统环境变量，禁用 `${VAR}` 插值；HTTP 客户端也不读取环境代理或证书配置。未填写的可选项使用代码默认值，密钥无默认值。支持 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 、`LLM_PROXY`（可选，例如 `http://127.0.0.1:7897`）和 `MEMORY_DB`，修改后重启服务生效。`.env` 已被 Git 忽略。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
+提供商须兼容 OpenAI Chat Completions 的 `response_format=json_schema` 严格结构化输出。程序自动读取项目根目录的 `.env`，不依赖启动时的工作目录；配置仅来自该文件，忽略系统环境变量，禁用 `${VAR}` 插值；HTTP 客户端也不读取环境代理或证书配置。未填写的可选项使用代码默认值，密钥无默认值。支持 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 、`LLM_PROXY`（可选，例如 `http://127.0.0.1:7897`）和 `MEMORY_DB`，修改后重启服务生效。`.env` 已被 Git 忽略。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
 
 ## 写入
 

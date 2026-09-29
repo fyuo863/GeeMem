@@ -143,6 +143,8 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
     result = LLM().extract(request())
     assert result.edges[0].relation == "询问"
     assert len(seen) == 2
+    assert seen[0]["response_format"]["type"] == "json_schema"
+    assert seen[0]["response_format"]["json_schema"]["strict"] is True
     assert result.edges[0].evidence[0].text == request().messages[0].content
     assert len(seen[0]["messages"]) == 2
     assert "用户A" in seen[0]["messages"][1]["content"]
