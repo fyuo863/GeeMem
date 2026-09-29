@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from memory import config
 from memory.api import create_app
 from memory.llm import LLM, LLMError
 from memory.models import AddRequest, Graph, SearchRequest
@@ -123,7 +124,7 @@ def test_failure_is_explicit_and_retryable(store):
         assert client.post("/add", json=request().model_dump()).status_code == 200
 
 
-def test_llm_json_adapter(monkeypatch):
+def test_llm_json_adapter(monkeypatch, tmp_path):
     original_client = httpx.Client
     seen = []
     def respond(req):
@@ -131,7 +132,8 @@ def test_llm_json_adapter(monkeypatch):
         payload = json.loads(req.content)
         seen.append(payload)
         return httpx.Response(200, json={"choices": [{"message": {"content": graph().model_dump_json()}}]})
-    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    (tmp_path / ".env").write_text("LLM_API_KEY=test-key\n", encoding="utf-8")
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=httpx.MockTransport(respond), **kw))
     result = LLM().extract(request())
     assert result.edges[0].relation == "询问"
@@ -139,9 +141,10 @@ def test_llm_json_adapter(monkeypatch):
     assert "用户A" in seen[0]["messages"][1]["content"]
 
 
-def test_llm_malformed_response(monkeypatch):
+def test_llm_malformed_response(monkeypatch, tmp_path):
     original_client = httpx.Client
-    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    (tmp_path / ".env").write_text("LLM_API_KEY=test-key\n", encoding="utf-8")
     transport = httpx.MockTransport(lambda req: httpx.Response(200, json={"choices": []}))
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=transport, **kw))
     with pytest.raises(LLMError):

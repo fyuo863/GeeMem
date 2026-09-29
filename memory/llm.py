@@ -18,7 +18,7 @@ class LLM:
         if not self.key:
             raise LLMError("LLM_API_KEY is not configured")
         try:
-            with httpx.Client(timeout=60) as client:
+            with httpx.Client(timeout=60, trust_env=False) as client:
                 response = client.post(
                     self.base_url + "/chat/completions",
                     headers={"Authorization": f"Bearer {self.key}"},
