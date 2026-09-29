@@ -65,25 +65,38 @@ class LLM:
             dict(message, message_index=index)
             for index, message in enumerate(payload["messages"])
         ]
-        candidate = self.complete(
+        instruction = (
             "Extract an undirected evidence network from the full conversation. "
             "Identify people, groups, events, activities and salient facts. "
             "Use person for speakers, group for families. Resolve pronouns using role "
             "and context; the first message may be assistant. A name being addressed "
             "is not the speaker's name. Preserve uncertainty and negation in evidence. "
-            "Use user:<user_id> and assistant:<session_id> as stable speaker keys. "
+            "For named speakers use person:<canonical lowercase name> consistently across sessions. "
+            "For unnamed speakers use person:<session_id>:<role>. The API user_id is "
+            "a storage partition, NOT a person or an owner node. "
             "Other entities use <kind>:<canonical name> keys and useful aliases. "
             "Every edge must have exact source quotes and matching zero-based "
             "message_indices using the explicit message_index fields. "
             "Only include associations supported by the source; do not infer facts "
-            "from questions. " + RELATION_RULES,
-            payload, GroundedGraph,
+            "from questions. Include explicit entities and events throughout the conversation, "
+            "not just speaker nodes. " + RELATION_RULES
         )
-        self.on_graph_candidate(candidate)
-        try:
-            return admit_graph(candidate, request)
-        except ValueError as exc:
-            raise LLMError("Graph failed source-evidence validation") from exc
+        candidate = self.complete(instruction, payload, GroundedGraph)
+        for attempt in range(2):
+            self.on_graph_candidate(candidate)
+            try:
+                return admit_graph(candidate, request)
+            except ValueError as exc:
+                if attempt == 1:
+                    raise LLMError("Graph failed source-evidence validation after one repair") from exc
+                candidate = self.complete(
+                    instruction + " Repair the supplied candidate using the ORIGINAL source. "
+                    "Resolve the validation error and check ALL references, ownership cycles, "
+                    "message indices and exact quotes. Preserve supported nodes and relations; "
+                    "do not empty the graph to pass validation. Unknown owners must be resolved "
+                    "from evidence, never silently discarded. Return the full corrected graph.",
+                    {"original_request": payload, "candidate": candidate.model_dump(),
+                     "validation_error": str(exc)}, GroundedGraph)
 
     def on_graph_candidate(self, candidate):
         """Optional observer; production does not log source messages."""

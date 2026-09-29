@@ -66,7 +66,16 @@ def main():
     print("OUTPUT", out, flush=True)
 
     class RecordingLLM(LLM):
+        calls = 0
+        candidates = 0
+
+        def complete(self, instruction, payload, schema):
+            self.calls += 1
+            return super().complete(instruction, payload, schema)
+
         def on_graph_candidate(self, candidate):
+            self.candidates += 1
+            save(out / f"candidate_{self.candidates}.json", candidate.model_dump())
             save(out / "candidate_graph.json", candidate.model_dump())
 
         def extract(self, request):
@@ -106,6 +115,7 @@ def main():
         response = client.post("/add", json=payload)
         report["add_seconds"] = round(time.perf_counter()-started, 3)
         report["add_status"] = response.status_code
+        report["extraction_llm_calls"] = llm.calls
         save(out / "add_response.json", response.json())
         if response.status_code != 200:
             report["status"] = "add_failed"

@@ -33,6 +33,9 @@ Who did what, temporal order and negation remain in the EXACT source quotes.
 A speaker's family is its OWN group node, not the other conversation participant.
 Every node has owner_key: the key of the entity it belongs to, or null if
 ownership is unknown or not applicable. Ownership is not the storage user_id,
+Use the JSON literal null, NEVER the string "null". Every non-null owner_key
+MUST exactly match a key in nodes. People normally have owner_key=null; people
+do not belong to the API caller. Check all owner references before responding.
 the speaker mentioning something, or mere participation in an event.
 Resolve possessives (my/our/his/her) using the actual speaker and context.
 Never merge families, possessions or personal experiences of DIFFERENT owners.
@@ -50,6 +53,12 @@ Merge repeated unordered pairs with the same label and retain all their evidence
 
 def admit_graph(graph: GroundedGraph, request: AddRequest) -> Graph:
     result = Graph.model_validate(graph.model_dump())
+    keys = {n.key for n in result.nodes}
+    for node in result.nodes:
+        # Only repair an unambiguous null serialization mistake. Never erase
+        # unknown real owners or turn a reference to an actual 'null' node into None.
+        if node.owner_key is not None and node.owner_key not in keys and node.owner_key.casefold() == "null":
+            node.owner_key = None
     result.validate_references(len(request.messages))
     merged = {}
     for edge in result.edges:
@@ -57,7 +66,7 @@ def admit_graph(graph: GroundedGraph, request: AddRequest) -> Graph:
             raise ValueError("Every relation evidence index needs an exact source quote")
         for quote in edge.evidence:
             if quote.message_index >= len(request.messages) or quote.text not in request.messages[quote.message_index].content:
-                raise ValueError("Evidence quote does not occur in the cited message")
+                raise ValueError(f"Evidence quote does not occur in message {quote.message_index} for edge {edge.source!r} / {edge.target!r}")
         edge.source, edge.target = sorted((edge.source, edge.target))
         key = (edge.source, edge.target, edge.relation)
         if key in merged:

@@ -60,7 +60,7 @@ class Graph(StrictModel):
             owner = node.owner_key
             while owner is not None:
                 if owner not in keys:
-                    raise ValueError("Unknown node owner")
+                    raise ValueError(f"Unknown node owner {owner!r} referenced by {node.key!r}; use an existing node key")
                 if owner in seen:
                     raise ValueError("Cyclic node ownership")
                 seen.add(owner)
