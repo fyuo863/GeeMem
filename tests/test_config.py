@@ -39,3 +39,11 @@ def test_env_interpolation_is_disabled(tmp_path, monkeypatch):
     monkeypatch.setenv("SECRET_FROM_ENV", "must-not-load")
     (tmp_path / ".env").write_text('LLM_API_KEY=${SECRET_FROM_ENV}\n', encoding="utf-8")
     assert LLM().key == "${SECRET_FROM_ENV}"
+
+
+def test_proxy_is_read_only_from_dotenv(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("LLM_PROXY", "http://127.0.0.1:1111")
+    assert LLM().proxy is None
+    (tmp_path / ".env").write_text("LLM_PROXY=http://127.0.0.1:7897\n", encoding="utf-8")
+    assert LLM().proxy == "http://127.0.0.1:7897"

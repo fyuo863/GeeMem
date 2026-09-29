@@ -139,6 +139,10 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
     assert result.edges[0].relation == "询问"
     assert len(seen[0]["messages"]) == 2
     assert "用户A" in seen[0]["messages"][1]["content"]
+    import json
+    indexed = json.loads(seen[0]["messages"][1]["content"])["messages"]
+    assert [m["message_index"] for m in indexed] == [0, 1, 2]
+    assert [m["content"] for m in indexed] == [m.content for m in request().messages]
 
 
 def test_llm_malformed_response(monkeypatch, tmp_path):

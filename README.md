@@ -15,7 +15,7 @@ notepad .env
 .\.venv\Scripts\python -m uvicorn memory.api:app --host 127.0.0.1 --port 8000
 ```
 
-提供商须兼容 OpenAI Chat Completions 的 `response_format=json_object`。程序自动读取项目根目录的 `.env`，不依赖启动时的工作目录；配置仅来自该文件，忽略系统环境变量，禁用 `${VAR}` 插值；HTTP 客户端也不读取环境代理或证书配置。未填写的可选项使用代码默认值，密钥无默认值。支持 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 和 `MEMORY_DB`，修改后重启服务生效。`.env` 已被 Git 忽略。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
+提供商须兼容 OpenAI Chat Completions 的 `response_format=json_object`。程序自动读取项目根目录的 `.env`，不依赖启动时的工作目录；配置仅来自该文件，忽略系统环境变量，禁用 `${VAR}` 插值；HTTP 客户端也不读取环境代理或证书配置。未填写的可选项使用代码默认值，密钥无默认值。支持 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 、`LLM_PROXY`（可选，例如 `http://127.0.0.1:7897`）和 `MEMORY_DB`，修改后重启服务生效。`.env` 已被 Git 忽略。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
 
 ## 写入
 
@@ -103,3 +103,19 @@ python -m pytest -q
 ```powershell
 npx.cmd --yes --cache .cache/npm @colbymchenry/codegraph@1.5.0 sync
 ```
+
+
+## 公开数据与单场景测试
+
+下载公开文本评测数据（数据和结果保存到被 Git 忽略的 `data/`）：
+
+```powershell
+python scripts/download_datasets.py
+python scripts/test_single_scene.py
+```
+
+下载器固定上游版本并记录 URL、许可证、文件大小与 SHA-256；重复下载会核对哈希后跳过已有文件。范围为 LoCoMo-Refined、LongMemEval Oracle/S-cleaned、PersonaMem-v2 文本 benchmark 与 32K 历史、BEAM 100K/500K/1M、CL-bench；不含训练集、图片或更大变体，不是 AML 私有正式评测集。
+
+单场景脚本使用 LoCoMo conv-41/session-20 的 18 条原消息，通过 FastAPI TestClient 调用实际 /add 和 /search 处理器，使用 `.env` 配置的真实 LLM；不是 mock，也不测试公网 HTTP 部署。每次运行创建独立数据库和时间戳目录，保存图 JSON、可点击的图 HTML、接口输入输出、检索证据和幂等检查。金标只在构图完成后用于本地评测，不进入记忆。失败记录同样保留。
+
+首次测试说明、数据下载清单见 `data/README.md`。单场景通过不代表抽取语义全部正确，已发现的问题记录在各次测试报告中。
