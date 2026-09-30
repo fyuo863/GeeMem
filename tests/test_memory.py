@@ -131,12 +131,8 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
         import json
         payload = json.loads(req.content)
         seen.append(payload)
-        original = json.loads(payload["messages"][1]["content"])
-        focus = original["focus_message_indices"]
-        candidate = {"directed":False, "nodes":[dict(key=k,name=k,kind="person",owner_key=None,aliases=[],message_indices=focus) for k in ('a','b')],
-                     "edges":[dict(source='a',target='b',relation='询问',message_indices=focus)]}
-        for edge in candidate["edges"]:
-            edge.pop("evidence", None)
+        candidate = dict(entities=[],
+                         relations=[dict(source='A',target='B',relation='询问')])
         content = json.dumps(candidate)
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
@@ -151,9 +147,9 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
     assert len(seen[0]["messages"]) == 2
     assert "用户A" in seen[0]["messages"][1]["content"]
     import json
-    indexed = json.loads(seen[2]["messages"][1]["content"])["messages"]
-    assert [m["message_index"] for m in indexed] == [0, 1, 2]
-    assert [m["content"] for m in indexed] == [m.content for m in request().messages]
+    indexed = json.loads(seen[2]["messages"][1]["content"])
+    assert [m["content"] for m in indexed["context"]] == [m.content for m in request().messages[:2]]
+    assert indexed["current"]["content"] == request().messages[2].content
 
 
 def test_llm_malformed_response(monkeypatch, tmp_path):

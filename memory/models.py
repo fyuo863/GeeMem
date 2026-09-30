@@ -30,6 +30,7 @@ class Node(StrictModel):
     name: Text
     kind: Text
     owner_key: Text | None = None
+    speaker_tags: list[Text] = Field(default_factory=list, max_length=200)
     aliases: list[Text] = Field(default_factory=list, max_length=30)
     message_indices: list[int] = Field(min_length=1, max_length=200)
 
@@ -68,6 +69,8 @@ class Graph(StrictModel):
         for item in [*self.nodes, *self.edges]:
             if any(i < 0 or i >= count for i in item.message_indices):
                 raise ValueError("Invalid evidence message index")
+        if any(tag not in keys for n in self.nodes for tag in n.speaker_tags):
+            raise ValueError("Unknown speaker tag")
         if any(e.source not in keys or e.target not in keys for e in self.edges):
             raise ValueError("Unknown edge endpoint")
 
