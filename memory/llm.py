@@ -26,7 +26,7 @@ class LLM:
         settings = load_settings()
         self.base_url = settings.get("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         self.key = settings.get("LLM_API_KEY", "")
-        self.model = settings.get("LLM_MODEL", "gpt-4.1-mini")
+        self.model = settings.get("LLM_MODEL", "gpt-4o-mini")
         self.proxy = settings.get("LLM_PROXY") or None
 
     def complete(self, instruction, payload, schema):
@@ -63,11 +63,12 @@ class LLM:
         graphs = []
         known = {}
         count = len(request.messages)
-        for start in range(0, count, 8):
-            focus = list(range(start, min(start + 8, count)))
-            # Opening turns identify speakers; adjacent turns resolve pronouns.
-            visible = sorted(set(range(min(2, count))) | set(range(max(0, start-2), min(start+10, count))))
-            self.extraction_chunk_index = start // 8
+        for start in range(count):
+            focus = [start]
+            # Exactly the current message and up to two preceding messages.
+            # No opening-turn replay or future-message context.
+            visible = list(range(max(0, start-2), start+1))
+            self.extraction_chunk_index = start
             self.extraction_visible_indices = visible
             graph = self._extract_chunk(request, focus, visible, known)
             graphs.append(graph)
@@ -89,7 +90,10 @@ class LLM:
                                      for n in known.values()]
         instruction = (
             "Extract an undirected evidence network focused on focus_message_indices. "
-            "Other supplied messages are context for speaker identity and pronouns. "
+            "There is ONE current message. The preceding (up to two) messages are "
+            "context for speaker identity and pronouns, not additional extraction targets. "
+            "Extract facts or questions expressed in the current message; do not repeat "
+            "unrelated facts from context. "
             "message_index values are GLOBAL indices; do not renumber this chunk. "
             "known_entities gives identities from earlier validated chunks. Reuse their keys, "
             "kind and ownership for the SAME entity; different owners require different keys. "

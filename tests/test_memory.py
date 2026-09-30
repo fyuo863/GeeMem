@@ -131,24 +131,27 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
         import json
         payload = json.loads(req.content)
         seen.append(payload)
-        candidate = graph().model_dump()
+        original = json.loads(payload["messages"][1]["content"])
+        focus = original["focus_message_indices"]
+        candidate = {"directed":False, "nodes":[dict(key=k,name=k,kind="person",owner_key=None,aliases=[],message_indices=focus) for k in ('a','b')],
+                     "edges":[dict(source='a',target='b',relation='询问',message_indices=focus)]}
         for edge in candidate["edges"]:
             edge.pop("evidence", None)
-        content = json.dumps(candidate) if len(seen) == 1 else "{}"
+        content = json.dumps(candidate)
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
     (tmp_path / ".env").write_text("LLM_API_KEY=test-key\n", encoding="utf-8")
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=httpx.MockTransport(respond), **kw))
     result = LLM().extract(request())
     assert result.edges[0].relation == "询问"
-    assert len(seen) == 1
+    assert len(seen) == 3
     assert seen[0]["response_format"]["type"] == "json_schema"
     assert seen[0]["response_format"]["json_schema"]["strict"] is True
     assert result.edges[0].evidence[0].text == request().messages[0].content
     assert len(seen[0]["messages"]) == 2
     assert "用户A" in seen[0]["messages"][1]["content"]
     import json
-    indexed = json.loads(seen[0]["messages"][1]["content"])["messages"]
+    indexed = json.loads(seen[2]["messages"][1]["content"])["messages"]
     assert [m["message_index"] for m in indexed] == [0, 1, 2]
     assert [m["content"] for m in indexed] == [m.content for m in request().messages]
 

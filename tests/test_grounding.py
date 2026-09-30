@@ -62,12 +62,15 @@ def test_single_extraction_and_quote_persistence(tmp_path):
         def complete(self, instruction, payload, schema):
             calls.append(schema)
             assert schema.__name__ == "IndexedGraph"
-            return candidate()
+            g = candidate()
+            visible = {m["message_index"] for m in payload["messages"]}
+            g.edges = [e for e in g.edges if set(e.message_indices) <= visible]
+            return g
     store = Store(tmp_path / "db.sqlite")
     with TestClient(create_app(store, OneCallLLM())) as client:
         response = client.post("/add", json=source().model_dump())
         assert response.status_code == 200
-    assert len(calls) == 1
+    assert len(calls) == 3
     with store.connect() as db:
         assert db.execute("SELECT count(*) FROM edge_quotes").fetchone()[0] == 2
 

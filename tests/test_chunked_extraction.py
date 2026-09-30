@@ -29,8 +29,10 @@ def test_global_indices_context_and_evidence_union():
             calls.append(payload)
             return graph(payload["focus_message_indices"], req)
     result = ChunkLLM().extract(req)
-    assert len(calls) == 3
-    assert [m["message_index"] for m in calls[2]["messages"]] == [0, 1, 14, 15, 16]
+    assert len(calls) == 17
+    for i, payload in enumerate(calls):
+        assert payload["focus_message_indices"] == [i]
+        assert [m["message_index"] for m in payload["messages"]] == list(range(max(0, i-2), i+1))
     assert calls[1]["known_entities"]
     assert len(result.nodes) == 2 and len(result.edges) == 1
     assert result.edges[0].message_indices == list(range(17))

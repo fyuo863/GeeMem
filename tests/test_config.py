@@ -31,7 +31,7 @@ def test_missing_env_uses_defaults(tmp_path, monkeypatch):
     llm = LLM()
     assert llm.key == ""
     assert llm.base_url == "https://api.openai.com/v1"
-    assert llm.model == "gpt-4.1-mini"
+    assert llm.model == "gpt-4o-mini"
 
 
 def test_env_interpolation_is_disabled(tmp_path, monkeypatch):
