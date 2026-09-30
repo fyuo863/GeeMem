@@ -102,7 +102,7 @@ class EvaluationLLM(LLM):
             'not January 1970. Do not invent dates from missing timestamps.',payload,schema)
 
 
-def create_app(store=None, llm=None, settings=None):
+def create_app(store=None, llm=None, settings=None, backend=None):
     @asynccontextmanager
     async def lifespan(app):
         cfg=load_settings() if settings is None else dict(settings)
@@ -119,8 +119,16 @@ def create_app(store=None, llm=None, settings=None):
             raise ValueError('AML concurrency must be between 1 and 32')
         app.state.auth_mode=mode;app.state.api_key=key
         app.state.add_slots=BoundedSemaphore(add_limit);app.state.search_slots=BoundedSemaphore(search_limit)
-        app.state.store=store if store is not None else Store(cfg.get('AML_MEMORY_DB','data/aml/memory.sqlite3'))
-        app.state.llm=llm if llm is not None else EvaluationLLM()
+        mode_backend=cfg.get('MEMORY_BACKEND','vanilla')
+        if mode_backend not in ('vanilla','graph'):
+            raise ValueError('Unsupported MEMORY_BACKEND')
+        app.state.backend=backend
+        if backend is None and store is None and llm is None and mode_backend=='vanilla':
+            from .vanilla import VanillaMemory
+            app.state.backend=VanillaMemory(cfg)
+        if app.state.backend is None:
+            app.state.store=store if store is not None else Store(cfg.get('AML_MEMORY_DB','data/aml/memory.sqlite3'))
+            app.state.llm=llm if llm is not None else EvaluationLLM()
         yield
 
     app=FastAPI(title='CSIG AML Textual Adapter',version='0.1.0',lifespan=lifespan)
@@ -161,19 +169,23 @@ def create_app(store=None, llm=None, settings=None):
         request=payload.internal()
         try:
             with capacity(app.state.add_slots):
-                if app.state.store.existing(request) is None:
+                if app.state.backend is not None:
+                    app.state.backend.add(payload)
+                elif app.state.store.existing(request) is None:
                     graph=app.state.llm.extract(request)
                     app.state.store.add(request,graph)
             return AMLAddResponse(request_id=payload.request_id,user_id=payload.user_id,session_id=payload.session_id)
         except Conflict as exc:raise HTTPException(409,str(exc)) from exc
         except LLMError as exc:raise HTTPException(502,'Memory extraction failed') from exc
-        except ValueError as exc:raise HTTPException(502,'Invalid extracted graph') from exc
+        except ValueError as exc:raise HTTPException(502,'Memory write failed') from exc
 
     @app.post('/search',response_model=AMLSearchResponse,response_model_exclude_none=True,
               dependencies=[Depends(authenticate)])
     def search(payload: AMLSearch):
         try:
             with capacity(app.state.search_slots):
+                if app.state.backend is not None:
+                    return app.state.backend.search(payload)
                 # Options inform retrieval only; no answering, gold or benchmark-specific rules.
                 query=payload.query
                 if payload.options:
@@ -184,7 +196,7 @@ def create_app(store=None, llm=None, settings=None):
                 for hit in result['data']:
                     if hit.get('created_at')=='1970-01-01T00:00:00Z':hit.pop('created_at')
                 return result
-        except LLMError as exc:raise HTTPException(502,'Memory retrieval failed') from exc
+        except (LLMError, ValueError) as exc:raise HTTPException(502,'Memory retrieval failed') from exc
 
     return app
 

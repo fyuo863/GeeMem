@@ -2,7 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY memory ./memory
-RUN pip install --no-cache-dir . && useradd --uid 10001 --create-home memory && mkdir -p /app/data && chown memory:memory /app/data
+RUN pip install --no-cache-dir ".[rag]" && useradd --uid 10001 --create-home memory && mkdir -p /app/data && chown memory:memory /app/data
 USER memory
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "memory.aml_api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]

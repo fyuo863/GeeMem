@@ -1,3 +1,7 @@
+# v1: Vanilla RAG
+
+当前分支的测评入口默认使用 BGE + BM25/RRF + 相邻消息窗口。安装、来源、差异和验证见 [v1 说明](docs/v1-vanilla-rag.md)。下文保留原图方案文档，图研究接口仍为 `memory.api:app`。
+
 # CSIG Memory
 
 通用 Agent 长期记忆模块第一版：`POST /add` 将整轮对话交给 LLM 提取无向线索图，`POST /search` 将查询解析为关键词，沿节点/关系路径查找并返回消息原文。SQLite 持久保存图与证据，不依赖向量数据库。

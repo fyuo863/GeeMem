@@ -15,7 +15,6 @@ import httpx
 from fastapi.testclient import TestClient
 from memory.aml_api import create_app
 from memory.config import load_settings
-from memory.store import Store
 
 
 def auth_headers(cfg):
@@ -41,8 +40,9 @@ def client_for(live):
     else:
         # No listener is opened. None authentication is confined to this isolated TestClient.
         with TemporaryDirectory(prefix='csig-aml-smoke-') as tmp:
-            settings=dict(cfg,AML_AUTH_MODE='none',AML_ALLOW_UNAUTHENTICATED='true')
-            with TestClient(create_app(store=Store(Path(tmp)/'memory.sqlite3'),settings=settings)) as c:
+            settings=dict(cfg,AML_AUTH_MODE='none',AML_ALLOW_UNAUTHENTICATED='true',
+                          AML_MEMORY_DB=str(Path(tmp)/'graph.sqlite3'),RAG_MEMORY_DB=str(Path(tmp)/'rag.sqlite3'))
+            with TestClient(create_app(settings=settings)) as c:
                 yield c
 
 
@@ -83,7 +83,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live',action='store_true',help='Use AML_BASE_URL from .env; writes synthetic test memories to that endpoint')
     args=parser.parse_args();start=time.perf_counter()
-    report=dict(official_evaluation=False,transport='http' if args.live else 'in_process',model='gpt-4o-mini')
+    report=dict(official_evaluation=False,transport='http' if args.live else 'in_process',
+                backend=load_settings().get('MEMORY_BACKEND','vanilla'))
     try:
         with client_for(args.live) as c:report.update(smoke(c))
         report['passed']=True
