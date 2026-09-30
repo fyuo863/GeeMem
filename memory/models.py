@@ -30,6 +30,7 @@ class Node(StrictModel):
     name: Text
     kind: Text
     owner_key: Text | None = None
+    contact_keys: list[Text] = Field(default_factory=list, max_length=200)
     speaker_tags: list[Text] = Field(default_factory=list, max_length=200)
     aliases: list[Text] = Field(default_factory=list, max_length=30)
     message_indices: list[int] = Field(min_length=1, max_length=200)
@@ -71,6 +72,10 @@ class Graph(StrictModel):
                 raise ValueError("Invalid evidence message index")
         if any(tag not in keys for n in self.nodes for tag in n.speaker_tags):
             raise ValueError("Unknown speaker tag")
+        if any(contact not in keys for n in self.nodes for contact in n.contact_keys):
+            raise ValueError("Unknown node contact")
+        if any(n.key in n.contact_keys for n in self.nodes):
+            raise ValueError("Node cannot contact itself")
         if any(e.source not in keys or e.target not in keys for e in self.edges):
             raise ValueError("Unknown edge endpoint")
 

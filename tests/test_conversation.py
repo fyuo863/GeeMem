@@ -138,3 +138,69 @@ def test_unused_duplicate_participant_is_discarded_but_referenced_one_rejected()
     assert any(a['action']=='discard_duplicate_participant' for a in saved.audit)
     with pytest.raises(ValueError,match='Use speaker IDs'):
         state.accept(TurnDraft(entities=[duplicate],relations=[dict(source='A',target='p',relation='询问')]),0)
+
+
+def test_contact_is_independent_of_owner_and_mentioning_speaker(tmp_path):
+    req=request();req.messages[0].content='Hey John, you volunteered at the shelter.'
+    state=Conversation(req).accept(TurnDraft(entities=[dict(ref='s',name='shelter',
+        kind='place',owner=None,contacts=['B','B'])],relations=[]),0)
+    node=next(n for n in state.nodes.values() if n.kind=='place')
+    assert node.owner_key is None
+    assert node.contact_keys==[state.keys['B']]
+    assert node.speaker_tags==[state.keys['A']]
+    assert node.message_indices==[0]
+    store=Store(tmp_path/'db');store.add(req,state.graph())
+    with store.connect() as db:
+        row=db.execute("SELECT * FROM nodes WHERE name='shelter'").fetchone()
+        assert row['owner_id'] is None
+        assert json.loads(row['contact_keys'])==[state.keys['B']]
+    assert state.payload(1)['known_entities'][0]['contacts']==['B']
+
+
+def test_same_contact_does_not_merge_unowned_nodes():
+    req=request();req.messages[0].content=req.messages[1].content='We visited the shelter.'
+    entity=dict(ref='s',name='shelter',kind='place',contacts=['A'])
+    state=Conversation(req).accept(TurnDraft(entities=[entity],relations=[]),0)
+    key=next(n.key for n in state.nodes.values() if n.kind=='place')
+    state=state.accept(TurnDraft(entities=[dict(entity,same_as=key,match_quote='shelter')],relations=[]),1)
+    assert len([n for n in state.nodes.values() if n.kind=='place'])==2
+    assert any(a['action']=='decline_merge' for a in state.audit)
+
+
+def test_valid_merge_accumulates_contacts_and_persisted_updates(tmp_path):
+    req=request();req.messages[0].content=req.messages[1].content='My family visited us.'
+    state=Conversation(req).accept(TurnDraft(entities=[dict(family('A'),contacts=['A'])],relations=[]),0)
+    key=next(n.key for n in state.nodes.values() if n.kind=='group')
+    store=Store(tmp_path/'db');store.add(req,state.graph())
+    state=state.accept(TurnDraft(entities=[dict(family('A',key,'family'),contacts=['B'])],relations=[]),1)
+    assert set(state.nodes[key].contact_keys)==set(state.keys.values())
+    second=req.model_copy(update={'request_id':'second'});store.add(second,state.graph())
+    with store.connect() as db:
+        row=db.execute("SELECT contact_keys FROM nodes WHERE name='family'").fetchone()
+        assert set(json.loads(row[0]))==set(state.keys.values())
+
+
+def test_invalid_contact_rejected_before_write(tmp_path):
+    state=Conversation(request())
+    with pytest.raises(ValueError,match='contacts'):
+        state.accept(TurnDraft(entities=[dict(family('A'),contacts=['C'])],relations=[]),0)
+    graph=initial().graph();graph.nodes[-1].contact_keys=['missing']
+    store=Store(tmp_path/'db')
+    with pytest.raises(ValueError,match='Unknown node contact'):store.add(request(),graph)
+    with store.connect() as db:assert db.execute('SELECT count(*) FROM messages').fetchone()[0]==0
+    graph.nodes[-1].contact_keys=[graph.nodes[-1].key]
+    with pytest.raises(ValueError,match='itself'):graph.validate_references(3)
+
+
+def test_legacy_contacts_migration_preserves_owner_and_evidence(tmp_path):
+    store=Store(tmp_path/'db');store.add(request(),initial().graph())
+    with store.connect() as db:
+        before=[tuple(r) for r in db.execute('SELECT id,owner_id FROM nodes ORDER BY id')]
+        evidence=[tuple(r) for r in db.execute('SELECT * FROM node_evidence ORDER BY node_id,message_id')]
+        db.execute('ALTER TABLE nodes DROP COLUMN contact_keys')
+    for _ in range(2):
+        migrated=Store(tmp_path/'db')
+        with migrated.connect() as db:
+            assert before==[tuple(r) for r in db.execute('SELECT id,owner_id FROM nodes ORDER BY id')]
+            assert evidence==[tuple(r) for r in db.execute('SELECT * FROM node_evidence ORDER BY node_id,message_id')]
+            assert all(json.loads(r[0])==[] for r in db.execute('SELECT contact_keys FROM nodes'))
