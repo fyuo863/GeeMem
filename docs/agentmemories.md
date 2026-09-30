@@ -2,7 +2,7 @@
 
 核对日期：2026-09-30。来源：[参赛规则](https://agentmemories.ai/rules)、[接口指南](https://agentmemories.ai/api-guide)、[文档](https://agentmemories.ai/docs)。页面可能更新，正式申报前应重新核对。公开页面快照保存在本机 data/agentmemories（未提交）。
 
-本分支 codex/agentmemories-evaluation 从 baseline/infra-v1（c38a690）创建，使用基线的构图和检索方法，仅增加独立的评测契约层。memory.api:app 是原研究接口；**部署参评使用 memory.aml_api:app**。暂仅申报 Textual，不宣称支持图片、多模态或代码赛道完整能力。
+本分支 test_base 从 baseline/infra-v1（c38a690）创建，使用基线的构图和检索方法，仅增加独立的评测契约层。memory.api:app 是原研究接口；**部署参评使用 memory.aml_api:app**。暂仅申报 Textual，不宣称支持图片、多模态或代码赛道完整能力。
 
 ## 契约适配
 

@@ -1,6 +1,6 @@
 # geeai-aiagent 部署记录
 
-部署日期：2026-09-30。远端账户 agent；部署根目录 /home/agent/csig-aml，应用版本 ed799c8（基线 c38a690），当前研究分支 codex/agentmemories-evaluation。
+部署日期：2026-09-30。远端账户 agent；部署根目录 /home/agent/csig-aml，应用版本 ed799c8（基线 c38a690），当前研究分支 test_base。
 
 ## 地址与状态
 
@@ -47,12 +47,12 @@ cd /home/agent/csig-aml/current
 
 ## GitHub 拉取部署（当前方式）
 
-源码仓库：https://github.com/fyuo863/GeeMem ，部署分支 `codex/agentmemories-evaluation`。服务器在 `/home/agent/csig-aml/repository` 保存 Git 克隆；每次 fetch 后校验目标完整 SHA，从该对象生成独立 releases/<完整SHA>，切换 current 并重启。部署脚本不改密钥、数据库和运行环境；依赖版本不匹配时在切换前停止，启动检查失败自动回退代码。
+源码仓库：https://github.com/fyuo863/GeeMem ，部署分支 `test_base`。服务器在 `/home/agent/csig-aml/repository` 保存 Git 克隆；每次 fetch 后校验目标完整 SHA，从该对象生成独立 releases/<完整SHA>，切换 current 并重启。部署脚本不改密钥、数据库和运行环境；依赖版本不匹配时在切换前停止，启动检查失败自动回退代码。
 
 本地更新流程：
 
 ```powershell
-git push origin codex/agentmemories-evaluation
+git push origin test_base
 git rev-parse HEAD
 ```
 

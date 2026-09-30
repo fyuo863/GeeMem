@@ -4,7 +4,7 @@ set -euo pipefail
 base=/home/agent/csig-aml
 repo="$base/repository"
 url=https://github.com/fyuo863/GeeMem.git
-branch=codex/agentmemories-evaluation
+branch=test_base
 proxy=http://127.0.0.1:18093
 expected="${1:?Usage: bash deploy/update-geeai.sh FULL_COMMIT_SHA}"
 [[ "$expected" =~ ^[0-9a-f]{40}$ ]] || { echo 'A full commit SHA is required' >&2; exit 2; }
