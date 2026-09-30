@@ -21,3 +21,10 @@ def test_no_evidence_is_undefined_not_perfect():
     assert result['recall'] is None and result['micro_recall'] is None
     assert result['hit_rate'] is None and result['all_evidence_hit_rate'] is None
     assert result['evaluated_questions']==0
+
+
+def test_canonical_source_annotation_formats():
+    from memory.evaluation import canonical_evidence
+    assert canonical_evidence(['D8:6; D9:17','D30:05','D8:6'])==['D30:5','D8:6','D9:17']
+    assert canonical_evidence(['D22:1 D22:2'])==['D22:1','D22:2']
+    assert canonical_evidence([])==[]

@@ -29,3 +29,13 @@ def evidence_metrics(cases, variant):
                 evaluated_questions=count, skipped_no_evidence=skipped,
                 hit_questions=hit_questions, all_evidence_hit_questions=full_questions,
                 matched_evidence=total_hits, gold_evidence=total_gold)
+
+
+def canonical_evidence(values):
+    """Parse source annotation syntax, never infer missing evidence from answers."""
+    import re
+    found = set()
+    for value in values or []:
+        for session, message in re.findall(r"D(\d+):(\d+)", str(value)):
+            found.add(f'D{int(session)}:{int(message)}')
+    return sorted(found)
