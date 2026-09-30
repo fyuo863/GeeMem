@@ -134,3 +134,26 @@ until evaluation supports a change. Run `python scripts/benchmark_tags.py` for t
 Previous LLM experiment (historical): [report](tag-experiment-20260930.md).
 
 Rule-keyword results: [paired test report](rule-tag-experiment-20260930.md). Recall@10 tied baseline; Recall@100 fell by 1.67 percentage points. Default filter remains off.
+
+## Local semantic keyword experiment
+
+The pre-change checkpoint is ae45b04. `RAG_TAG_MODE=semantic_rank` encodes sorted,
+space-joined rule keywords with the same local BGE model used for document retrieval.
+Add persists normalized keyword vectors in rag_tag_vectors, with a version identity
+covering model snapshot, keyword rules and join format. Empty tags do not get a vector.
+Writes are atomic; committed retries do not re-encode. Existing stores are not backfilled.
+Search encodes question keywords (not answer options), computes cosine similarities
+within the first max(top_k,400) original candidates and adds a third weighted RRF vote:
+`RAG_TAG_WEIGHT / (60 + keyword_semantic_rank)`. Default weight is 0.5. This mode
+requires hybrid retrieval with positive BM25 weight. It keeps every original candidate;
+unknown tag vectors receive no additional vote. Original session windows still apply.
+
+`RAG_TAG_MODE=semantic_filter` instead keeps known keyword vectors with cosine >=
+RAG_TAG_THRESHOLD (default 0.5), preserves unknowns, and falls back to the original
+ranking if none pass. Missing query keywords leave the original ranking unchanged.
+Neither mode calls an LLM. The default remains `off` pending evidence of improvement.
+
+Run `python scripts/benchmark_semantic_tags.py` for baseline/hard/soft on the same
+419 public messages and 30 deterministic questions. Threshold=0.5 and weight=0.5 are
+fixed before results, not tuned on gold evidence. All query encoding is timed each call;
+write/search variant order rotates to reduce warm-cache bias. No official evaluation.

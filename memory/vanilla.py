@@ -91,12 +91,19 @@ class VanillaMemory:
             raise ValueError('Invalid RAG configuration')
         self.tag_mode = cfg.get('RAG_TAG_MODE', 'off')
         self.tag_candidates = int(cfg.get('RAG_TAG_CANDIDATES', '400'))
-        if self.tag_mode not in ('off', 'filter') or self.tag_candidates < 1:
+        self.tag_weight = float(cfg.get('RAG_TAG_WEIGHT', '0.5'))
+        self.tag_threshold = float(cfg.get('RAG_TAG_THRESHOLD', '0.5'))
+        self.semantic_tags = self.tag_mode in ('semantic_filter', 'semantic_rank')
+        if (self.tag_mode not in ('off', 'filter', 'semantic_filter', 'semantic_rank') or self.tag_candidates < 1
+                or not math.isfinite(self.tag_weight) or self.tag_weight < 0
+                or not math.isfinite(self.tag_threshold) or not -1 <= self.tag_threshold <= 1
+                or (self.tag_mode == 'semantic_rank' and (self.mode != 'hybrid' or self.weight <= 0))):
             raise ValueError('Invalid tag configuration')
         self.tagger = tagger
         if self.tag_mode != 'off' and self.tagger is None:
             from .tags import RuleTagger
             self.tagger = RuleTagger()
+        self.tag_vector_identity = json.dumps([getattr(self.tagger, 'identity', None), self.embedder.identity, 'sorted-space-join-v1'])
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path
@@ -120,6 +127,8 @@ class VanillaMemory:
                 CREATE INDEX IF NOT EXISTS rag_user ON rag_memories(user_id);
                 CREATE TABLE IF NOT EXISTS rag_tags(memory_id TEXT PRIMARY KEY, identity TEXT NOT NULL,
                     tags TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS rag_tag_vectors(memory_id TEXT PRIMARY KEY,
+                    identity TEXT NOT NULL, vector BLOB NOT NULL, dimension INTEGER NOT NULL);
             """)
             db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('identity', ?)", (identity,))
             if db.execute("SELECT value FROM rag_meta WHERE key='identity'").fetchone()[0] != identity:
@@ -157,6 +166,16 @@ class VanillaMemory:
             tags = self.tagger.extract([p[2] for p in pending]) if self.tag_mode != 'off' else None
             if tags is not None and len(tags) != len(pending):
                 raise ValueError('Tag count mismatch')
+            tag_vectors = {}
+            if self.semantic_tags:
+                from .tags import normalize_tags
+                tagged_indices = [i for i, values in enumerate(tags) if normalize_tags(values)]
+                if tagged_indices:
+                    values = self.vectors(self.embedder.documents(
+                        [' '.join(normalize_tags(tags[i])) for i in tagged_indices]), len(tagged_indices))
+                    if values.shape[1] != matrix.shape[1]:
+                        raise ValueError('Tag embedding dimension mismatch')
+                    tag_vectors = dict(zip(tagged_indices, values))
             with db:
                 db.execute('BEGIN IMMEDIATE')
                 if exists(db):
@@ -176,11 +195,15 @@ class VanillaMemory:
                         from .tags import normalize_tags
                         db.execute('INSERT INTO rag_tags VALUES (?,?,?)',
                                    (mid, self.tagger.identity, json.dumps(normalize_tags(tags[index]))))
+                    if index in tag_vectors:
+                        tag_vector = tag_vectors[index]
+                        db.execute('INSERT INTO rag_tag_vectors VALUES (?,?,?,?)',
+                                   (mid, self.tag_vector_identity, tag_vector.astype('<f4').tobytes(), len(tag_vector)))
 
     def search(self, payload):
         with closing(self.connect()) as db:
-            rows = db.execute('SELECT m.*, t.tags, t.identity AS tag_identity FROM rag_memories m '
-                              'LEFT JOIN rag_tags t ON t.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
+            rows = db.execute('SELECT m.*, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
+                              'LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
                               (payload.user_id,)).fetchall()
         if not rows:
             return {'data': []}
@@ -203,7 +226,7 @@ class VanillaMemory:
             for rank, i in enumerate(sorted((i for i in range(len(rows)) if lexical[i] > 0), key=lambda i: (-lexical[i], i)), 1):
                 scores[i] += self.weight / (self.rrf + rank)
             order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
-        if self.tag_mode != 'off':
+        if self.tag_mode == 'filter':
             from .tags import normalize_tags
             # Candidate options affect original retrieval only, not tag gating.
             query_tags = set(normalize_tags(self.tagger.extract([payload.query], query=True)[0]))
@@ -216,6 +239,30 @@ class VanillaMemory:
                                             or not json.loads(rows[i]['tags'])}
                 order = [i for i in pool if i in allowed]
             # No matches: original ranking is retained, preventing an empty result.
+        if self.semantic_tags:
+            from .tags import normalize_tags
+            query_tags = normalize_tags(self.tagger.extract([payload.query], query=True)[0])
+            pool = order[:max(payload.top_k, self.tag_candidates)]
+            known = [i for i in pool if rows[i]['tag_vector_identity'] == self.tag_vector_identity]
+            if query_tags and known:
+                with self.lock:
+                    query_vector = self.vectors(self.embedder.queries([' '.join(query_tags)]), 1)[0]
+                if any(rows[i]['tag_dimension'] != len(query_vector) for i in known):
+                    raise ValueError('Query tag dimension mismatch')
+                keyword_matrix = np.stack([np.frombuffer(rows[i]['tag_vector'], dtype='<f4') for i in known])
+                if not np.isfinite(keyword_matrix).all():
+                    raise ValueError('Invalid stored tag vectors')
+                similarity = dict(zip(known, keyword_matrix @ query_vector))
+                if self.tag_mode == 'semantic_filter':
+                    matching = {i for i in known if similarity[i] >= self.tag_threshold}
+                    if matching:
+                        unknown = set(pool) - set(known)
+                        order = [i for i in pool if i in matching or i in unknown]
+                elif self.tag_weight > 0:
+                    # Only add a third RRF vote; never discard a candidate.
+                    for rank, i in enumerate(sorted(known, key=lambda i: (-float(similarity[i]), i)), 1):
+                        scores[i] += self.tag_weight / (self.rrf + rank)
+                    order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
         selected = []
         seen = set()
         def include(i):
