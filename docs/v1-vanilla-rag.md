@@ -132,3 +132,5 @@ until evaluation supports a change. Run `python scripts/benchmark_tags.py` for t
 419-message, 30-question paired public-data experiment at K=10/100.
 
 Previous LLM experiment (historical): [report](tag-experiment-20260930.md).
+
+Rule-keyword results: [paired test report](rule-tag-experiment-20260930.md). Recall@10 tied baseline; Recall@100 fell by 1.67 percentage points. Default filter remains off.
