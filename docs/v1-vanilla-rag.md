@@ -128,3 +128,5 @@ pronouns; LLM calls add cost and latency. Use a new database to tag all existing
 Run `python scripts/benchmark_tags.py` to compare off/filter on the first complete
 public LoCoMo-Refined conversation and 30 deterministic text questions at K=10/100.
 Reports include evidence recall, win/loss counts, Add time and end-to-end Search P50/P95.
+
+Measured result: [tag experiment report](tag-experiment-20260930.md). The tested hard filter reduced recall and increased latency; default remains off.
