@@ -1,0 +1,21 @@
+{
+  "track": "textual",
+  "division": "open-source",
+  "system_name": "CSIG Memory",
+  "version": "TODO: fixed release name",
+  "commit": "TODO: adapter commit hash",
+  "public_repository": "TODO",
+  "contact": "TODO: submit through official private form",
+  "health_url": "https://your-memory-host.example/health",
+  "add_url": "https://your-memory-host.example/add",
+  "search_url": "https://your-memory-host.example/search",
+  "authentication": "Bearer; provide Memory System Key through official private channel",
+  "add_model": "gpt-4o-mini",
+  "add_concurrency": 1,
+  "search_concurrency": 4,
+  "operation": "synchronous; participant-hosted; 1800-second gateway timeout",
+  "limits": "200 messages, 32000 chars/message, 4000 query chars, top_k <= 100; unsupported inputs return 422",
+  "attribution_and_license": "TODO: confirm authorship, reused work and repository license",
+  "retention": "Delete evaluation data and derived copies within 30 days after completion",
+  "note": "Preparation checklist only, not an official platform API submission payload"
+}
