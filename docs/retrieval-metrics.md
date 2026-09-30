@@ -26,3 +26,17 @@ zero accuracy. The public benchmark currently prefilters to nonempty available g
 These metrics measure evidence retrieval, not final answer accuracy or official score.
 A partial chunk counts as covering its parent dialogue ID, matching the existing
 benchmark convention; this does not prove it contains the entire answer-bearing span.
+
+## Fixed public scenario results (2026-09-30)
+
+419 messages, 30 questions, 39 gold evidence occurrences; no LLM calls.
+
+| Mode | Recall@5 | Hit@5 | Micro Recall@5 | All-evidence Hit@5 |
+|---|---:|---:|---:|---:|
+| baseline | 49.17% | 50.00% | 43.59% | 46.67% |
+| semantic_filter | 49.17% | 50.00% | 43.59% | 46.67% |
+| semantic_rank | 33.33% | 33.33% | 33.33% | 33.33% |
+
+Report: data/semantic-tag-benchmarks/20260930T121649Z/report.json.
+Single-scenario evidence retrieval, not official evaluation or answer accuracy.
+Soft semantic ranking wins on 1 question and loses on 5 at K=5; default remains off.
