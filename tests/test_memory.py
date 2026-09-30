@@ -133,21 +133,24 @@ def test_llm_json_adapter(monkeypatch, tmp_path):
         seen.append(payload)
         candidate = dict(entities=[],
                          relations=[dict(source='A',target='B',relation='询问')])
-        content = json.dumps(candidate)
+        if payload['response_format']['json_schema']['name']=='GraphQueryAction':
+            content=json.dumps(dict(action='query',queries=[dict(tool='get_node',key='A')],draft=None))
+        else:
+            content = json.dumps(dict(action="finish", queries=[], draft=candidate))
         return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
     (tmp_path / ".env").write_text("LLM_API_KEY=test-key\n", encoding="utf-8")
     monkeypatch.setattr(httpx, "Client", lambda **kw: original_client(transport=httpx.MockTransport(respond), **kw))
     result = LLM().extract(request())
     assert result.edges[0].relation == "询问"
-    assert len(seen) == 3
+    assert len(seen) == 6
     assert seen[0]["response_format"]["type"] == "json_schema"
     assert seen[0]["response_format"]["json_schema"]["strict"] is True
     assert result.edges[0].evidence[0].text == request().messages[0].content
     assert len(seen[0]["messages"]) == 2
     assert "用户A" in seen[0]["messages"][1]["content"]
     import json
-    indexed = json.loads(seen[2]["messages"][1]["content"])
+    indexed = json.loads(seen[4]["messages"][1]["content"])
     assert [m["content"] for m in indexed["context"]] == [m.content for m in request().messages[:2]]
     assert indexed["current"]["content"] == request().messages[2].content
 

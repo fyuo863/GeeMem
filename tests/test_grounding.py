@@ -62,7 +62,8 @@ def test_single_extraction_and_quote_persistence(tmp_path):
     class OneCallLLM(LLM):
         def complete(self, instruction, payload, schema):
             calls.append(schema)
-            assert schema is TurnDraft
+            from memory.graph_tools import GraphQueryAction
+            assert schema is GraphQueryAction
             return TurnDraft(entities=[],relations=[dict(source='A',target='B',relation='询问')])
     store = Store(tmp_path / "db.sqlite")
     with TestClient(create_app(store, OneCallLLM())) as client:

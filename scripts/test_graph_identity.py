@@ -30,10 +30,14 @@ def main():
     class Recorded(LLM):
         calls=0
         candidates=0
+        tool_calls=0
         def complete(self,instruction,payload,schema):
             self.calls+=1
             save(out/f'input-{self.calls:02d}.json',payload)
             return super().complete(instruction,payload,schema)
+        def on_graph_tool(self,event):
+            self.tool_calls+=1
+            save(out/f'tool-{self.tool_calls:02d}.json',dict(position=self.extraction_chunk_index,**event))
         def on_graph_candidate(self,candidate):
             self.candidates+=1
             save(out/f'draft-{self.candidates:02d}.json',dict(position=self.extraction_chunk_index,draft=candidate.model_dump()))
@@ -52,7 +56,7 @@ def main():
         start=time.perf_counter();response=client.post('/add',json=payload);elapsed=time.perf_counter()-start
         save(out/'add_response.json',response.json())
         report=dict(model=llm.model,status=response.status_code,seconds=elapsed,calls=llm.calls,
-                    message_count=len(payload['messages']),search_tested=False,
+                    message_count=len(payload['messages']),search_tested=False,graph_tool_calls=llm.tool_calls,
                     commit=subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
                     working_tree_dirty=bool(subprocess.check_output(['git','-c',f'safe.directory={ROOT.as_posix()}','status','--porcelain'],cwd=ROOT,text=True).strip()))
         if response.status_code==200:
