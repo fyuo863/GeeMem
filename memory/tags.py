@@ -1,7 +1,7 @@
 """Versioned semantic tags; no answers or benchmark labels enter extraction."""
 import re
 import unicodedata
-from pydantic import Field
+from pydantic import Field, create_model
 from .models import StrictModel
 from .llm import LLM, LLMError
 
@@ -34,6 +34,8 @@ class SemanticTagger:
         result = []
         for start in range(0, len(texts), 16):
             batch = texts[start:start+16]
+            schema = create_model('ExactTagBatch', __base__=StrictModel,
+                                  items=(list[TagList], Field(min_length=len(batch), max_length=len(batch))))
             response = self.llm.complete(
                 'Extract 3 to 8 short reusable retrieval tags per input text, in exactly input order. '
                 'Use lowercase English singular nouns or short noun phrases. Include explicit named entities '
@@ -42,7 +44,7 @@ class SemanticTagger:
                 'Only describe topics supported by each text. Do not infer facts, answer questions, '
                 'resolve unknown pronouns or copy tags from another item. Empty tags are allowed when '
                 'there is no substantive topic. For queries tag the information being requested, not an invented answer.',
-                dict(kind='query' if query else 'memory', texts=batch), TagBatch)
+                dict(kind='query' if query else 'memory', required_item_count=len(batch), texts=batch), schema)
             if len(response.items) != len(batch):
                 raise LLMError('Tag response count mismatch')
             result.extend(normalize_tags(item.tags) for item in response.items)
