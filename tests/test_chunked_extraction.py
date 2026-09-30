@@ -5,13 +5,14 @@ from memory.grounding import GroundedGraph, admit_graph, merge_graphs
 from memory.grounding import indexed_schema, ground_from_indices
 from pydantic import ValidationError
 from memory.llm import LLM
+from memory.conversation import TurnDraft
 from memory.models import AddRequest
 from memory.store import Store
 
 
 def request(count=17):
     return AddRequest(request_id="r", user_id="u", session_id="s", messages=[
-        dict(role="user", content=f"Exact original {i}.", timestamp=i) for i in range(count)])
+        dict(role="user" if i%2==0 else "assistant", content=f"Exact original {i}.", timestamp=i) for i in range(count)])
 
 
 def graph(indices, req):
@@ -27,13 +28,13 @@ def test_global_indices_context_and_evidence_union():
     class ChunkLLM(LLM):
         def complete(self, instruction, payload, schema):
             calls.append(payload)
-            return graph(payload["focus_message_indices"], req)
+            return TurnDraft(entities=[], relations=[dict(source='A',target='B',relation='询问')])
     result = ChunkLLM().extract(req)
     assert len(calls) == 17
     for i, payload in enumerate(calls):
-        assert payload["focus_message_indices"] == [i]
-        assert [m["message_index"] for m in payload["messages"]] == list(range(max(0, i-2), i+1))
-    assert calls[1]["known_entities"]
+        assert payload["current"]["content"] == req.messages[i].content
+        assert [m["content"] for m in payload["context"]] == [m.content for m in req.messages[max(0,i-2):i]]
+        assert "message_indices" not in str(payload)
     assert len(result.nodes) == 2 and len(result.edges) == 1
     assert result.edges[0].message_indices == list(range(17))
     assert len(result.edges[0].evidence) == 17
@@ -44,10 +45,8 @@ def test_later_chunk_failure_writes_nothing(tmp_path):
     class BadChunk(LLM):
         def complete(self, instruction, payload, schema):
             original = payload.get("original_request", payload)
-            g = graph(original["focus_message_indices"], req)
-            if 8 in original["focus_message_indices"]:
-                g.edges[0].target = "missing"
-            return g
+            target = 'missing' if original['current']['content']==req.messages[8].content else 'B'
+            return TurnDraft(entities=[],relations=[dict(source='A',target=target,relation='询问')])
     store = Store(tmp_path / "db")
     with TestClient(create_app(store, BadChunk())) as client:
         assert client.post("/add", json=req.model_dump()).status_code == 502

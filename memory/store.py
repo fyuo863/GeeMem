@@ -51,6 +51,8 @@ class Store:
             self._migrate_undirected(db)
             if "owner_id" not in {r["name"] for r in db.execute("PRAGMA table_info(nodes)")}:
                 db.execute("ALTER TABLE nodes ADD COLUMN owner_id TEXT REFERENCES nodes(id)")
+            if "speaker_tags" not in {r["name"] for r in db.execute("PRAGMA table_info(nodes)")}:
+                db.execute("ALTER TABLE nodes ADD COLUMN speaker_tags TEXT NOT NULL DEFAULT '[]'")
 
     @staticmethod
     def _migrate_undirected(db):
@@ -136,14 +138,16 @@ class Store:
                     raise ValueError("Node identity collides with a different owner")
                 nid = row["id"] if row else str(uuid4())
                 aliases = set(node.aliases + [node.name, node.key])
+                tags = set(node.speaker_tags)
                 if row:
                     aliases.update(json.loads(row["aliases"]))
-                    db.execute("UPDATE nodes SET aliases=? WHERE id=?",
-                               (json.dumps(sorted(aliases), ensure_ascii=False), nid))
+                    tags.update(json.loads(row["speaker_tags"]))
+                    db.execute("UPDATE nodes SET aliases=?,speaker_tags=? WHERE id=?",
+                               (json.dumps(sorted(aliases), ensure_ascii=False), json.dumps(sorted(tags)), nid))
                 else:
-                    db.execute("INSERT INTO nodes (id,user_id,node_key,name,kind,aliases,owner_id) VALUES (?,?,?,?,?,?,?)", (
+                    db.execute("INSERT INTO nodes (id,user_id,node_key,name,kind,aliases,owner_id,speaker_tags) VALUES (?,?,?,?,?,?,?,?)", (
                         nid, request.user_id, key, node.name, node.kind,
-                        json.dumps(sorted(aliases), ensure_ascii=False), owner_id))
+                        json.dumps(sorted(aliases), ensure_ascii=False), owner_id, json.dumps(sorted(tags))))
                 node_ids[node.key] = nid
                 db.executemany("INSERT OR IGNORE INTO node_evidence VALUES (?,?)",
                                [(nid, ids[i]) for i in node.message_indices])

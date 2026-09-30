@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from memory.api import create_app
 from memory.grounding import GroundedGraph, admit_graph
 from memory.llm import LLM
+from memory.conversation import TurnDraft
 from memory.models import AddRequest
 from memory.store import Store
 
@@ -61,26 +62,21 @@ def test_single_extraction_and_quote_persistence(tmp_path):
     class OneCallLLM(LLM):
         def complete(self, instruction, payload, schema):
             calls.append(schema)
-            assert schema.__name__ == "IndexedGraph"
-            g = candidate()
-            visible = {m["message_index"] for m in payload["messages"]}
-            g.edges = [e for e in g.edges if set(e.message_indices) <= visible]
-            return g
+            assert schema is TurnDraft
+            return TurnDraft(entities=[],relations=[dict(source='A',target='B',relation='询问')])
     store = Store(tmp_path / "db.sqlite")
     with TestClient(create_app(store, OneCallLLM())) as client:
         response = client.post("/add", json=source().model_dump())
         assert response.status_code == 200
     assert len(calls) == 3
     with store.connect() as db:
-        assert db.execute("SELECT count(*) FROM edge_quotes").fetchone()[0] == 2
+        assert db.execute("SELECT count(*) FROM edge_quotes").fetchone()[0] == 3
 
 
 def test_failed_admission_does_not_write_partial_graph(tmp_path):
     class BadEvidence(LLM):
         def complete(self, instruction, payload, schema):
-            graph = candidate()
-            graph.edges[0].target = "unknown"
-            return graph
+            return TurnDraft(entities=[],relations=[dict(source='A',target='unknown',relation='询问')])
     store = Store(tmp_path / "db.sqlite")
     with TestClient(create_app(store, BadEvidence())) as client:
         assert client.post("/add", json=source().model_dump()).status_code == 502
