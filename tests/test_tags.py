@@ -3,7 +3,7 @@ import sqlite3
 import pytest
 from memory.aml_api import AMLSearch
 from memory.vanilla import VanillaMemory
-from memory.tags import normalize_tags, SemanticTagger, TagBatch
+from memory.tags import normalize_tags, RuleTagger
 from memory.llm import LLMError
 from test_vanilla import Embedder, add
 
@@ -46,10 +46,34 @@ def test_tags_atomic_and_retry(tmp_path):
         assert db.execute('SELECT count(*) FROM rag_tags').fetchone()[0]==1
 
 
-def test_normalize_and_response_alignment():
+def test_rule_keywords_are_independent_and_deterministic():
+    tagger=RuleTagger()
     assert normalize_tags([' Sport ', 'SPORT','', 'x'*81])==['sport']
-    t=SemanticTagger.__new__(SemanticTagger)
-    class Fake:
-        def complete(self,*args):return TagBatch(items=[dict(tags=['sport'])])
-    t.llm=Fake()
-    with pytest.raises(LLMError):t.extract(['one','two'])
+    assert tagger.extract(['Hello! How are you?']) == [[]]
+    texts=["Alice’s horses and books", 'Painting in Paris', '杭州马拉松']
+    batch=tagger.extract(texts)
+    assert batch[0]==['alice','book','horse']
+    assert 'painting' not in batch[0]
+    assert '杭州' in batch[2] and '马拉' in batch[2]
+    assert batch==[tagger.extract([text])[0] for text in texts]
+    assert batch==tagger.extract(texts,query=True)
+
+
+def test_rule_backend_never_calls_llm(tmp_path,monkeypatch):
+    def fail(*args,**kwargs):raise AssertionError('Unexpected LLM call')
+    monkeypatch.setattr('memory.llm.LLM.complete',fail)
+    store=VanillaMemory(dict(RAG_MEMORY_DB=str(tmp_path/'db'),RAG_TAG_MODE='filter',RAG_RESULT_WINDOW='0'),Embedder())
+    store.add(add(content='marathon training'))
+    store.add(add(rid='two',content='piano concert'))
+    hits=store.search(AMLSearch(user_id='u',query='marathon',top_k=10))['data']
+    assert [h['content'] for h in hits]==['marathon training']
+
+
+def test_old_semantic_tags_remain_unknown(tmp_path):
+    cfg=dict(RAG_MEMORY_DB=str(tmp_path/'db'),RAG_TAG_MODE='filter',RAG_RESULT_WINDOW='0')
+    store=VanillaMemory(cfg,Embedder())
+    store.add(add(content='marathon'))
+    store.add(add(rid='old',content='piano'))
+    with sqlite3.connect(store.path) as db:
+        db.execute("UPDATE rag_tags SET identity='semantic-tags-v1:gpt-4o-mini' WHERE memory_id IN (SELECT id FROM rag_memories WHERE content='piano')")
+    assert len(store.search(AMLSearch(user_id='u',query='marathon',top_k=10))['data'])==2

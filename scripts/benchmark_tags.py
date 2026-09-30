@@ -1,18 +1,16 @@
 """Paired public-data tag ablation; never reads official evaluation payloads."""
 import argparse
-from contextlib import closing
 from datetime import datetime,timezone
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 import sys
 import time
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from memory.config import PROJECT_ROOT,load_settings
 from memory.vanilla import VanillaMemory,LocalEmbedder,chunks
-from memory.tags import SemanticTagger
+from memory.tags import RuleTagger
 from memory.aml_api import AMLAdd,AMLSearch
 
 
@@ -20,13 +18,15 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--questions',type=int,default=30)
     args=parser.parse_args()
+    if args.questions < 1:
+        parser.error('--questions must be positive')
     source=PROJECT_ROOT/'data/locomo-refined/data/raw/locomo_refined.json'
     sample=json.loads(source.read_text(encoding='utf-8'))[0]
     conversation=sample['conversation']
     sessions=sorted([k for k,v in conversation.items() if k.startswith('session_') and isinstance(v,list)],key=lambda k:int(k.split('_')[1]))
     out=PROJECT_ROOT/'data/tag-benchmarks'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     out.mkdir(parents=True)
-    cfg=load_settings();model=LocalEmbedder(cfg);tagger=SemanticTagger()
+    cfg=load_settings();model=LocalEmbedder(cfg);tagger=RuleTagger()
     common=dict(cfg,RAG_RESULT_WINDOW='1',RAG_RESULT_WINDOW_SEED_K='20',RAG_TAG_CANDIDATES='400')
     baseline=VanillaMemory(dict(common,RAG_MEMORY_DB=str(out/'baseline.sqlite3'),RAG_TAG_MODE='off'),model)
     tagged=VanillaMemory(dict(common,RAG_MEMORY_DB=str(out/'tagged.sqlite3'),RAG_TAG_MODE='filter'),model,tagger)
@@ -41,7 +41,9 @@ def main():
                 for j,_ in enumerate(chunks(m['text'],baseline.size,baseline.overlap)):
                     mid=hashlib.sha256(json.dumps([payload.user_id,rid,i,j]).encode()).hexdigest()
                     mapping[mid]=m['dia_id']
-            for name,store in [('baseline',baseline),('tagged',tagged)]:
+            write_order=[('baseline',baseline),('tagged',tagged)]
+            if message_count%2:write_order.reverse()
+            for name,store in write_order:
                 before=time.perf_counter();store.add(payload);timings[name]+=time.perf_counter()-before
             message_count+=len(batch)
             print('Added',session,start,'messages',message_count,flush=True)
@@ -81,7 +83,7 @@ def main():
             losses=sum(c['tagged']['recall']<c['baseline']['recall'] for c in subset))
     report=dict(source=str(source),source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),sample_id=sample['sample_id'],
         selected_question_indices=indices,eligible_questions=len(eligible),messages=message_count,chunks=len(mapping),
-        add_seconds=timings,metrics=summary,official_evaluation=False,model='gpt-4o-mini',
+        add_seconds=timings,metrics=summary,official_evaluation=False,tagger=tagger.identity,model='BAAI/bge-small-en-v1.5',llm_calls=0,
         note='Single full public conversation; deterministic evenly spaced questions. Add excludes model loading. Tag extraction counted in Search. No answer generation.')
     (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps(report,indent=2));print('REPORT',out/'report.json',flush=True)

@@ -95,8 +95,8 @@ class VanillaMemory:
             raise ValueError('Invalid tag configuration')
         self.tagger = tagger
         if self.tag_mode != 'off' and self.tagger is None:
-            from .tags import SemanticTagger
-            self.tagger = SemanticTagger()
+            from .tags import RuleTagger
+            self.tagger = RuleTagger()
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path

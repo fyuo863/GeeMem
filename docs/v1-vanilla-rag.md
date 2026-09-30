@@ -108,25 +108,27 @@ No production service was switched to v1 and no official evaluation was launched
 - These are functional/parity checks, not a benchmark accuracy measurement or an
   exhaustive equivalence proof. No official evaluation data was used.
 
-## Semantic tag experiment
+## Rule-keyword tag experiment
 
-`RAG_TAG_MODE=filter` enables gpt-4o-mini tags at Add and Search; `off` preserves
-original v1. All configuration remains root .env only. Add generates up to 8 tags
-per chunk in batches of 16, normalizes and saves tags transactionally with vectors.
-Retries do not retag committed requests. Extraction errors fail the operation explicitly.
-Existing databases gain a separate rag_tags table; old rows are not silently retagged.
+`RAG_TAG_MODE=filter` enables local rule keywords at Add and Search; `off` preserves
+original v1. No LLM or network calls occur in keyword extraction. BGE embeddings
+remain local. Rules: Unicode NFKC and case normalization, English word extraction,
+general stop-word removal, possessive/common plural normalization, Chinese overlapping
+bigrams, deduplication. Every chunk is independent and all remaining distinct keywords
+are retained, with identical rules for queries. No benchmark-specific entity dictionary,
+gold answer lookup, learned synonym expansion, or cross-message inference is used.
 
-Search tags only the question (not possible answer options), runs original hybrid
-retrieval, then keeps exact normalized tag intersections in the top max(top_k,400)
-candidates. Unknown/empty/different-version tags remain eligible. No matches fall
-back to the original ranking. Original same-session window expansion is applied
-AFTER filtering, so neighboring context can have different tags. Results can be fewer
-than top_k. This is a semantic filtering experiment, not a faster vector index: all
-vectors and BM25 scores are still computed. Exact tag names can miss synonyms and
-pronouns; LLM calls add cost and latency. Use a new database to tag all existing input.
+Tags are written transactionally with vectors. Current identity is
+`rule-keywords-v1:nfkc-stopwords-cjk-bigrams`. Old semantic tags are treated as unknown,
+not as rule keywords. Existing committed requests remain idempotent and are not
+retagged automatically; use a fresh database and re-add source messages for comparisons.
 
-Run `python scripts/benchmark_tags.py` to compare off/filter on the first complete
-public LoCoMo-Refined conversation and 30 deterministic text questions at K=10/100.
-Reports include evidence recall, win/loss counts, Add time and end-to-end Search P50/P95.
+Search filtering is unchanged: intersect keywords with candidates from the original
+hybrid ranking, preserve unknown/empty/version-mismatched tags, fall back to original
+ranking when no candidate matches, then expand session neighbors. This remains a hard
+filter, so indirect evidence or synonyms can still be lost. It does not accelerate the
+full vector/BM25 scan. Enable with root `.env` RAG_TAG_MODE=filter; default remains off
+until evaluation supports a change. Run `python scripts/benchmark_tags.py` for the same
+419-message, 30-question paired public-data experiment at K=10/100.
 
-Measured result: [tag experiment report](tag-experiment-20260930.md). The tested hard filter reduced recall and increased latency; default remains off.
+Previous LLM experiment (historical): [report](tag-experiment-20260930.md).
