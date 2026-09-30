@@ -12,6 +12,7 @@ from memory.config import PROJECT_ROOT,load_settings
 from memory.vanilla import VanillaMemory,LocalEmbedder,chunks
 from memory.tags import RuleTagger
 from memory.aml_api import AMLAdd,AMLSearch
+from memory.evaluation import evidence_metrics
 
 
 def main():
@@ -60,7 +61,7 @@ def main():
     for number,index in enumerate(indices):
         q=eligible[index]
         query_tags=tagger.extract([q['question']],query=True)
-        for k in [10,100]:
+        for k in [5,10,100]:
             request=AMLSearch(user_id='public-first-conversation',query=q['question'],top_k=k)
             result={}
             offset=number%len(names)
@@ -73,9 +74,9 @@ def main():
         print('Searched',number+1,'/',len(indices),flush=True)
         (out/'cases.json').write_text(json.dumps(cases,indent=2),encoding='utf-8')
     summary={}
-    for k in [10,100]:
+    for k in [5,10,100]:
         subset=[c for c in cases if c['top_k']==k]
-        summary[str(k)]={name:dict(recall=float(np.mean([c[name]['recall'] for c in subset])),
+        summary[str(k)]={name:dict(**evidence_metrics(subset,name),
             p50_seconds=float(np.median([c[name]['seconds'] for c in subset])),
             p95_seconds=float(np.percentile([c[name]['seconds'] for c in subset],95)),
             mean_results=float(np.mean([c[name]['count'] for c in subset]))) for name in names}
