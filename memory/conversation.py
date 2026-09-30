@@ -15,6 +15,7 @@ class Mention(StrictModel):
     kind: Literal['person', 'group', 'organization', 'event', 'activity', 'place',
                   'object', 'fact', 'outcome', 'emotion', 'topic']
     owner: Text | None = None
+    contacts: list[Text] = Field(default_factory=list, max_length=200)
     same_as: Text | None = None
     match_quote: Text | None = None
 
@@ -68,6 +69,7 @@ class Conversation:
                               for label, role in self.roles.items()],
                     known_entities=[dict(id=n.key, name=n.name, kind=n.kind,
                                          owner=next((label for label, key in self.keys.items() if key==n.owner_key), None),
+                                         contacts=[label for label,key in self.keys.items() if key in n.contact_keys],
                                          mentioned_by=[label for label,key in self.keys.items() if key in n.speaker_tags])
                                     for n in self.nodes.values() if n.key not in self.keys.values()])
 
@@ -174,6 +176,8 @@ class Conversation:
                 local_ref = None
             if entity.owner is not None and entity.owner not in self.roles:
                 raise ValueError('Entity owner must be a supplied speaker ID or null')
+            if any(contact not in self.roles for contact in entity.contacts):
+                raise ValueError('Entity contacts must be supplied speaker IDs')
             if entity.kind == 'person' and norm(entity.name) in {
                 norm(x) for x in [*self.names.values(), *self.roles, *self.roles.values()]}:
                 if entity.ref in used_refs:
@@ -182,6 +186,7 @@ class Conversation:
                                        message_index=index))
                 continue
             owner = self.speaker(entity.owner, index, tag) if entity.owner else None
+            contacts = sorted({self.speaker(contact, index, tag) for contact in entity.contacts})
             existing = self.nodes.get(entity.same_as) if entity.same_as else None
             if entity.same_as:
                 reason = None
@@ -200,14 +205,17 @@ class Conversation:
             if existing is not None:
                 key = existing.key
                 self.touch(existing, index, tag)
+                existing.contact_keys = sorted(set(existing.contact_keys + contacts))
                 self.audit.append(dict(action='merge_mention', node=key, speaker=label,
                                        message_index=index, quote=entity.match_quote))
             else:
                 key = 'mention:' + digest(self.request.session_id, self.request.request_id,
                                           label, index, entity_index)
                 self.nodes[key] = Node(key=key, name=entity.name, kind=entity.kind, owner_key=owner,
-                                       speaker_tags=[tag], message_indices=[index])
+                                       contact_keys=contacts, speaker_tags=[tag], message_indices=[index])
                 self.audit.append(dict(action='create_mention',node=key,speaker=label,message_index=index))
+            self.audit.append(dict(action='entity_roles', node=key, owner=entity.owner,
+                                   contacts=sorted(set(entity.contacts)), speaker=label, message_index=index))
             if local_ref is not None:
                 refs[local_ref] = key
         def endpoint(ref):
@@ -243,7 +251,22 @@ and supplies speaker names. Do not assign names or replace speaker IDs.
 
 Create entities for explicitly mentioned families, events, activities, objects
 and third parties. Each entity has a LOCAL ref, name, kind and owner (speaker ID
-or null). Mention attribution is added by the program, separate from ownership.
+or null), and contacts (a list of speaker IDs, empty when unknown).
+Keep THREE concepts separate:
+- owner: explicit possession or personal belonging ONLY. Use null by default.
+  Family/friends may use the person explicitly identified by my/your/his/her.
+  Visiting a place, attending an event or meeting someone NEVER establishes ownership.
+- contacts: people explicitly interacting with the entity (visiting, volunteering,
+  attending, meeting, playing with, using). May include multiple speakers. A mere
+  mention, question, compliment or commentary does NOT establish contact.
+- mentioned_by: the actual speaker, attached automatically by the program.
+For example, if A says to B "you visited the shelter", shelter has owner=null,
+contacts=[B], and the program records A as mentioning speaker. If A volunteers at
+an unnamed shelter or plays with kids there, shelter/kids have owner=null and
+contacts=[A]. If A says "your family attended a concert" to B, family has owner=B;
+the concert does not belong to B. An owner can also be a contact, but infer each
+independently. Do not copy contacts or ownership from the registry unless current
+text supports them. Never populate fields just to make a merge succeed.
 Give each entity a UNIQUE short local ref such as E0, E1. Never use null or a
 speaker ID as ref. Existing entity IDs may appear only in same_as, not ref.
 Use simple canonical entity names such as family, and the actual owner ID to
@@ -252,6 +275,7 @@ Only propose same_as for a known entity when kind, name and explicit owner agree
 AND current.content clearly refers to that same entity. match_quote must be a
 verbatim phrase from current containing its canonical name. If uncertain set
 same_as and match_quote to null; distinct nodes are safer than false merges.
+Contact overlap is NOT identity evidence and must never enable merging.
 Both owners must be non-null for same_as. Do not merge unowned events or topics.
 
 Relations are undirected; source/target are unordered speaker IDs or local refs.

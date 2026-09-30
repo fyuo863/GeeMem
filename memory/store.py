@@ -54,6 +54,9 @@ class Store:
             if "speaker_tags" not in {r["name"] for r in db.execute("PRAGMA table_info(nodes)")}:
                 db.execute("ALTER TABLE nodes ADD COLUMN speaker_tags TEXT NOT NULL DEFAULT '[]'")
 
+            if "contact_keys" not in {r["name"] for r in db.execute("PRAGMA table_info(nodes)")}:
+                db.execute("ALTER TABLE nodes ADD COLUMN contact_keys TEXT NOT NULL DEFAULT '[]'")
+
     @staticmethod
     def _migrate_undirected(db):
         """Merge legacy reversed edges atomically, retaining all evidence and quotes."""
@@ -139,15 +142,18 @@ class Store:
                 nid = row["id"] if row else str(uuid4())
                 aliases = set(node.aliases + [node.name, node.key])
                 tags = set(node.speaker_tags)
+                contacts = set(node.contact_keys)
                 if row:
                     aliases.update(json.loads(row["aliases"]))
                     tags.update(json.loads(row["speaker_tags"]))
-                    db.execute("UPDATE nodes SET aliases=?,speaker_tags=? WHERE id=?",
-                               (json.dumps(sorted(aliases), ensure_ascii=False), json.dumps(sorted(tags)), nid))
+                    contacts.update(json.loads(row["contact_keys"]))
+                    db.execute("UPDATE nodes SET aliases=?,speaker_tags=?,contact_keys=? WHERE id=?",
+                               (json.dumps(sorted(aliases), ensure_ascii=False), json.dumps(sorted(tags)),
+                                json.dumps(sorted(contacts)), nid))
                 else:
-                    db.execute("INSERT INTO nodes (id,user_id,node_key,name,kind,aliases,owner_id,speaker_tags) VALUES (?,?,?,?,?,?,?,?)", (
+                    db.execute("INSERT INTO nodes (id,user_id,node_key,name,kind,aliases,owner_id,speaker_tags,contact_keys) VALUES (?,?,?,?,?,?,?,?,?)", (
                         nid, request.user_id, key, node.name, node.kind,
-                        json.dumps(sorted(aliases), ensure_ascii=False), owner_id, json.dumps(sorted(tags))))
+                        json.dumps(sorted(aliases), ensure_ascii=False), owner_id, json.dumps(sorted(tags)), json.dumps(sorted(contacts))))
                 node_ids[node.key] = nid
                 db.executemany("INSERT OR IGNORE INTO node_evidence VALUES (?,?)",
                                [(nid, ids[i]) for i in node.message_indices])
