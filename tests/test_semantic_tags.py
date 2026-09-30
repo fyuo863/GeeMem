@@ -32,10 +32,10 @@ def query():return AMLSearch(user_id='u',query='find performer',top_k=10)
 
 
 def test_soft_semantics_promotes_indirect_evidence_without_deleting(tmp_path):
-    s,cfg=setup(tmp_path,'semantic_rank')
+    s,cfg=setup(tmp_path,'semantic_rank',RAG_TAG_WEIGHT='2')
     result=s.search(query())
     assert [h['content'] for h in result['data']]==['source song','source unrelated']
-    assert result['data'][0]['score']==pytest.approx(1/62+0.5/61)
+    assert result['data'][0]['score']==pytest.approx(1/62+2/61)
     assert VanillaMemory(cfg,Model(),Tags()).search(query())==result
     assert s.search(AMLSearch(user_id='other',query='find performer',top_k=10))=={'data':[]}
 

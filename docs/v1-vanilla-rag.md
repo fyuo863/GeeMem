@@ -157,3 +157,5 @@ Run `python scripts/benchmark_semantic_tags.py` for baseline/hard/soft on the sa
 419 public messages and 30 deterministic questions. Threshold=0.5 and weight=0.5 are
 fixed before results, not tuned on gold evidence. All query encoding is timed each call;
 write/search variant order rotates to reduce warm-cache bias. No official evaluation.
+
+Results: [semantic keyword experiment](semantic-tag-experiment-20260930.md). Soft ranking improves Recall@100 by 1.67 points but reduces Recall@10 by 3.33 points and adds latency. Default remains off.
