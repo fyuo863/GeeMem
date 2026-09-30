@@ -3,6 +3,7 @@ from .config import load_settings
 import httpx
 from .models import AddRequest, Graph, Keywords
 from .conversation import Conversation, TurnDraft, TURN_INSTRUCTION
+from .graph_tools import GraphAction, GraphQueryAction, query_graph, TOOL_INSTRUCTION
 
 def strict_json_schema(schema):
     """Adapt Pydantic defaults to OpenAI strict structured-output requirements."""
@@ -59,6 +60,42 @@ class LLM:
         except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
             raise LLMError("LLM request failed or returned invalid structured data") from exc
 
+    def complete_turn(self, state, instruction, payload):
+        history = []
+        # Full registry is fetched on demand, rather than copied into every prompt.
+        payload = dict(payload)
+        payload.pop('known_entities', None)
+        if 'original_request' in payload:
+            payload['original_request'] = dict(payload['original_request'])
+            payload['original_request'].pop('known_entities', None)
+        payload['graph_summary'] = dict(nodes=len(state.nodes), edges=len(state.edges),
+                                       scope='current_add_request')
+        for round_index in range(4):
+            call_payload = dict(payload, graph_tools_remaining=max(0, 3-round_index),
+                                graph_tool_history=history)
+            if round_index == 3:
+                return self.complete(instruction + " Tool budget exhausted. Return only the final TurnDraft.",
+                                     call_payload, TurnDraft)
+            action = self.complete(instruction + TOOL_INSTRUCTION, call_payload, GraphQueryAction if round_index == 0 else GraphAction)
+            # Compatibility for in-process adapters; network results are always schema-validated.
+            if isinstance(action, TurnDraft):
+                return action
+            action = GraphAction.model_validate(action.model_dump())
+            if action.action == 'finish':
+                if action.draft is None or action.queries:
+                    raise LLMError('Invalid finish action: draft required and queries must be empty')
+                return action.draft
+            if not action.queries or action.draft is not None:
+                raise LLMError('Invalid query action: queries required and draft must be null')
+            for query in action.queries:
+                result = query_graph(state, query)
+                event = dict(query=query.model_dump(), result=result)
+                history.append(event)
+                self.on_graph_tool(event)
+
+    def on_graph_tool(self, event):
+        """Optional observer of program-executed read-only queries."""
+
     def extract(self, request: AddRequest) -> Graph:
         state = Conversation(request)
         for index in range(len(request.messages)):
@@ -66,7 +103,7 @@ class LLM:
             self.extraction_visible_indices = list(range(max(0, index-2), index+1))
             state = state.prepare(index)
             payload = state.payload(index)
-            candidate = self.complete(TURN_INSTRUCTION, payload, TurnDraft)
+            candidate = self.complete_turn(state, TURN_INSTRUCTION, payload)
             for attempt in range(2):
                 self.on_graph_candidate(candidate)
                 try:
@@ -77,11 +114,11 @@ class LLM:
                 except ValueError as exc:
                     if attempt == 1:
                         raise LLMError("Turn graph validation failed after one repair") from exc
-                    candidate = self.complete(
-                        TURN_INSTRUCTION + " Repair the candidate using CURRENT content and the error. "
+                    candidate = self.complete_turn(
+                        state, TURN_INSTRUCTION + " Repair the candidate using CURRENT content and the error. "
                         "Preserve supported facts; do not invent identity or clear ownership to bypass checks.",
                         dict(original_request=payload, candidate=candidate.model_dump(),
-                             validation_error=str(exc)), TurnDraft)
+                             validation_error=str(exc)))
         graph = state.graph()
         graph.validate_references(len(request.messages))
         self.on_conversation_graph(graph, state.audit)
