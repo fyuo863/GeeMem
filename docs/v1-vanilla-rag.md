@@ -107,3 +107,24 @@ No production service was switched to v1 and no official evaluation was launched
   Report: `data/vanilla-reference-parity.json` (ignored local artifact).
 - These are functional/parity checks, not a benchmark accuracy measurement or an
   exhaustive equivalence proof. No official evaluation data was used.
+
+## Semantic tag experiment
+
+`RAG_TAG_MODE=filter` enables gpt-4o-mini tags at Add and Search; `off` preserves
+original v1. All configuration remains root .env only. Add generates up to 8 tags
+per chunk in batches of 16, normalizes and saves tags transactionally with vectors.
+Retries do not retag committed requests. Extraction errors fail the operation explicitly.
+Existing databases gain a separate rag_tags table; old rows are not silently retagged.
+
+Search tags only the question (not possible answer options), runs original hybrid
+retrieval, then keeps exact normalized tag intersections in the top max(top_k,400)
+candidates. Unknown/empty/different-version tags remain eligible. No matches fall
+back to the original ranking. Original same-session window expansion is applied
+AFTER filtering, so neighboring context can have different tags. Results can be fewer
+than top_k. This is a semantic filtering experiment, not a faster vector index: all
+vectors and BM25 scores are still computed. Exact tag names can miss synonyms and
+pronouns; LLM calls add cost and latency. Use a new database to tag all existing input.
+
+Run `python scripts/benchmark_tags.py` to compare off/filter on the first complete
+public LoCoMo-Refined conversation and 30 deterministic text questions at K=10/100.
+Reports include evidence recall, win/loss counts, Add time and end-to-end Search P50/P95.

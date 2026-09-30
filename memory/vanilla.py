@@ -77,7 +77,7 @@ class LocalEmbedder:
 
 
 class VanillaMemory:
-    def __init__(self, cfg, embedder=None):
+    def __init__(self, cfg, embedder=None, tagger=None):
         self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
@@ -89,6 +89,14 @@ class VanillaMemory:
         if not (0 <= self.overlap < self.size and self.rrf > 0 and math.isfinite(self.weight) and self.weight >= 0
                 and self.window >= 0 and self.seeds > 0 and self.mode in ('hybrid', 'dense')):
             raise ValueError('Invalid RAG configuration')
+        self.tag_mode = cfg.get('RAG_TAG_MODE', 'off')
+        self.tag_candidates = int(cfg.get('RAG_TAG_CANDIDATES', '400'))
+        if self.tag_mode not in ('off', 'filter') or self.tag_candidates < 1:
+            raise ValueError('Invalid tag configuration')
+        self.tagger = tagger
+        if self.tag_mode != 'off' and self.tagger is None:
+            from .tags import SemanticTagger
+            self.tagger = SemanticTagger()
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path
@@ -110,6 +118,8 @@ class VanillaMemory:
                     chunk_index INTEGER NOT NULL, content TEXT NOT NULL, timestamp INTEGER,
                     vector BLOB NOT NULL, dimension INTEGER NOT NULL);
                 CREATE INDEX IF NOT EXISTS rag_user ON rag_memories(user_id);
+                CREATE TABLE IF NOT EXISTS rag_tags(memory_id TEXT PRIMARY KEY, identity TEXT NOT NULL,
+                    tags TEXT NOT NULL);
             """)
             db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('identity', ?)", (identity,))
             if db.execute("SELECT value FROM rag_meta WHERE key='identity'").fetchone()[0] != identity:
@@ -144,6 +154,9 @@ class VanillaMemory:
             pending = [(i, j, text, message.timestamp) for i, message in enumerate(payload.messages)
                        for j, text in enumerate(chunks(message.content, self.size, self.overlap))]
             matrix = self.vectors(self.embedder.documents([p[2] for p in pending]), len(pending))
+            tags = self.tagger.extract([p[2] for p in pending]) if self.tag_mode != 'off' else None
+            if tags is not None and len(tags) != len(pending):
+                raise ValueError('Tag count mismatch')
             with db:
                 db.execute('BEGIN IMMEDIATE')
                 if exists(db):
@@ -153,16 +166,22 @@ class VanillaMemory:
                     raise ValueError('Embedding dimension changed')
                 db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('dimension', ?)", (str(matrix.shape[1]),))
                 db.execute('INSERT INTO rag_requests VALUES (?,?,?)', (payload.user_id, payload.request_id, digest))
-                for (i, j, text, stamp), vector in zip(pending, matrix):
+                for index, ((i, j, text, stamp), vector) in enumerate(zip(pending, matrix)):
                     key = json.dumps([payload.user_id, payload.request_id, i, j])
                     mid = hashlib.sha256(key.encode()).hexdigest()
                     db.execute('INSERT INTO rag_memories VALUES (?,?,?,?,?,?,?,?,?,?)',
                         (mid, payload.user_id, payload.session_id, payload.request_id, i, j, text, stamp,
                          vector.astype('<f4').tobytes(), len(vector)))
+                    if tags is not None:
+                        from .tags import normalize_tags
+                        db.execute('INSERT INTO rag_tags VALUES (?,?,?)',
+                                   (mid, self.tagger.identity, json.dumps(normalize_tags(tags[index]))))
 
     def search(self, payload):
         with closing(self.connect()) as db:
-            rows = db.execute('SELECT * FROM rag_memories WHERE user_id=? ORDER BY rowid', (payload.user_id,)).fetchall()
+            rows = db.execute('SELECT m.*, t.tags, t.identity AS tag_identity FROM rag_memories m '
+                              'LEFT JOIN rag_tags t ON t.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
+                              (payload.user_id,)).fetchall()
         if not rows:
             return {'data': []}
         query = payload.query
@@ -184,6 +203,19 @@ class VanillaMemory:
             for rank, i in enumerate(sorted((i for i in range(len(rows)) if lexical[i] > 0), key=lambda i: (-lexical[i], i)), 1):
                 scores[i] += self.weight / (self.rrf + rank)
             order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
+        if self.tag_mode != 'off':
+            from .tags import normalize_tags
+            # Candidate options affect original retrieval only, not tag gating.
+            query_tags = set(normalize_tags(self.tagger.extract([payload.query], query=True)[0]))
+            pool = order[:max(payload.top_k, self.tag_candidates)]
+            matching = [i for i in pool if rows[i]['tag_identity'] == self.tagger.identity
+                        and query_tags.intersection(json.loads(rows[i]['tags']))]
+            if matching:
+                # Unknown/empty/old-version tags are never negative evidence.
+                allowed = set(matching) | {i for i in pool if rows[i]['tag_identity'] != self.tagger.identity
+                                            or not json.loads(rows[i]['tags'])}
+                order = [i for i in pool if i in allowed]
+            # No matches: original ranking is retained, preventing an empty result.
         selected = []
         seen = set()
         def include(i):
