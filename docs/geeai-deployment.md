@@ -43,3 +43,26 @@ cd /home/agent/csig-aml/current
 已生成 data/agentmemories/application-draft.json。其中缺失字段为空，memory_api_key 刻意不保存；不能直接作为完整申请提交。未向官方发送申请、未取得 Eval Key、未消耗官方 smoke/full 配额。
 
 仍需用户提供：联系邮箱；联系人与团队（个人可说明）；公开 GitHub 仓库；原创/复用及许可声明；如需 HTTPS，提供域名或现有反向代理入口。当前仓库没有 Git remote；未擅自发布源码。
+
+
+## GitHub 拉取部署（当前方式）
+
+源码仓库：https://github.com/fyuo863/GeeMem ，部署分支 `codex/agentmemories-evaluation`。服务器在 `/home/agent/csig-aml/repository` 保存 Git 克隆；每次 fetch 后校验目标完整 SHA，从该对象生成独立 releases/<完整SHA>，切换 current 并重启。部署脚本不改密钥、数据库和运行环境；依赖版本不匹配时在切换前停止，启动检查失败自动回退代码。
+
+本地更新流程：
+
+```powershell
+git push origin codex/agentmemories-evaluation
+git rev-parse HEAD
+```
+
+远端更新流程（把完整 SHA 替换成上一步结果）：
+
+```sh
+ssh geeai-aiagent
+bash /home/agent/csig-aml/repository/deploy/update-geeai.sh <完整SHA>
+```
+
+部署脚本固定允许的仓库与分支，不使用 force push 或重置现有本地研究分支。旧发布目录保留用于回退，`.env` 始终链接到 shared/.env。首次服务器 clone 也从 GitHub 读取，不再从本机传输源码压缩包。普通源码更新继续复用已验证依赖；需要升级运行环境时另行准备并验证，不能直接改共享环境后声称可完整回退。
+
+此文前述 ed799c8 是最初运行版本；当前实际发布 SHA 以 current/.deployed-commit 为准。官方申报应填写当前实际 SHA，并在 Full 期间冻结版本。
