@@ -77,7 +77,7 @@ class LocalEmbedder:
 
 
 class VanillaMemory:
-    def __init__(self, cfg, embedder=None, tagger=None):
+    def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
         self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
@@ -104,6 +104,15 @@ class VanillaMemory:
             from .tags import RuleTagger
             self.tagger = RuleTagger()
         self.tag_vector_identity = json.dumps([getattr(self.tagger, 'identity', None), self.embedder.identity, 'sorted-space-join-v1'])
+        self.reranker = reranker
+        rerank_mode = cfg.get('RAG_RERANK_MODE', 'off')
+        self.rerank_candidates = int(cfg.get('RAG_RERANK_CANDIDATES', '200'))
+        self.rerank_context = int(cfg.get('RAG_RERANK_CONTEXT', '0'))
+        if rerank_mode not in ('off', 'local') or self.rerank_candidates < 1 or not 0 <= self.rerank_context <= 2:
+            raise ValueError('Invalid reranking configuration')
+        if self.reranker is None and rerank_mode == 'local':
+            from .rerank import LocalReranker
+            self.reranker = LocalReranker(cfg)
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path
@@ -263,6 +272,27 @@ class VanillaMemory:
                     for rank, i in enumerate(sorted(known, key=lambda i: (-float(similarity[i]), i)), 1):
                         scores[i] += self.tag_weight / (self.rrf + rank)
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
+        if self.reranker is not None:
+            candidates = order[:max(payload.top_k, self.rerank_candidates)]
+            documents = []
+            for i in candidates:
+                text = rows[i]['content']
+                if self.rerank_context:
+                    before = [rows[j]['content'] for j in range(max(0,i-self.rerank_context),i)
+                              if rows[j]['session_id'] == rows[i]['session_id']]
+                    after = [rows[j]['content'] for j in range(i+1,min(len(rows),i+1+self.rerank_context))
+                             if rows[j]['session_id'] == rows[i]['session_id']]
+                    text = 'Target message: ' + text + '\nPrevious context: ' + ' '.join(before) + '\nNext context: ' + ' '.join(after)
+                documents.append(text)
+            with self.lock:
+                reranked = np.asarray(self.reranker.score(payload.query, documents),dtype=float).reshape(-1)
+            if len(reranked) != len(candidates) or not np.isfinite(reranked).all():
+                raise ValueError('Invalid reranker scores')
+            # Stable ties preserve the existing retrieval order.
+            ranking = sorted(range(len(candidates)), key=lambda j: -reranked[j])
+            scores = scores.copy()
+            for j,i in enumerate(candidates):scores[i] = reranked[j]
+            order = [candidates[j] for j in ranking]
         selected = []
         seen = set()
         def include(i):
