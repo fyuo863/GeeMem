@@ -78,6 +78,15 @@ class LocalEmbedder:
 
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
+        self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
+        if self.metadata_mode not in ('off', 'on'):
+            raise ValueError('Invalid metadata mode')
+        self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
+        if self.target_mode not in ('off', 'on'):
+            raise ValueError('Invalid target mode')
+        self.second_pass = cfg.get('RAG_SECOND_PASS', 'off')
+        if self.second_pass not in ('off', 'on'):
+            raise ValueError('Invalid second pass mode')
         self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
@@ -117,6 +126,10 @@ class VanillaMemory:
         if self.reranker is None and rerank_mode == 'local':
             from .rerank import LocalReranker
             self.reranker = LocalReranker(cfg)
+        if self.target_mode == 'on' and self.reranker is None:
+            raise ValueError('Target attribution requires reranker')
+        if self.second_pass == 'on' and self.reranker is None:
+            raise ValueError('Second pass requires reranker')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -145,6 +158,8 @@ class VanillaMemory:
                 CREATE TABLE IF NOT EXISTS rag_tag_vectors(memory_id TEXT PRIMARY KEY,
                     identity TEXT NOT NULL, vector BLOB NOT NULL, dimension INTEGER NOT NULL);
             """)
+            from .provenance import initialize
+            initialize(db)
             db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('identity', ?)", (identity,))
             if db.execute("SELECT value FROM rag_meta WHERE key='identity'").fetchone()[0] != identity:
                 raise ValueError('Embedding/chunk identity changed; use a new RAG_MEMORY_DB')
@@ -165,7 +180,8 @@ class VanillaMemory:
         return arr / norms
 
     def add(self, payload):
-        digest = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
+        from .provenance import payload_digest, store_sources
+        digest = payload_digest(payload)
         def exists(db):
             row = db.execute('SELECT digest FROM rag_requests WHERE user_id=? AND request_id=?',
                              (payload.user_id, payload.request_id)).fetchone()
@@ -214,8 +230,12 @@ class VanillaMemory:
                         tag_vector = tag_vectors[index]
                         db.execute('INSERT INTO rag_tag_vectors VALUES (?,?,?,?)',
                                    (mid, self.tag_vector_identity, tag_vector.astype('<f4').tobytes(), len(tag_vector)))
+                store_sources(db, payload, chunks, TOKEN, self.size, self.overlap)
 
     def retrieval_text(self, row):
+        if self.metadata_mode == 'on':
+            from .provenance import metadata_text
+            return metadata_text(row)
         return row['content']
 
     def score_candidates(self, query, rows, candidates):
@@ -233,12 +253,17 @@ class VanillaMemory:
             reranked = np.asarray(self.reranker.score(query, documents),dtype=float).reshape(-1)
         if len(reranked) != len(candidates) or not np.isfinite(reranked).all():
             raise ValueError('Invalid reranker scores')
+        if self.target_mode == 'on':
+            from .target_rerank import combine_target_scores
+            with self.lock:
+                target = self.reranker.score(query, [self.retrieval_text(rows[i]) for i in candidates])
+            reranked = combine_target_scores(reranked, target)
         return reranked
 
     def search(self, payload):
         with closing(self.connect()) as db:
-            rows = db.execute('SELECT m.*, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
-                              'LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
+            rows = db.execute('SELECT m.*, s.role, s.speaker, s.session_timestamp, s.source_id, s.source_index, s.char_start, s.char_end, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
+                              'LEFT JOIN rag_sources s ON s.memory_id=m.id LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
                               (payload.user_id,)).fetchall()
         if not rows:
             return {'data': []}
@@ -301,6 +326,13 @@ class VanillaMemory:
         if self.reranker is not None:
             candidates = order[:max(payload.top_k, self.rerank_candidates)]
             reranked = self.score_candidates(payload.query, rows, candidates)
+            if self.second_pass == 'on':
+                from .second_pass import additional_candidates
+                extra = additional_candidates(payload.query, rows, candidates, reranked, bm25)
+                if extra:
+                    extra_scores = self.score_candidates(payload.query, rows, extra)
+                    candidates = candidates + extra
+                    reranked = np.concatenate([reranked, extra_scores])
             # Stable ties preserve the existing retrieval order.
             ranking = sorted(range(len(candidates)), key=lambda j: -reranked[j])
             scores = scores.copy()
@@ -310,6 +342,10 @@ class VanillaMemory:
                 from .rerank import context_support_scores
                 order, boosted = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
                 for i, score in boosted.items():scores[i] = score
+            if self.target_mode == 'on':
+                from .target_rerank import select_targets
+                order, adjusted = select_targets(payload.query, rows, order, scores)
+                for i, score in adjusted.items():scores[i] = score
         selected = []
         seen = set()
         def include(i):
