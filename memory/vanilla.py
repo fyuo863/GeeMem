@@ -78,6 +78,9 @@ class LocalEmbedder:
 
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
+        self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
+        if self.metadata_mode not in ('off', 'on'):
+            raise ValueError('Invalid metadata mode')
         self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
@@ -145,6 +148,8 @@ class VanillaMemory:
                 CREATE TABLE IF NOT EXISTS rag_tag_vectors(memory_id TEXT PRIMARY KEY,
                     identity TEXT NOT NULL, vector BLOB NOT NULL, dimension INTEGER NOT NULL);
             """)
+            from .provenance import initialize
+            initialize(db)
             db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('identity', ?)", (identity,))
             if db.execute("SELECT value FROM rag_meta WHERE key='identity'").fetchone()[0] != identity:
                 raise ValueError('Embedding/chunk identity changed; use a new RAG_MEMORY_DB')
@@ -165,7 +170,8 @@ class VanillaMemory:
         return arr / norms
 
     def add(self, payload):
-        digest = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
+        from .provenance import payload_digest, store_sources
+        digest = payload_digest(payload)
         def exists(db):
             row = db.execute('SELECT digest FROM rag_requests WHERE user_id=? AND request_id=?',
                              (payload.user_id, payload.request_id)).fetchone()
@@ -214,8 +220,12 @@ class VanillaMemory:
                         tag_vector = tag_vectors[index]
                         db.execute('INSERT INTO rag_tag_vectors VALUES (?,?,?,?)',
                                    (mid, self.tag_vector_identity, tag_vector.astype('<f4').tobytes(), len(tag_vector)))
+                store_sources(db, payload, chunks, TOKEN, self.size, self.overlap)
 
     def retrieval_text(self, row):
+        if self.metadata_mode == 'on':
+            from .provenance import metadata_text
+            return metadata_text(row)
         return row['content']
 
     def score_candidates(self, query, rows, candidates):
@@ -237,8 +247,8 @@ class VanillaMemory:
 
     def search(self, payload):
         with closing(self.connect()) as db:
-            rows = db.execute('SELECT m.*, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
-                              'LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
+            rows = db.execute('SELECT m.*, s.role, s.speaker, s.session_timestamp, s.source_id, s.source_index, s.char_start, s.char_end, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
+                              'LEFT JOIN rag_sources s ON s.memory_id=m.id LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
                               (payload.user_id,)).fetchall()
         if not rows:
             return {'data': []}

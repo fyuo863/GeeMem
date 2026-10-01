@@ -19,6 +19,7 @@ class AMLMessage(StrictModel):
     role: Literal['user', 'assistant']
     content: str = Field(min_length=1, max_length=32000)
     timestamp: int | None = Field(default=None, ge=0, le=253402300799999, strict=True)
+    speaker: str | None = Field(default=None, min_length=1, max_length=256, pattern=r'^\S(?:.*\S)?$')
 
     @field_validator('content')
     @classmethod
@@ -43,6 +44,7 @@ class AMLAdd(Scope):
     request_id: str = Field(min_length=1, max_length=256)
     session_id: str = Field(min_length=1, max_length=256)
     messages: list[AMLMessage] = Field(min_length=1, max_length=200)
+    session_timestamp: int | None = Field(default=None, ge=0, le=253402300799999, strict=True)
 
     @field_validator('request_id','session_id')
     @classmethod
