@@ -84,6 +84,9 @@ class VanillaMemory:
         self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
         if self.target_mode not in ('off', 'on'):
             raise ValueError('Invalid target mode')
+        self.second_pass = cfg.get('RAG_SECOND_PASS', 'off')
+        if self.second_pass not in ('off', 'on'):
+            raise ValueError('Invalid second pass mode')
         self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
@@ -125,6 +128,8 @@ class VanillaMemory:
             self.reranker = LocalReranker(cfg)
         if self.target_mode == 'on' and self.reranker is None:
             raise ValueError('Target attribution requires reranker')
+        if self.second_pass == 'on' and self.reranker is None:
+            raise ValueError('Second pass requires reranker')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -321,6 +326,13 @@ class VanillaMemory:
         if self.reranker is not None:
             candidates = order[:max(payload.top_k, self.rerank_candidates)]
             reranked = self.score_candidates(payload.query, rows, candidates)
+            if self.second_pass == 'on':
+                from .second_pass import additional_candidates
+                extra = additional_candidates(payload.query, rows, candidates, reranked, bm25)
+                if extra:
+                    extra_scores = self.score_candidates(payload.query, rows, extra)
+                    candidates = candidates + extra
+                    reranked = np.concatenate([reranked, extra_scores])
             # Stable ties preserve the existing retrieval order.
             ranking = sorted(range(len(candidates)), key=lambda j: -reranked[j])
             scores = scores.copy()
