@@ -29,6 +29,29 @@ class LocalReranker:
                           show_progress_bar=False,convert_to_numpy=True),dtype=float).reshape(-1)
 
 
+class HTTPReranker:
+    """vLLM /v1/rerank endpoint, configured only in .env."""
+    def __init__(self, cfg):
+        import httpx
+        self.url = cfg['RAG_RERANK_API_URL'].rstrip('/')
+        self.model_name = cfg.get('RAG_RERANK_API_MODEL', '')
+        self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
+        self.client = httpx.Client(timeout=self.timeout, trust_env=False)
+        self.identity = json.dumps(['http-reranker-v1', self.url, self.model_name], sort_keys=True)
+
+    def score(self, query, documents):
+        payload = {'query': query, 'documents': list(documents)}
+        if self.model_name: payload['model'] = self.model_name
+        response = self.client.post(self.url, json=payload); response.raise_for_status()
+        rows = response.json().get('results', [])
+        scores = np.full(len(documents), -np.inf, dtype=float)
+        for row in rows:
+            index = int(row['index'])
+            if 0 <= index < len(scores): scores[index] = float(row['relevance_score'])
+        if not np.isfinite(scores).all(): raise ValueError('Invalid reranker API response')
+        return scores
+
+
 def context_support_scores(rows, candidates, reranked, penalty):
     """Credit a context neighbor without treating context relevance as target proof.
 

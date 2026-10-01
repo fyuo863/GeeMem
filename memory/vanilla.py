@@ -76,6 +76,38 @@ class LocalEmbedder:
         return self.documents([self.prefix + t for t in texts])
 
 
+class HTTPEmbedder:
+    """OpenAI-compatible embedding endpoint, configured only in .env."""
+    def __init__(self, cfg):
+        import httpx
+        self.url = cfg['RAG_EMBEDDING_API_URL'].rstrip('/')
+        self.model_name = cfg.get('RAG_EMBEDDING_API_MODEL', '')
+        self.prefix = cfg.get('RAG_QUERY_PREFIX', '')
+        self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
+        self.client = httpx.Client(timeout=self.timeout, trust_env=False)
+        self.identity = json.dumps(['http-embedding-v1', self.url, self.model_name, self.prefix], sort_keys=True)
+
+    def documents(self, texts):
+        payload = {'input': list(texts)}
+        if self.model_name: payload['model'] = self.model_name
+        response = self.client.post(self.url, json=payload); response.raise_for_status()
+        data = response.json().get('data', [])
+        ordered = sorted(data, key=lambda item: item.get('index', 0))
+        return self._vectors([item.get('embedding') for item in ordered], len(texts))
+
+    @staticmethod
+    def _vectors(value, count):
+        arr = np.asarray(value, dtype=np.float32)
+        if arr.ndim != 2 or arr.shape[0] != count or arr.shape[1] == 0 or not np.isfinite(arr).all():
+            raise ValueError('Invalid embedding API response')
+        norms = np.linalg.norm(arr, axis=1, keepdims=True)
+        if np.any(norms == 0): raise ValueError('Zero embedding vector')
+        return arr / norms
+
+    def queries(self, texts):
+        return self.documents([self.prefix + t for t in texts])
+
+
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
@@ -87,7 +119,9 @@ class VanillaMemory:
         self.second_pass = cfg.get('RAG_SECOND_PASS', 'off')
         if self.second_pass not in ('off', 'on'):
             raise ValueError('Invalid second pass mode')
-        self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
+        if embedder is None:
+            embedder = HTTPEmbedder(cfg) if cfg.get('RAG_EMBEDDING_API_URL') else LocalEmbedder(cfg)
+        self.embedder = embedder
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
         self.mode = cfg.get('RAG_RETRIEVAL_MODE', 'hybrid')
@@ -124,8 +158,8 @@ class VanillaMemory:
         if rerank_mode not in ('off', 'local') or self.rerank_candidates < 1 or not 0 <= self.rerank_context <= 2:
             raise ValueError('Invalid reranking configuration')
         if self.reranker is None and rerank_mode == 'local':
-            from .rerank import LocalReranker
-            self.reranker = LocalReranker(cfg)
+            from .rerank import HTTPReranker, LocalReranker
+            self.reranker = HTTPReranker(cfg) if cfg.get('RAG_RERANK_API_URL') else LocalReranker(cfg)
         if self.target_mode == 'on' and self.reranker is None:
             raise ValueError('Target attribution requires reranker')
         if self.second_pass == 'on' and self.reranker is None:
