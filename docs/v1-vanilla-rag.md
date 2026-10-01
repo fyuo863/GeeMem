@@ -159,3 +159,46 @@ fixed before results, not tuned on gold evidence. All query encoding is timed ea
 write/search variant order rotates to reduce warm-cache bias. No official evaluation.
 
 Results: [semantic keyword experiment](semantic-tag-experiment-20260930.md). Soft ranking improves Recall@100 by 1.67 points but reduces Recall@10 by 3.33 points and adds latency. Default remains off.
+
+## Recall@10 contextual reranking experiment
+
+`python scripts/download_reranker.py` downloads pinned
+cross-encoder/ms-marco-MiniLM-L-6-v2 revision
+233902d25c440f23af6f7d6e94d2946bac0bee0a through the explicit root .env proxy.
+Files and checksums are local under data/models; no automatic inference downloads.
+Use the existing .[rag] dependencies. This is a local discriminative relevance model,
+not a generative LLM/API call. The graph research backend remains separate.
+
+Optional root .env settings for the development-selected recipe:
+
+```dotenv
+RAG_TAG_MODE=off
+RAG_RERANK_MODE=local
+RAG_RERANK_CANDIDATES=400
+RAG_RERANK_CONTEXT=1
+RAG_RERANK_DEVICE=cuda
+RAG_RERANK_BATCH_SIZE=32
+RAG_RERANK_MAX_LENGTH=512
+RAG_RESULT_WINDOW=0
+```
+
+CPU is supported by setting RAG_RERANK_DEVICE=cpu; latency will differ. Add and source
+embeddings are unchanged. Search scores original candidates with their immediately
+adjacent same-session messages as context, then returns only the selected original
+message text, never the attached context as a larger result. User scoping occurs before
+ranking. Context is bounded by insertion adjacency, not timestamps or inferred identity.
+Cross-encoder truncation is capped at 512 tokenizer tokens. No identities are invented.
+
+Default reranking remains off so existing installations do not require a new model.
+Existing baseline databases work without re-embedding; production is not automatically
+switched to this research mode. Candidate scores are reranker scores, not RRF scores.
+
+Reproduce development comparison:
+`python scripts/benchmark_rerank.py --split dev --variant context --candidates 400 --context 1`
+Then fixed validation:
+`python scripts/benchmark_rerank.py --split heldout --variant context --candidates 400 --context 1`
+
+First 3 conversations are development, remaining 7 fixed validation; both splits were
+previously observed in aggregate public-data reports and are not an unseen external test.
+The benchmark diagnoses candidate coverage at 20/50/100/400 separately from Recall@10;
+coverage at K=400 is not a success at K=10. It never exposes gold evidence to scoring.

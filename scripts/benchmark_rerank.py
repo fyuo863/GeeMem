@@ -12,7 +12,7 @@ from memory.evaluation import canonical_evidence,evidence_metrics
 
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--split',choices=['dev','heldout'],default='dev');p.add_argument('--variant',choices=['all','plain','context'],default='all');args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--split',choices=['dev','heldout'],default='dev');p.add_argument('--variant',choices=['all','plain','context'],default='all');p.add_argument('--candidates',type=int,default=200);p.add_argument('--context',type=int,choices=[1,2],default=1);args=p.parse_args()
  cfg=load_settings();cfg=dict(cfg,RAG_RERANK_DEVICE='cuda',RAG_RERANK_BATCH_SIZE='32',RAG_RERANK_MAX_LENGTH='512')
  model=LocalEmbedder(cfg);rerank=LocalReranker(cfg)
  root=PROJECT_ROOT/'data/full-semantic-benchmarks/20260930T122205Z'
@@ -38,21 +38,21 @@ def main():
    for qi,q in enumerate(sample['qa']):
     gold=canonical_evidence(q.get('evidence'))
     if q.get('is_multi_modality',False) or not gold:continue
-    before=time.perf_counter();hits=store.search(SimpleNamespace(user_id=user,query=q['question'],top_k=200,options=None))['data'];retrieval=time.perf_counter()-before
+    before=time.perf_counter();hits=store.search(SimpleNamespace(user_id=user,query=q['question'],top_k=args.candidates,options=None))['data'];retrieval=time.perf_counter()-before
     c=dict(sample_id=sample['sample_id'],question_index=qi,question=q['question'],evidence=gold)
     c['original_window']=original[(sample['sample_id'],qi)]['baseline']
     def record(name,chosen,seconds):
      found=set(mapping[h['id']] for h in chosen)&set(gold)
      c[name]=dict(hit_evidence=sorted(found),recall=len(found)/len(gold),seconds=seconds,ids=[h['id'] for h in chosen])
     record('no_window',hits[:10],retrieval)
-    for k in [20,50,100,200]:record('ceiling_'+str(k),hits[:k],retrieval)
+    for k in sorted({20,50,100,args.candidates}):record('ceiling_'+str(k),hits[:k],retrieval)
     for variant in variants:
      documents=[]
      for h in hits:
       text=h['content'];i=position[h['id']]
       if variant=='context':
-       prev=rows[i-1]['content'] if i>0 and rows[i-1]['session_id']==rows[i]['session_id'] else ''
-       following=rows[i+1]['content'] if i+1<len(rows) and rows[i+1]['session_id']==rows[i]['session_id'] else ''
+       prev=' '.join(rows[j]['content'] for j in range(max(0,i-args.context),i) if rows[j]['session_id']==rows[i]['session_id'])
+       following=' '.join(rows[j]['content'] for j in range(i+1,min(len(rows),i+args.context+1)) if rows[j]['session_id']==rows[i]['session_id'])
        text='Target message: '+text+'\nPrevious context: '+prev+'\nNext context: '+following
       documents.append(text)
      before=time.perf_counter();scores=rerank.score(q['question'],documents);elapsed=time.perf_counter()-before
@@ -63,11 +63,11 @@ def main():
     cases.append(c);stream.write(json.dumps(c,ensure_ascii=False)+'\n');stream.flush()
     if len(cases)%20==0:print('SEARCHED',len(cases),sample['sample_id'],flush=True)
  summary={}
- for name in ['original_window','no_window',*[f'ceiling_{k}' for k in [20,50,100,200]],*variants]:
+ for name in ['original_window','no_window',*[f'ceiling_{k}' for k in sorted({20,50,100,args.candidates})],*variants]:
   summary[name]=evidence_metrics(cases,name)
   summary[name]['p50_seconds']=float(np.median([c[name]['seconds'] for c in cases]))
   if not name.startswith('ceiling') and name!='original_window':summary[name].update(wins=sum(c[name]['recall']>c['original_window']['recall'] for c in cases),losses=sum(c[name]['recall']<c['original_window']['recall'] for c in cases))
- report=dict(split=args.split,conversations=[s['sample_id'] for s in samples],metrics=summary,reranker=rerank.identity,candidate_limit=200,top_k=10,llm_calls=0,
+ report=dict(split=args.split,conversations=[s['sample_id'] for s in samples],metrics=summary,reranker=rerank.identity,candidate_limit=args.candidates,context=args.context,top_k=10,llm_calls=0,
   note='Development first 3 conversations; heldout remaining 7. Previously observed aggregate dataset, not an unseen external test. Original baseline latency from prior run; reranker GPU, retrieval CPU.')
  (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8');print(json.dumps(summary,indent=2));print('REPORT',out/'report.json',flush=True)
 
