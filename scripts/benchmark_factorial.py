@@ -6,6 +6,7 @@ Use --latency for uncached, counterbalanced warmed endpoint-engine timings.
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import gzip
 import itertools
 import json
 from pathlib import Path
@@ -31,13 +32,14 @@ class ScoreCache:
         self.inferred = 0
 
     def score(self, query, documents):
-        missing = list(dict.fromkeys(d for d in documents if (query,d) not in self.values))
+        keys = {d: hashlib.sha256(json.dumps([query,d],ensure_ascii=False).encode()).hexdigest() for d in documents}
+        missing = list(dict.fromkeys(d for d in documents if keys[d] not in self.values))
         if missing:
             scores = self.model.score(query, missing)
             assert len(scores) == len(missing) and np.isfinite(scores).all()
-            self.values.update({(query,d): float(v) for d,v in zip(missing,scores)})
+            self.values.update({keys[d]: float(v) for d,v in zip(missing,scores)})
             self.inferred += len(missing)
-        return np.array([self.values[(query,d)] for d in documents])
+        return np.array([self.values[keys[d]] for d in documents])
 
 
 class QueryCache:
@@ -79,6 +81,16 @@ def main():
     cfg = config(out)
     source = PROJECT_ROOT/'data/locomo-refined/data/raw/locomo_refined.json'
     samples = json.loads(source.read_text(encoding='utf-8'))
+    identity = dict(source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+        implementation={name:hashlib.sha256((PROJECT_ROOT/name).read_bytes()).hexdigest() for name in
+            ['memory/vanilla.py','memory/provenance.py','memory/target_rerank.py','memory/second_pass.py','memory/rerank.py',
+             'memory/tags.py','scripts/benchmark_factorial.py']},
+        config={k:v for k,v in cfg.items() if k.startswith('RAG_') and not any(t in k for t in ['PROXY','KEY','TOKEN'])})
+    identity_path=out/'identity.json'
+    if identity_path.exists():
+        assert json.loads(identity_path.read_text(encoding='utf-8'))==identity, 'Use a new output directory after implementation/config changes'
+    else:identity_path.write_text(json.dumps(identity,indent=2),encoding='utf-8')
+    score_dir=out/'scores';score_dir.mkdir(exist_ok=True)
     embedder, ranker = LocalEmbedder(cfg), LocalReranker(cfg)
     cached_embedder, cached_ranker = QueryCache(embedder), ScoreCache(ranker)
     stores = stores_for(cfg, cached_embedder, cached_ranker)
@@ -140,12 +152,18 @@ def main():
         for s,qi,q in questions:
             if (s['sample_id'],qi) in complete:continue
             cached_ranker.values.clear();cached_embedder.cache.clear()
+            score_path=score_dir/(s['sample_id']+'-'+str(qi)+'.json.gz')
+            if score_path.exists():
+                with gzip.open(score_path,'rt',encoding='utf-8') as handle:cached_ranker.values=json.load(handle)
             c=dict(sample_id=s['sample_id'],question_index=qi,question=q['question'],evidence=canonical_evidence(q['evidence']),
                    split='dev' if s in samples[:3] else 'validation')
             for name,store in stores.items():
                 hits=checked_search(store,s,q)
                 gold=set(c['evidence']); found={mapping[h['id']][1] for h in hits}&gold
                 c[name]=dict(ids=[h['id'] for h in hits],hit_evidence=sorted(found),recall=len(found)/len(gold))
+            with gzip.open(score_path.with_suffix('.tmp'),'wt',encoding='utf-8') as handle:
+                json.dump(cached_ranker.values,handle)
+            score_path.with_suffix('.tmp').replace(score_path)
             cases.append(c);stream.write(json.dumps(c,ensure_ascii=False)+'\n');stream.flush()
             if len(cases)%10==0:print('SEARCHED',len(cases),'/',len(questions), 'pairs',cached_ranker.inferred,flush=True)
     metrics={}
