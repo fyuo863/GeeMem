@@ -1,0 +1,79 @@
+[
+  {
+    "id": "http://arxiv.org/abs/2410.10813v2",
+    "title": "LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory",
+    "published": "2024-10-14T17:59:44Z",
+    "updated": "2025-03-04T22:19:41Z",
+    "summary": "Recent large language model (LLM)-driven chat assistant systems have integrated memory components to track user-assistant chat histories, enabling more accurate and personalized responses. However, their long-term memory capabilities in sustained interactions remain underexplored. We introduce LongMemEval, a comprehensive benchmark designed to evaluate five core long-term memory abilities of chat assistants: information extraction, multi-session reasoning, temporal reasoning, knowledge updates, and abstention. With 500 meticulously curated questions embedded within freely scalable user-assistant chat histories, LongMemEval presents a significant challenge to existing long-term memory systems, with commercial chat assistants and long-context LLMs showing a 30% accuracy drop on memorizing information across sustained interactions. We then present a unified framework that breaks down the long-term memory design into three stages: indexing, retrieval, and reading. Built upon key experimental insights, we propose several memory design optimizations including session decomposition for value granularity, fact-augmented key expansion for indexing, and time-aware query expansion for refining the search scope. Extensive experiments show that these optimizations greatly improve both memory recall and downstream question answering on LongMemEval. Overall, our study provides valuable resources and guidance for advancing the long-term memory capabilities of LLM-based chat assistants, paving the way toward more personalized and reliable conversational AI. Our benchmark and code are publicly available at https://github.com/xiaowu0162/LongMemEval.",
+    "url": "https://arxiv.org/abs/2410.10813v2",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract and selected method/limitation passages from primary arXiv HTML",
+    "reproduced": false
+  },
+  {
+    "id": "http://arxiv.org/abs/2409.04701v3",
+    "title": "Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models",
+    "published": "2024-09-07T03:54:46Z",
+    "updated": "2025-07-07T17:49:51Z",
+    "summary": "Many use cases require retrieving smaller portions of text, and dense vector-based retrieval systems often perform better with shorter text segments, as the semantics are less likely to be over-compressed in the embeddings. Consequently, practitioners often split text documents into smaller chunks and encode them separately. However, chunk embeddings created in this way can lose contextual information from surrounding chunks, resulting in sub-optimal representations. In this paper, we introduce a novel method called late chunking, which leverages long context embedding models to first embed all tokens of the long text, with chunking applied after the transformer model and just before mean pooling - hence the term late in its naming. The resulting chunk embeddings capture the full contextual information, leading to superior results across various retrieval tasks. The method is generic enough to be applied to a wide range of long-context embedding models and works without additional training. To further increase the effectiveness of late chunking, we propose a dedicated fine-tuning approach for embedding models.",
+    "url": "https://arxiv.org/abs/2409.04701v3",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract and selected method/limitation passages from primary arXiv HTML",
+    "reproduced": false
+  },
+  {
+    "id": "http://arxiv.org/abs/2609.37443v1",
+    "title": "Learning to Retrieve Missing Evidence for Long-Term Memory QA",
+    "published": "2026-09-29T13:02:16Z",
+    "updated": "2026-09-29T13:02:16Z",
+    "summary": "Long-term memory enables language models to use past interactions in future conversations. However, evidence needed to answer a question may be scattered across distant turns, while the question itself omits clues needed to locate it. Retrieved facts can reveal these clues, motivating retrieval decisions conditioned on evidence already found. We introduce MERA (Missing-Evidence Retrieval Augmentation), which separates globally searchable memory from a question-specific evidence state. Verified evidence guides subsequent retrieval without restricting access to the global memory. We train a lightweight planner through reinforcement learning, rewarding queries that recover previously missing evidence. MERA achieves strong answer accuracy across Qwen3-30B and GPT-4o-mini backbones. With Qwen3-30B for evidence processing and answer generation, the trained 0.6B planner achieves 77.40% accuracy on LoCoMo and 71.29% on LongMemEval-S, exceeding a 30B planner without retrieval-grounded training by 4.10% and 3.96%, respectively. On LoCoMo, later retrieval rounds increase cumulative evidence recall from 55.5% to 80.5%.",
+    "url": "https://arxiv.org/abs/2609.37443v1",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract and selected method/limitation passages from primary arXiv HTML",
+    "reproduced": false
+  },
+  {
+    "id": "http://arxiv.org/abs/2609.34242v1",
+    "title": "Stashbird: Efficient Speaker-Indexed Memory for Conversational Agents",
+    "published": "2026-09-28T03:48:22Z",
+    "updated": "2026-09-28T03:48:22Z",
+    "summary": "AI agents require memory that preserves information across user-agent exchanges, user-to-user conversations, and group conversations with or without agent participation, while supporting updates as evidence changes or is removed. We present Stashbird, an agent memory system that links source episodes to derived memory state through explicit provenance. Stashbird organizes memory into episodic records, semantic relations, community summaries, and persisted graph state, with lifecycle operations for incremental updates and episode-level deletion. We evaluate question-answering accuracy and model-facing workload across four long-term memory benchmarks. On LoCoMo, Stashbird uses 76.4x fewer ingestion prompt tokens than Graphiti. Compared with reproduced Hindsight on the same benchmark, it uses 8.1x fewer retrieval prompt tokens, with accuracy 1.6 percentage points lower. It achieves higher accuracy than Hindsight on LongMemEval-S and GroupMemBench and comparable accuracy on EverMemBench.",
+    "url": "https://arxiv.org/abs/2609.34242v1",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract and selected method/limitation passages from primary arXiv HTML",
+    "reproduced": false
+  },
+  {
+    "id": "http://arxiv.org/abs/2609.34227v1",
+    "title": "When Does Selection Replace Extraction? A Pre-Registered Test of Agent Memory with a Typed Decision Model",
+    "published": "2026-09-28T03:34:07Z",
+    "updated": "2026-09-28T03:34:07Z",
+    "summary": "Does conversational memory need LLM-extracted facts, or is selecting the right raw turns enough? Published results disagree. Extraction-based systems report gains from distilled facts. Recent studies find raw history with good ranking does as well, but disagree about whether ranking matters. We ran a pre-registered study on held-out LoCoMo conversations and LongMemEval. At a tight budget on LoCoMo, raw turns selected by a single call to Jev, a typed decision model, are non-inferior to an LLM-extraction memory (one-sided 95% bound -3.0 points against a -5-point margin). Blind human grading narrows the margin but does not change the result. Raw turns cost 3,061 times less to write, and the result holds with a second answer model. Within this study, reranking's gain shrinks as the budget grows. It adds 17.4 points on LoCoMo and 9.1 on LongMemEval when three of 30 candidates are kept. At generous budgets it adds 1.5 and 1.1, and extraction systems are more accurate. This suggests why published results disagree. At matched context, Jev selects as accurately as an LLM reranker (non-inferiority bound -2.0) at a third of the latency, and more accurately than a multi-call graph traversal. Reranking lowers correct abstention. Plans, code and graded answers are released.",
+    "url": "https://arxiv.org/abs/2609.34227v1",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract and selected method/limitation passages from primary arXiv HTML",
+    "reproduced": false
+  },
+  {
+    "id": "http://arxiv.org/abs/2609.36457v1",
+    "title": "Memory Consolidation Flattens the Temporal Shape of User Facts",
+    "published": "2026-09-29T01:19:06Z",
+    "updated": "2026-09-29T01:19:06Z",
+    "summary": "Long-term memory systems turn conversations into short stored notes. A note can keep a user fact while losing evidence about whether the fact still holds. For example, \"I am driving a Peugeot\" can become \"The user drives a Peugeot,\" which drops the cue that the activity is ongoing. We call this aspectual flattening and measure it with LAPSE, a benchmark of matched user statements that differ only in temporal form. We find that memory writers flatten aspect selectively. Three writer models flattened the progressive statement but kept its simple-present match in 244 of 381 pairs, never the reverse. The asymmetry holds in all 11 model configurations tested and in the installed pipelines mem0, Graphiti, and Letta. The lost cue matters to later readers. In exploratory tests, changing only the stored verb shifted all three readers' estimates that a fact still holds. When readers could ask the user before acting, two of three acted without asking more often on flattened notes. Our planned memory-use task could not detect this, because readers there acted on almost every stored fact, even expired ones. Memory writing can thus remove evidence that later models use to decide whether to act.",
+    "url": "https://arxiv.org/abs/2609.36457v1",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract and selected method/limitation passages from primary arXiv HTML",
+    "reproduced": false
+  },
+  {
+    "id": "http://arxiv.org/abs/2609.38353v1",
+    "title": "TAGGRAPH: Tag-Augmented Graphs for Graph Retrieval of Agent Persistent Histories",
+    "published": "2026-09-29T18:15:04Z",
+    "updated": "2026-09-29T18:15:04Z",
+    "summary": "Long-term memory lets LLM agents recall past interactions and remain consistent across sessions, but memory systems are hard to compare because they often vary in representation, indexing, retrieval, and evaluation. We present a controlled evaluation framework based on shared 5W-style conversational memories. Localized graph configurations traverse a common base graph; AdaptiveGraph adds chronological edges and Personalized PageRank diffusion. We also evaluate BM25 over the same extracted notes and OpenClaw as a raw-input external reference. Retrieval rankings vary across memory settings. On LongMemEval-S, AdaptiveGraph is the strongest graph configuration at 0.844 MRR, but BM25 reaches 0.867 and OpenClaw 0.880. On ATANT Core, localized graph traversal outperforms diffusion and BM25, whereas BM25 leads the stress rounds. Reducing LongMemEval-S within the tested range does not reproduce the ATANT diffusion penalty, but the smallest tested store remains larger than ATANT Core, so store size cannot be ruled out. The penalty also persists under a permissive content-match criterion. Vocabulary normalization and extraction quality substantially affect graph retrieval, and missing extraction tags are common among top-five misses. Retrieval strategies should therefore be evaluated jointly with the memory setting and against strong lexical baselines.",
+    "url": "https://arxiv.org/abs/2609.38353v1",
+    "accessed": "2026-10-01",
+    "read_scope": "abstract only",
+    "reproduced": false
+  }
+]
