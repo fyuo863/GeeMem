@@ -81,6 +81,9 @@ class VanillaMemory:
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
+        self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
+        if self.target_mode not in ('off', 'on'):
+            raise ValueError('Invalid target mode')
         self.embedder = embedder if embedder is not None else LocalEmbedder(cfg)
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
@@ -120,6 +123,8 @@ class VanillaMemory:
         if self.reranker is None and rerank_mode == 'local':
             from .rerank import LocalReranker
             self.reranker = LocalReranker(cfg)
+        if self.target_mode == 'on' and self.reranker is None:
+            raise ValueError('Target attribution requires reranker')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -243,6 +248,11 @@ class VanillaMemory:
             reranked = np.asarray(self.reranker.score(query, documents),dtype=float).reshape(-1)
         if len(reranked) != len(candidates) or not np.isfinite(reranked).all():
             raise ValueError('Invalid reranker scores')
+        if self.target_mode == 'on':
+            from .target_rerank import combine_target_scores
+            with self.lock:
+                target = self.reranker.score(query, [self.retrieval_text(rows[i]) for i in candidates])
+            reranked = combine_target_scores(reranked, target)
         return reranked
 
     def search(self, payload):
@@ -320,6 +330,10 @@ class VanillaMemory:
                 from .rerank import context_support_scores
                 order, boosted = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
                 for i, score in boosted.items():scores[i] = score
+            if self.target_mode == 'on':
+                from .target_rerank import select_targets
+                order, adjusted = select_targets(payload.query, rows, order, scores)
+                for i, score in adjusted.items():scores[i] = score
         selected = []
         seen = set()
         def include(i):
