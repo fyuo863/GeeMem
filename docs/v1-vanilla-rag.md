@@ -202,3 +202,5 @@ First 3 conversations are development, remaining 7 fixed validation; both splits
 previously observed in aggregate public-data reports and are not an unseen external test.
 The benchmark diagnoses candidate coverage at 20/50/100/400 separately from Recall@10;
 coverage at K=400 is not a success at K=10. It never exposes gold evidence to scoring.
+
+Hit@10 follow-up: [failure analysis and context-support selection](hit10-optimization-20261001.md). Opt-in RAG_RERANK_SELECTION=context_support with context=1/window=0. Validation Hit@10 improves 78.32% to 80.42%; default remains direct.

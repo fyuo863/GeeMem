@@ -104,6 +104,10 @@ class VanillaMemory:
             from .tags import RuleTagger
             self.tagger = RuleTagger()
         self.tag_vector_identity = json.dumps([getattr(self.tagger, 'identity', None), self.embedder.identity, 'sorted-space-join-v1'])
+        self.rerank_selection = cfg.get('RAG_RERANK_SELECTION', 'direct')
+        self.neighbor_penalty = float(cfg.get('RAG_RERANK_NEIGHBOR_PENALTY', '2'))
+        if self.rerank_selection not in ('direct', 'context_support') or not math.isfinite(self.neighbor_penalty) or self.neighbor_penalty < 0:
+            raise ValueError('Invalid rerank selection')
         self.reranker = reranker
         rerank_mode = cfg.get('RAG_RERANK_MODE', 'off')
         self.rerank_candidates = int(cfg.get('RAG_RERANK_CANDIDATES', '200'))
@@ -113,6 +117,8 @@ class VanillaMemory:
         if self.reranker is None and rerank_mode == 'local':
             from .rerank import LocalReranker
             self.reranker = LocalReranker(cfg)
+        if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
+            raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path
@@ -293,6 +299,10 @@ class VanillaMemory:
             scores = scores.copy()
             for j,i in enumerate(candidates):scores[i] = reranked[j]
             order = [candidates[j] for j in ranking]
+            if self.rerank_selection == 'context_support':
+                from .rerank import context_support_scores
+                order, boosted = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
+                for i, score in boosted.items():scores[i] = score
         selected = []
         seen = set()
         def include(i):

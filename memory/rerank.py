@@ -27,3 +27,21 @@ class LocalReranker:
     def score(self,query,documents):
         return np.asarray(self.model.predict([(query,d) for d in documents],batch_size=self.batch,
                           show_progress_bar=False,convert_to_numpy=True),dtype=float).reshape(-1)
+
+
+def context_support_scores(rows, candidates, reranked, penalty):
+    """Credit a context neighbor without treating context relevance as target proof.
+
+    Rows must already be scoped to one user and ordered by insertion position.
+    A single propagation step is used; transferred scores never propagate again.
+    """
+    if not np.isfinite(penalty) or penalty < 0:
+        raise ValueError('Invalid context support penalty')
+    original = dict(zip(candidates, reranked))
+    boosted = dict(original)
+    for position, score in original.items():
+        for neighbor in (position-1, position+1):
+            if 0 <= neighbor < len(rows) and rows[neighbor]['session_id'] == rows[position]['session_id']:
+                boosted[neighbor] = max(boosted.get(neighbor, -float('inf')), score-penalty)
+    order = sorted(boosted, key=lambda i: (-boosted[i], -original.get(i, -float('inf')), i))
+    return order, boosted
