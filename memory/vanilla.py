@@ -215,6 +215,26 @@ class VanillaMemory:
                         db.execute('INSERT INTO rag_tag_vectors VALUES (?,?,?,?)',
                                    (mid, self.tag_vector_identity, tag_vector.astype('<f4').tobytes(), len(tag_vector)))
 
+    def retrieval_text(self, row):
+        return row['content']
+
+    def score_candidates(self, query, rows, candidates):
+        documents = []
+        for i in candidates:
+            text = self.retrieval_text(rows[i])
+            if self.rerank_context:
+                before = [self.retrieval_text(rows[j]) for j in range(max(0,i-self.rerank_context),i)
+                          if rows[j]['session_id'] == rows[i]['session_id']]
+                after = [self.retrieval_text(rows[j]) for j in range(i+1,min(len(rows),i+1+self.rerank_context))
+                         if rows[j]['session_id'] == rows[i]['session_id']]
+                text = 'Target message: ' + text + '\nPrevious context: ' + ' '.join(before) + '\nNext context: ' + ' '.join(after)
+            documents.append(text)
+        with self.lock:
+            reranked = np.asarray(self.reranker.score(query, documents),dtype=float).reshape(-1)
+        if len(reranked) != len(candidates) or not np.isfinite(reranked).all():
+            raise ValueError('Invalid reranker scores')
+        return reranked
+
     def search(self, payload):
         with closing(self.connect()) as db:
             rows = db.execute('SELECT m.*, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
@@ -280,20 +300,7 @@ class VanillaMemory:
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
         if self.reranker is not None:
             candidates = order[:max(payload.top_k, self.rerank_candidates)]
-            documents = []
-            for i in candidates:
-                text = rows[i]['content']
-                if self.rerank_context:
-                    before = [rows[j]['content'] for j in range(max(0,i-self.rerank_context),i)
-                              if rows[j]['session_id'] == rows[i]['session_id']]
-                    after = [rows[j]['content'] for j in range(i+1,min(len(rows),i+1+self.rerank_context))
-                             if rows[j]['session_id'] == rows[i]['session_id']]
-                    text = 'Target message: ' + text + '\nPrevious context: ' + ' '.join(before) + '\nNext context: ' + ' '.join(after)
-                documents.append(text)
-            with self.lock:
-                reranked = np.asarray(self.reranker.score(payload.query, documents),dtype=float).reshape(-1)
-            if len(reranked) != len(candidates) or not np.isfinite(reranked).all():
-                raise ValueError('Invalid reranker scores')
+            reranked = self.score_candidates(payload.query, rows, candidates)
             # Stable ties preserve the existing retrieval order.
             ranking = sorted(range(len(candidates)), key=lambda j: -reranked[j])
             scores = scores.copy()
