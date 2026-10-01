@@ -1,8 +1,26 @@
-# v1: Vanilla RAG
+# v1：原文证据检索
 
-当前分支的测评入口默认使用 BGE + BM25/RRF + 相邻消息窗口。安装、来源、差异和验证见 [v1 说明](docs/v1-vanilla-rag.md)。下文保留原图方案文档，图研究接口仍为 `memory.api:app`。
+测评入口是 `memory.aml_api:app`，采用本地 BGE + BM25/RRF、CrossEncoder 重排。最新实测最优配置叠加 **可靠人物/日期元数据、目标句归因、按需二次补检**，不调用生成式 LLM。八种单项/组合对照、代价和边界见 [完整实验报告](docs/evidence-ablation-20261001.md)。
 
-# CSIG Memory
+在 859 道已观察的公开纯文本题上，最优组合 Hit@10 为 **92.78%**，宏 Recall@10 为 **90.056%**，Micro Recall@10 为 **85.75%**。这不是官方未知测试成绩。GPU 暖态 Search P50 约 483 ms；仅启用元数据为 92.08% Hit、234 ms，可按需求关闭另两项。
+
+```powershell
+python -m pip install -e ".[rag,test]"
+# 仅首次初始化；已有 .env 时保留原配置和密钥
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+python scripts/download_rag_model.py
+python scripts/download_reranker.py
+python -m uvicorn memory.aml_api:app --host 127.0.0.1 --port 8000
+```
+
+配置仅来自根目录 `.env`。设置 `AML_API_KEY` 用于接口鉴权。模板采用可移植的 CPU 设备值；本次本机实验在 `.env` 中显式使用 cuda，CPU 延迟需另外测量。
+
+`/add` 可选新增 `session_timestamp`（Unix 毫秒）与 `messages[].speaker`；只传已有字段仍兼容。说话者必须由调用者可靠提供，不能把 role 自动当人名；旧数据不会凭空补身份/时间。程序自动保存 source_id、会话内原文位置和 chunk 字符区间，返回 content 始终保持原文。`/search` 使用 `top_k`，如 `{"user_id":"u","query":"问题","top_k":10}`。
+
+独立实验分支：`codex/evidence-metadata`、`codex/evidence-target-rerank`、`codex/evidence-second-pass`；完整对照保存在 `codex/evidence-factorial`。早期 v1 设计与来源见 [历史 v1 说明](docs/v1-vanilla-rag.md)。
+
+# 原图方案研究接口（历史说明）
+
 
 通用 Agent 长期记忆模块第一版：`POST /add` 将整轮对话交给 LLM 提取无向线索图，`POST /search` 将查询解析为关键词，沿节点/关系路径查找并返回消息原文。SQLite 持久保存图与证据，不依赖向量数据库。
 
