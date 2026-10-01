@@ -21,7 +21,7 @@ def target_penalty(query, row):
     # A full-string pattern, not a substring filter: "Thanks, I moved to Paris"
     # must retain its potentially useful fact.
     if len(words) <= 16 and re.fullmatch(
-        r"(?:thanks|thank you|wow|great|awesome|good luck|you got this|see you|bye)[\s!.,]*(?:[A-Z][a-z]+[!.,]*)?", text):
+        r"(?:thanks|thank you|wow|great|awesome|good luck|you got this|see you|bye)[\s!.,]*(?:[A-Z][a-z]+[!.,]*)?", text, re.I):
         penalty += 0.6
     return penalty
 

@@ -10,6 +10,7 @@ def test_elliptical_reply_keeps_context_and_bad_scores_fail():
 
 
 def test_factual_thanks_not_penalized_and_questions_depend_on_query():
+    assert target_penalty('Where did Alice move?', {'content': 'Thanks, Alice!'}) > 0
     assert target_penalty('Where did Alice move?', {'content': 'Thanks, I moved to Paris.'}) == 0
     assert target_penalty('Where did Alice move?', {'content': 'Where did you move?'}) > 0
     assert target_penalty('What did Alice ask?', {'content': 'Where did you move?'}) == 0
