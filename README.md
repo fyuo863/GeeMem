@@ -1,23 +1,88 @@
-# v1：原文证据检索
+# GeeMem — Agent 长期记忆与原文证据检索
 
-测评入口是 `memory.aml_api:app`，采用本地 BGE + BM25/RRF、CrossEncoder 重排。最新实测最优配置叠加 **可靠人物/日期元数据、目标句归因、按需二次补检**，不调用生成式 LLM。八种单项/组合对照、代价和边界见 [完整实验报告](docs/evidence-ablation-20261001.md)。
+GeeMem 通过同步 `POST /add` 保存对话，通过 `POST /search` 返回按相关性排序的原文证据，面向 Agent Memory Leaderboard 的 Textual Memory 接口。
 
-在 859 道已观察的公开纯文本题上，最优组合 Hit@10 为 **92.78%**，宏 Recall@10 为 **90.056%**，Micro Recall@10 为 **85.75%**。这不是官方未知测试成绩。GPU 暖态 Search P50 约 483 ms；仅启用元数据为 92.08% Hit、234 ms，可按需求关闭另两项。
+## 当前部署与模型披露
 
-```powershell
-python -m pip install -e ".[rag,test]"
-# 仅首次初始化；已有 .env 时保留原配置和密钥
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-python scripts/download_rag_model.py
-python scripts/download_reranker.py
-python -m uvicorn memory.aml_api:app --host 127.0.0.1 --port 8000
+- 当前实现分支：`v1`；已部署代码：`9fc8797fa221bcb517cb7a5fe67d540a4e94421b`。
+- Add：`http://210.16.160.209:18092/add`
+- Search：`http://210.16.160.209:18092/search`
+- Health：`http://210.16.160.209:18092/health`
+- 鉴权：`Authorization: Bearer <AML_API_KEY>`；密钥仅保存在部署根 `.env` 中，不入库。
+- 同步写入，不提供异步 Add 状态地址；成功返回后即可检索。
+- 服务器复用 Qwen3-Embedding-0.6B（vLLM 8004）与 Qwen3-Reranker-0.6B（vLLM 8003）。GeeMem 不重复加载模型。
+- 当前 Add/Search **不调用生成式 LLM**。`.env` 中的 `LLM_MODEL=gpt-4o-mini` 仅供历史 graph 后端使用，不代表当前 RAG 路径调用了该模型。
+
+**参赛规则待确认：**官网英文 API 指南表示不指定 embedding 模型，但申请表明确写有“非工业榜 Add/Search 使用的模型必须为 gpt-4o-mini”。该说明是否豁免 embedding/reranker 尚未确认。当前 Qwen 组合必须如实披露，并由主办方确认学术/开源榜资格；不能把配置中出现 gpt-4o-mini 当作符合该条款的证明。
+
+## Add / Search 流程
+
+Add：验证请求与用户分区 → 按原文分块（320 lexical tokens、重叠 40）→ embedding → SQLite 持久化。保存请求摘要实现幂等，保存原文位置及字符范围；可选 speaker 和 session_timestamp 只使用调用者提供的信息，不推断姓名。
+
+Search：按 user_id 限定范围 → 稠密召回与 BM25 → 加权 RRF → 最多 400 候选重排 → ABC 处理 → 返回 top_k 原文。ABC 包括可靠人物/日期元数据、上下文与目标句分别打分、按需进行二次关键词补检。不会生成最终答案或改写返回原文。
+
+```json
+{"request_id":"demo-001","user_id":"demo-user","session_id":"demo-session","messages":[{"role":"user","content":"I live in Hangzhou.","timestamp":1704067200000}]}
 ```
 
-配置仅来自根目录 `.env`。设置 `AML_API_KEY` 用于接口鉴权。模板采用可移植的 CPU 设备值；本次本机实验在 `.env` 中显式使用 cuda，CPU 延迟需另外测量。
+```json
+{"user_id":"demo-user","query":"Where do I live?","top_k":10}
+```
 
-`/add` 可选新增 `session_timestamp`（Unix 毫秒）与 `messages[].speaker`；只传已有字段仍兼容。说话者必须由调用者可靠提供，不能把 role 自动当人名；旧数据不会凭空补身份/时间。程序自动保存 source_id、会话内原文位置和 chunk 字符区间，返回 content 始终保持原文。`/search` 使用 `top_k`，如 `{"user_id":"u","query":"问题","top_k":10}`。
+Search 返回 `data` 数组，每项包含 `id`、`content`、`score`，已知时间时包含 `created_at`。Add 返回 `success` 并回显 request_id/user_id/session_id。
 
-独立实验分支：`codex/evidence-metadata`、`codex/evidence-target-rerank`、`codex/evidence-second-pass`；完整对照保存在 `codex/evidence-factorial`。早期 v1 设计与来源见 [历史 v1 说明](docs/v1-vanilla-rag.md)。
+## 部署与运行
+
+建议 Python 3.12。已有模型 API 时仅需应用依赖与 NumPy：
+
+```sh
+python -m pip install -e . 'numpy>=1.26,<3'
+# 首次初始化时复制；已有 .env 不要覆盖
+cp .env.example .env
+python -m uvicorn memory.aml_api:app --host 0.0.0.0 --port 18092 --workers 1 --no-access-log
+```
+
+保留模板中的 ABC 配置，在根 `.env` 填写部署配置：
+
+```dotenv
+MEMORY_BACKEND=vanilla
+AML_AUTH_MODE=bearer
+AML_API_KEY=<独立评测密钥>
+AML_ADD_CONCURRENCY=1
+AML_SEARCH_CONCURRENCY=4
+AML_BASE_URL=http://127.0.0.1:18092
+RAG_MEMORY_DB=data/aml/qwen-vanilla.sqlite3
+RAG_EMBEDDING_API_URL=http://127.0.0.1:8004/v1/embeddings
+RAG_EMBEDDING_API_MODEL=/GeeAI/AIAgent/model/Qwen3-Embedding-0.6B
+RAG_RERANK_MODE=local
+RAG_RERANK_API_URL=http://127.0.0.1:8003/v1/rerank
+RAG_RERANK_API_MODEL=/GeeAI/AIAgent/model/Qwen3-Reranker-0.6B
+RAG_API_TIMEOUT=120
+```
+
+API URL 必须是可直接调用的完整路径。当前 HTTP 模型适配器用于服务器内部接口，不配置模型端点鉴权头。`RAG_RERANK_MODE=local` 是当前兼容开关名；存在 API URL 时实际通过 HTTP 调用。应用只读取根 `.env`，不读取环境变量、不插值；更换 embedding 使用新数据库，不能混用向量。
+
+若使用本地 BGE/MiniLM：安装 `.[rag]`，去掉两个 API URL，执行 `scripts/download_rag_model.py` 与 `scripts/download_reranker.py` 下载模型后启动。两种模型配置不可视为同一实验。
+
+验证：`python scripts/smoke_aml.py --live` 会写入独立合成用户数据，验证幂等、跨会话检索、top_k、原文及用户隔离。它不是官方 Smoke，不消耗官方评测配额。
+
+当前服务器运行 `csig-aml-v1.service`，源码位于 `/home/agent/csig-aml-v1/current`，`.env` 与 SQLite 位于其 `shared` 目录；模型服务由服务器已有部署维护。旧 `deploy/update-geeai.sh` 只适用于 test_base，不应用于当前 v1。
+
+## 容量与边界
+
+单进程服务配置 Add 并发上限 1、Search 上限 4，超出返回 429 和 Retry-After: 5；这只是配置上限，内部锁与共享模型资源可能串行化请求，不代表已验证的持续吞吐。模型 HTTP 请求超时为 120 秒。尚未完成 Qwen 组合全量测试或并发压测。现有公网端点为 HTTP，无 TLS；评测应使用独立服务密钥。
+
+## 实验结果与来源
+
+[纯文本复测](docs/abc-text-only-comparison-20261001.md)：859 道有证据标注的公开题，BGE-small + MiniLM 的 ABC Hit@10 92.78%、Macro Recall@10 90.06%、Micro Recall@10 85.75%。数据已用于开发，非官方隐藏测试结果，**不能作为当前 Qwen 部署的准确率**。当前 Qwen 版本仅通过合成 HTTP 冒烟。Qwen 返回的分数尺度与 MiniLM 不同，原 ABC 的固定惩罚参数尚未重新校准。
+
+[完整消融报告](docs/evidence-ablation-20261001.md)与[历史 v1 说明](docs/v1-vanilla-rag.md)保留方法演化。旧文中的分支、部署状态以本 README 为准。
+
+检索基础方案参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。原方法/仓库作者署名为该仓库账户；参考版本未声明许可证。本仓库独立实现默认检索方法，不包含上游源文件，不声称原方法原创。新增 ABC、原文溯源、评测接口与 Qwen API 适配。模型分别归属 Qwen、BAAI 与相应模型发布者，使用须遵守各模型许可。
+
+分支：main（部署基建）、test_base（实验起点）、graph（图方法）、v1（当前检索方法）。ABC 实验分支已合并并删除，提交历史保留；旧图方案以 tag `archive/main-graph-v1` 保存。
+
+[申请表填写说明](docs/aml-application-v1.md)。以下为历史图方案研究文档，不是当前线上流程。
 
 # 原图方案研究接口（历史说明）
 
