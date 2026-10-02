@@ -114,6 +114,9 @@ class HTTPEmbedder:
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
+        self.soft_recall = cfg.get('RAG_SOFT_RECALL', 'off')
+        if self.soft_recall not in ('off', 'on'):
+            raise ValueError('Invalid soft-recall mode')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
         self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
@@ -170,6 +173,8 @@ class VanillaMemory:
             raise ValueError('Target attribution requires reranker')
         if self.second_pass == 'on' and self.reranker is None:
             raise ValueError('Second pass requires reranker')
+        if self.soft_recall == 'on' and self.reranker is None:
+            raise ValueError('Soft recall requires reranker')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -365,6 +370,10 @@ class VanillaMemory:
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
         if self.reranker is not None:
             candidates = order[:max(payload.top_k, self.rerank_candidates)]
+            if self.soft_recall == 'on':
+                from .soft_recall import metadata_candidates
+                metadata_route = metadata_candidates(payload.query, rows, order, bm25)
+                candidates = list(dict.fromkeys(candidates + metadata_route))
             reranked = self.score_candidates(payload.query, rows, candidates)
             if self.second_pass == 'on':
                 from .second_pass import additional_candidates
