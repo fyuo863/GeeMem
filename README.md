@@ -1,265 +1,194 @@
-# GeeMem — Agent 长期记忆与原文证据检索
+# GeeMem：Agent 长期记忆与原文证据检索
 
-GeeMem 通过同步 `POST /add` 保存对话，通过 `POST /search` 返回按相关性排序的原文证据，面向 Agent Memory Leaderboard 的 Textual Memory 接口。
+GeeMem 是一个通用 Agent 长期记忆模块，通过同步 `POST /add` 保存对话，通过 `POST /search` 返回相关原文证据。当前提供 Agent Memory Leaderboard 文本赛道适配接口，入口为 `memory.aml_api:app`。
 
-## 当前部署与模型披露
+当前选择 **ABC＋方案 1＋方案 3（FM）**：混合召回、上下文与目标评分融合、局部问答关联，以及人物/日期软召回。多人子查询方案 2 保留实现但关闭。Add/Search 不调用生成式 LLM，不生成最终答案。
 
-- 当前实现分支：`v1`；已部署代码：`9fc8797fa221bcb517cb7a5fe67d540a4e94421b`。
-- Add：`http://210.16.160.209:18092/add`
-- Search：`http://210.16.160.209:18092/search`
-- Health：`http://210.16.160.209:18092/health`
-- 鉴权：`Authorization: Bearer <AML_API_KEY>`；密钥仅保存在部署根 `.env` 中，不入库。
-- 同步写入，不提供异步 Add 状态地址；成功返回后即可检索。
-- 服务器复用 Qwen3-Embedding-0.6B（vLLM 8004）与 Qwen3-Reranker-0.6B（vLLM 8003）。GeeMem 不重复加载模型。
-- 当前 Add/Search **不调用生成式 LLM**。`.env` 中的 `LLM_MODEL=gpt-4o-mini` 仅供历史 graph 后端使用，不代表当前 RAG 路径调用了该模型。
+## 当前版本
 
-**参赛规则待确认：**官网英文 API 指南表示不指定 embedding 模型，但申请表明确写有“非工业榜 Add/Search 使用的模型必须为 gpt-4o-mini”。该说明是否豁免 embedding/reranker 尚未确认。当前 Qwen 组合必须如实披露，并由主办方确认学术/开源榜资格；不能把配置中出现 gpt-4o-mini 当作符合该条款的证明。
+- 实现分支：`codex/abc-factorial`。
+- 完整实验与报告提交：`58443cb`；当前 README 和配置在该提交基础上更新。
+- Embedding：`BAAI/bge-small-en-v1.5`。
+- Reranker：`cross-encoder/ms-marco-MiniLM-L-6-v2`。
+- 存储：SQLite，按 `user_id` 隔离，保存原文、来源位置、元数据和向量。
+- 配置只读取项目根目录 `.env`，不读取系统环境变量，不执行变量插值；`.env` 不提交 Git。
+- 本次已在本机 `.env` 和 `.env.example` 应用 FM。远端 `/GeeAI/AIAgent/CSIG` 的生产部署未在本次更新中切换；更新本地配置不会自动更新远端服务。
 
-## Add / Search 流程
+历史图方法使用 LLM，与当前 RAG 路径不同。保留的 `LLM_MODEL=gpt-4o-mini` 不表示当前 Add/Search 调用了该模型，也不替代对实际 embedding/reranker 的模型披露。
 
-Add：验证请求与用户分区 → 按原文分块（320 lexical tokens、重叠 40）→ embedding → SQLite 持久化。保存请求摘要实现幂等，保存原文位置及字符范围；可选 speaker 和 session_timestamp 只使用调用者提供的信息，不推断姓名。
+## /add 流程
 
-Search：按 user_id 限定范围 → 稠密召回与 BM25 → 加权 RRF → 最多 400 候选重排 → ABC 处理 → 返回 top_k 原文。ABC 包括可靠人物/日期元数据、上下文与目标句分别打分、按需进行二次关键词补检。不会生成最终答案或改写返回原文。
+1. 验证请求、鉴权和用户分区，检查 `request_id` 幂等性。
+2. 按原消息分块，默认每块 320 lexical tokens，重叠 40；保留原文及来源位置。
+3. 保存角色、时间，以及调用者提供的可选 `speaker`、`session_timestamp`。未知信息不凭空推断。
+4. 使用 BGE 编码，保存到 SQLite；同步写入成功后即可搜索。
 
-```json
-{"request_id":"demo-001","user_id":"demo-user","session_id":"demo-session","messages":[{"role":"user","content":"I live in Hangzhou.","timestamp":1704067200000}]}
+人物身份与 API 角色不同：`user/assistant` 不能自动替代具体姓名。建议调用者提供真实 `speaker`，以帮助人物相关检索。时间戳单位为 Unix 毫秒。
+
+```http
+POST /add
+Authorization: Bearer <AML_API_KEY>
+Content-Type: application/json
 ```
-
-```json
-{"user_id":"demo-user","query":"Where do I live?","top_k":10}
-```
-
-Search 返回 `data` 数组，每项包含 `id`、`content`、`score`，已知时间时包含 `created_at`。Add 返回 `success` 并回显 request_id/user_id/session_id。
-
-## 部署与运行
-
-建议 Python 3.12。已有模型 API 时仅需应用依赖与 NumPy：
-
-```sh
-python -m pip install -e . 'numpy>=1.26,<3'
-# 首次初始化时复制；已有 .env 不要覆盖
-cp .env.example .env
-python -m uvicorn memory.aml_api:app --host 0.0.0.0 --port 18092 --workers 1 --no-access-log
-```
-
-保留模板中的 ABC 配置，在根 `.env` 填写部署配置：
-
-```dotenv
-MEMORY_BACKEND=vanilla
-AML_AUTH_MODE=bearer
-AML_API_KEY=<独立评测密钥>
-AML_ADD_CONCURRENCY=1
-AML_SEARCH_CONCURRENCY=4
-AML_BASE_URL=http://127.0.0.1:18092
-RAG_MEMORY_DB=data/aml/qwen-vanilla.sqlite3
-RAG_EMBEDDING_API_URL=http://127.0.0.1:8004/v1/embeddings
-RAG_EMBEDDING_API_MODEL=/GeeAI/AIAgent/model/Qwen3-Embedding-0.6B
-RAG_RERANK_MODE=local
-RAG_RERANK_API_URL=http://127.0.0.1:8003/v1/rerank
-RAG_RERANK_API_MODEL=/GeeAI/AIAgent/model/Qwen3-Reranker-0.6B
-RAG_API_TIMEOUT=120
-```
-
-API URL 必须是可直接调用的完整路径。当前 HTTP 模型适配器用于服务器内部接口，不配置模型端点鉴权头。`RAG_RERANK_MODE=local` 是当前兼容开关名；存在 API URL 时实际通过 HTTP 调用。应用只读取根 `.env`，不读取环境变量、不插值；更换 embedding 使用新数据库，不能混用向量。
-
-若使用本地 BGE/MiniLM：安装 `.[rag]`，去掉两个 API URL，执行 `scripts/download_rag_model.py` 与 `scripts/download_reranker.py` 下载模型后启动。两种模型配置不可视为同一实验。
-
-验证：`python scripts/smoke_aml.py --live` 会写入独立合成用户数据，验证幂等、跨会话检索、top_k、原文及用户隔离。它不是官方 Smoke，不消耗官方评测配额。
-
-当前服务器运行 `csig-aml-v1.service`，源码位于 `/home/agent/csig-aml-v1/current`，`.env` 与 SQLite 位于其 `shared` 目录；模型服务由服务器已有部署维护。旧 `deploy/update-geeai.sh` 只适用于 test_base，不应用于当前 v1。
-
-## 容量与边界
-
-单进程服务配置 Add 并发上限 1、Search 上限 4，超出返回 429 和 Retry-After: 5；这只是配置上限，内部锁与共享模型资源可能串行化请求，不代表已验证的持续吞吐。模型 HTTP 请求超时为 120 秒。尚未完成 Qwen 组合全量测试或并发压测。现有公网端点为 HTTP，无 TLS；评测应使用独立服务密钥。
-
-## 实验结果与来源
-
-[纯文本复测](docs/abc-text-only-comparison-20261001.md)：859 道有证据标注的公开题，BGE-small + MiniLM 的 ABC Hit@10 92.78%、Macro Recall@10 90.06%、Micro Recall@10 85.75%。数据已用于开发，非官方隐藏测试结果，**不能作为当前 Qwen 部署的准确率**。当前 Qwen 版本仅通过合成 HTTP 冒烟。Qwen 返回的分数尺度与 MiniLM 不同，原 ABC 的固定惩罚参数尚未重新校准。
-
-[完整消融报告](docs/evidence-ablation-20261001.md)与[历史 v1 说明](docs/v1-vanilla-rag.md)保留方法演化。旧文中的分支、部署状态以本 README 为准。
-
-检索基础方案参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。原方法/仓库作者署名为该仓库账户；参考版本未声明许可证。本仓库独立实现默认检索方法，不包含上游源文件，不声称原方法原创。新增 ABC、原文溯源、评测接口与 Qwen API 适配。模型分别归属 Qwen、BAAI 与相应模型发布者，使用须遵守各模型许可。
-
-分支：main（部署基建）、test_base（实验起点）、graph（图方法）、v1（当前检索方法）。ABC 实验分支已合并并删除，提交历史保留；旧图方案以 tag `archive/main-graph-v1` 保存。
-
-[申请表填写说明](docs/aml-application-v1.md)。以下为历史图方案研究文档，不是当前线上流程。
-
-# 原图方案研究接口（历史说明）
-
-
-通用 Agent 长期记忆模块第一版：`POST /add` 将整轮对话交给 LLM 提取无向线索图，`POST /search` 将查询解析为关键词，沿节点/关系路径查找并返回消息原文。SQLite 持久保存图与证据，不依赖向量数据库。
-
-## 启动
-
-Python 3.11+，在 PowerShell 中执行：
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -e ".[test]"
-# 首次配置：若 .env 不存在，从模板创建，然后填写密钥与模型
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-notepad .env
-.\.venv\Scripts\python -m uvicorn memory.api:app --host 127.0.0.1 --port 8000
-```
-
-提供商须兼容 OpenAI Chat Completions 的 `response_format=json_schema` 严格结构化输出。程序自动读取项目根目录的 `.env`，不依赖启动时的工作目录；配置仅来自该文件，忽略系统环境变量，禁用 `${VAR}` 插值；HTTP 客户端也不读取环境代理或证书配置。未填写的可选项使用代码默认值，密钥无默认值。支持 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 、`LLM_PROXY`（可选，例如 `http://127.0.0.1:7897`）和 `MEMORY_DB`，修改后重启服务生效。`.env` 已被 Git 忽略。接口文档：<http://127.0.0.1:8000/docs>；存活探针：`GET /health`（不检查 LLM 连通性）。
-
-## 写入
-
-`POST /add`，Content-Type 为 `application/json`：
 
 ```json
 {
   "request_id": "write-001",
   "user_id": "user-001",
   "session_id": "session-001",
+  "session_timestamp": 1704067200000,
   "messages": [
-    {"role":"user","content":"我叫小林，现在住在杭州，最近正在准备马拉松。","timestamp":1704067200000},
-    {"role":"assistant","content":"小林，你计划参加哪一场马拉松？","timestamp":1704067260000},
-    {"role":"user","content":"我计划参加今年的杭州马拉松，每周训练三次。","timestamp":1704067320000}
+    {"role": "user", "speaker": "Xiaolin", "content": "I live in Hangzhou and train for a marathon three times a week.", "timestamp": 1704067200000},
+    {"role": "assistant", "content": "Which marathon are you preparing for?", "timestamp": 1704067260000},
+    {"role": "user", "speaker": "Xiaolin", "content": "The Hangzhou Marathon.", "timestamp": 1704067320000}
   ]
 }
 ```
 
-返回 `request_id`、`message_ids`、本次抽取的 `nodes`/`edges` 数及 `deduplicated`。时间戳为 Unix 毫秒；原文包含空格均按输入保留。支持 user/assistant/system/tool 角色。
-
-LLM 一次读取完整对话，识别实体、指代、事实和无向关联。例如「用户A向用户B提问」形成 `用户A —[询问]— 用户B`，每条节点和关系都保存来源消息下标。抽取完成并通过引用校验后，消息、图和幂等记录在一个事务中落库。LLM 不可用或输出无效时返回 502，不写半成品，也不静默切换成规则提取。
-
-同一用户下，相同 request_id 和相同内容重试，返回第一次的消息 ID；不同内容复用该 ID 返回 409。不同用户可独立使用相同 request_id。并发重复写入只提交一次（可能发生重复 LLM 调用）。
-
-## 检索
-
-`POST /search`：
+成功返回：
 
 ```json
-{
-  "user_id":"user-001",
-  "query":"小林参加什么马拉松，每周训练几次？",
-  "limit":10,
-  "max_hops":2
-}
+{"success": true, "request_id": "write-001", "user_id": "user-001", "session_id": "session-001"}
 ```
 
-可选 `session_id` 限定会话；省略时搜索该用户所有会话。`limit` 为 1–100，`max_hops` 为 0–4。
+同一用户下相同 `request_id`、相同内容重试不会重复写入；使用相同 ID 提交不同内容返回 409。单次请求支持 1–200 条消息；当前评测入口的角色仅支持 `user` 和 `assistant`。
 
-返回格式：
+## /search 流程
+
+1. **用户隔离与混合召回**：在指定用户内进行 BGE 稠密检索和 BM25 检索，通过加权 RRF 合并候选。
+2. **人物/日期软召回（方案 3）**：用规则识别人名与日期线索，追加最多 60 个元数据候选，补救未进入原候选池的证据；不将人物或日期作为硬过滤条件。
+3. **MiniLM 重排与 ABC**：基础重排候选上限为 400，分别评估上下文与目标文本，结合可靠人物/日期元数据，并在需要时进行二次关键词补检。
+4. **融合与局部问答关联（方案 1）**：有限幅度地调整上下文与目标评分，保护依赖上下文的短回答；利用同会话、相邻消息位置及不同说话者/角色关联提问与回答。
+5. **返回原文**：排序后返回 `top_k` 个结果，不将上下文或模型生成内容伪装成证据原文。长消息可能返回其原文分块。
+
+上述人物、日期和问答规则均不调用生成式 LLM。方案 2 的多人子查询当前关闭，因为本次完整测试中降低了 Hit@10。
+
+```http
+POST /search
+Authorization: Bearer <AML_API_KEY>
+Content-Type: application/json
+```
+
+```json
+{"user_id": "user-001", "query": "Which marathon is Xiaolin preparing for?", "top_k": 10}
+```
+
+返回结构如下，ID 和分数仅为示例：
 
 ```json
 {
-  "data":[
+  "data": [
     {
-      "id":"49383853-0c51-4c86-bf4a-1ee1215b269d",
-      "content":"我计划参加今年的杭州马拉松，每周训练三次。",
-      "score":0.8,
-      "created_at":"2024-01-01T00:02:00Z"
+      "id": "example-chunk-id",
+      "content": "The Hangzhou Marathon.",
+      "score": 5.2,
+      "created_at": "2024-01-01T00:02:00Z"
     }
   ]
 }
 ```
 
-ID 和分数为示意。created_at 来自消息时间而非入库时间。LLM 提取实体/关系关键词，匹配节点名称、键、别名及关系标签，再做有跳数限制的广度优先路径检索。搜索可从连边任一端遍历，提问者等角色信息保留在原文中。只使用指定用户/会话的证据和边。返回节点或路径边关联的**完整原消息**（也可包含 assistant 原消息），不由 LLM 生成答案，不只做原文关键词搜索。
+`top_k` 必填，范围 1–100；无结果返回空数组。`score` 是排序分数，不是概率。`created_at` 来自已知源时间，未知时可为空。`user_id` 是数据分区键，调用方仍须负责正确绑定用户身份。
 
-分数为各关键词可到达证据的距离权重均值：直接节点证据为 1，距离 d 的节点证据为 1/(d+1)，遍历边证据按抵达下一跳的权重计算；同一关键词对一条消息取最高权重。按分数降序、消息时间降序、ID 排序；不是概率或向量相似度。无命中返回 `{"data":[]}`。
+## 安装与配置
 
-## 测试与结构
+Python 3.11+，建议使用独立虚拟环境。在项目根目录执行：
 
-```powershell
-python -m pytest -q
+```sh
+python -m pip install -e ".[rag,test]"
 ```
 
-- `memory/api.py`：HTTP 接口、应用工厂和错误转换。
-- `memory/llm.py`：真实 LLM 抽取和关键词解析适配器。
-- `memory/models.py`：请求、响应及图结构校验。
-- `memory/store.py`：SQLite 事务、证据映射、幂等与图路径搜索。
-- `tests/test_memory.py`：API、方向、多跳、隔离、持久化、并发幂等及 LLM 错误测试。
+首次运行将 `.env.example` 复制为 `.env`；已有文件不要覆盖。填入独立的 `AML_API_KEY`，保留模板中的 ABC 参数及以下配置：
 
-自动测试使用可控 LLM 替身和 HTTP mock，不要求密钥；不代表真实模型的抽取质量已经验证。运行实际示例需填写根目录 `.env`。
-
-## 第一版边界
-
-当前是单机原型，检索加载该用户的图，适合中小规模数据；没有 embedding、重排、自动过期、事实版本消解或删除接口。跨轮实体合并依赖 LLM 稳定键与别名，尚无专门实体消歧模型。图证据下标通过结构校验，但抽取内容是否忠实仍取决于模型。多跳会带回相关上下文，尚未支持复杂逻辑查询。
-
-`user_id` 是调用者传入的分区键，**不是身份认证**。默认仅监听本机；作为远程服务部署时，应由受信任网关鉴权并将身份绑定到 user_id。LLM 会接收整轮对话，请选用符合数据使用要求的服务商。
-
-## Git 与 CodeGraph
-
-本项目使用 Git；CodeGraph 是供开发时查询代码结构的独立索引，与业务记忆图无关。已使用 `@colbymchenry/codegraph@1.5.0 init -i` 初始化，`.codegraph/` 和运行数据库不提交。
-
-系统 PATH 没有 codegraph 时可运行：
-
-```powershell
-npx.cmd --yes --cache .cache/npm @colbymchenry/codegraph@1.5.0 sync
+```dotenv
+MEMORY_BACKEND=vanilla
+AML_AUTH_MODE=bearer
+AML_API_KEY=<独立服务密钥>
+AML_BASE_URL=http://127.0.0.1:18092
+AML_ADD_CONCURRENCY=1
+AML_SEARCH_CONCURRENCY=4
+RAG_MEMORY_DB=data/aml/vanilla.sqlite3
+RAG_MODEL_PATH=data/models/bge-small-en-v1.5
+RAG_RERANK_MODE=local
+RAG_RERANK_PATH=data/models/ms-marco-MiniLM-L-6-v2
+RAG_DEVICE=cpu
+RAG_RERANK_DEVICE=cpu
+RAG_METADATA_MODE=on
+RAG_TARGET_MODE=on
+RAG_SECOND_PASS=on
+RAG_RERANK_SELECTION=context_support
+RAG_RERANK_CONTEXT=1
+RAG_RESULT_WINDOW=0
+RAG_FUSION_QA=on
+RAG_MULTI_QUERY=off
+RAG_SOFT_RECALL=on
 ```
 
+GPU 部署时将两个 device 改为实际设备，例如 `cuda:0`，并安装匹配的 PyTorch/CUDA。复现本次结果需使用上述 BGE/MiniLM，保持 `RAG_EMBEDDING_API_URL` 和 `RAG_RERANK_API_URL` 为空或不配置，避免启用历史 Qwen HTTP 适配器。
 
-## 公开数据与单场景测试
+首次下载模型：
 
-下载公开文本评测数据（数据和结果保存到被 Git 忽略的 `data/`）：
-
-```powershell
-python scripts/download_datasets.py
-python scripts/test_single_scene.py
+```sh
+python scripts/download_rag_model.py
+python scripts/download_reranker.py
 ```
 
-下载器固定上游版本并记录 URL、许可证、文件大小与 SHA-256；重复下载会核对哈希后跳过已有文件。范围为 LoCoMo-Refined、LongMemEval Oracle/S-cleaned、PersonaMem-v2 文本 benchmark 与 32K 历史、BEAM 100K/500K/1M、CL-bench；不含训练集、图片或更大变体，不是 AML 私有正式评测集。
+下载器使用固定版本并记录 manifest；代理通过 `.env` 的 `RAG_DOWNLOAD_PROXY` 显式指定。已有完整模型可直接设置模型路径。更换 embedding 模型需要新库并重新写入，不能混用旧向量。仅开启方案 1＋3 不改变向量模型或存储结构，无需为此重新写入记忆。
 
-单场景脚本使用 LoCoMo conv-41/session-20 的 18 条原消息，通过 FastAPI TestClient 调用实际 /add 和 /search 处理器，使用 `.env` 配置的真实 LLM；不是 mock，也不测试公网 HTTP 部署。每次运行创建独立数据库和时间戳目录，保存图 JSON、可点击的图 HTML、接口输入输出、检索证据和幂等检查。金标只在构图完成后用于本地评测，不进入记忆。失败记录同样保留。
+启动服务：
 
-首次测试说明、数据下载清单见 `data/README.md`。单场景通过不代表抽取语义全部正确，已发现的问题记录在各次测试报告中。
+```sh
+python -m uvicorn memory.aml_api:app --host 0.0.0.0 --port 18092 --workers 1 --no-access-log
+```
 
+修改配置后重启进程生效。`GET /health` 为健康检查，`/docs` 为交互式接口文档。远端现有服务为用户级 `csig-aml-v1.service`；部署前核对其工作目录、实际代码版本、模型路径和持久化数据库路径。旧 `deploy/update-geeai.sh` 面向历史 test_base，不应直接用于本分支。
 
-## 无向图与写入成本
+## 测试结果
 
-当前图为无向证据关联网络。`source` / `target` 保留为兼容字段名，只表示两个无序端点；`directed=false` 明确标识图类型。A—B 与 B—A 在关系标签相同时合并，证据下标和原文摘录取并集；不同关系类型仍可形成多条边。关系不再用端点顺序表达施受、因果或时间方向，具体事实以返回原文为准。
+2026-10-02，在相同远端服务器、BGE/MiniLM 和独立数据库快照上比较八种固定组合。10 组完整对话、5,882 条消息；861 道纯文本题全部执行，859 道有有效证据的题参与指标计算，共 1,074 条证据出现次数。
 
-写入按每条消息单独抽取，每段通常一次 LLM 抽取，再进行节点引用、下标和原文摘录精确匹配校验；每段校验失败时最多增加一次带具体错误反馈的修复调用，不进行常规方向审核。该调整减少写入调用量，但不能保证关系主体识别、提问覆盖或关联语义正确。仅转换边方向本身不一定降低耗时；性能对比必须同时说明已取消第二次审核。搜索原本就双向遍历，因此BFS规则不变。
+| 配置 | Hit@10 | Recall@10 | Micro Recall@10 | 全证据命中@10 | 平均检索耗时 |
+|---|---:|---:|---:|---:|---:|
+| 原 ABC | 92.67% | 89.88% | 85.57% | 86.73% | 641 ms |
+| **当前 ABC＋1＋3** | **93.25%** | **90.55%** | **86.13%** | **87.43%** | **692 ms** |
 
-旧数据库在首次打开时事务性迁移：规范端点顺序，合并同标签反向边，保留全部 edge_evidence 和 edge_quotes，之后通过 schema_meta 标记跳过重复迁移。消息和幂等写入记录保留；历史返回的抽取边数仍是原写入时的统计。旧历史图文件不会被覆盖。
+- Hit@10：至少召回一条标注证据的题目比例。
+- Recall@10：逐题证据召回率的平均值。
+- Micro Recall@10：所有题目命中证据数除以证据总数。
+- 全证据命中@10：全部标注证据均进入 Top10 的题目比例。
 
-## 节点归属
+当前方案新增命中 6 题、退化 1 题，Hit@10 净增 0.58 个百分点。延迟是固定 60 题、无缓存且交替执行的引擎计时，不含 HTTP、启动或写入，不代表并发吞吐量。公开数据已用于开发，不是官方隐藏评测成绩。
 
-节点新增 `owner_key`，引用同一抽取结果中所属实体的节点 key；未知或不适用时为 `null`。例如 John 的家人与 Maria 的家人使用两个不同节点，各自引用对应人物。归属不是调用者的 `user_id`，也不等于提到该实体的说话者；参与同一个活动不意味着拥有该活动。LLM 依据原文中的代词与上下文判断归属，每段正常抽取调用一次，校验失败最多追加一次修复。
+验证包括 111 项自动测试、480/480 次无缓存排名一致，以及最佳方案真实 HTTP `/search` 的 60/60 次 Top10 ID 一致。HTTP 验证复用了已写入的完整记忆快照，本轮未重复整库 `/add`。
 
-归属参与持久化身份判断：在同一用户分区内，节点 key 相同但归属不同不会合并，同 key 同归属可跨会话合并。SQLite 的 `owner_id` 保存真实节点引用，归属节点先于所属节点写入；未知引用、自引用、循环归属在写入前拒绝。归属只作为属性，不自动添加检索连边。预览在节点标签和详情中显示归属。
+[八组合完整报告与退化案例](docs/abc-extensions-comparison-20261002.md) · [机器可读汇总](docs/abc-extensions-summary-20261002.json)
 
-旧数据库自动增加可空 `owner_id`，历史节点归属保持未知，与新写入的有归属节点分开。迁移不会猜测归属或拆分已误合并的历史证据；如需修复旧图，应从原始消息重新抽取至新库。相同 request_id 仍返回原幂等结果，不触发重建。该方案降低不同归属实体的误合并，但不保证 LLM 归属判断正确；未知归属的同 key 节点仍可能合并，稳定键变化也可能产生重复节点。
+自动测试与独立合成接口检查：
 
+```sh
+python -m pytest -q -p no:cacheprovider
+python scripts/smoke_aml.py --live
+```
 
-## 完整对话检索评测
+后者使用 `.env` 的 `AML_BASE_URL` 和服务密钥，写入独立合成用户数据，不是官方评测。全组合实验脚本为 `scripts/benchmark_abc_extensions.py`，报告脚本为 `scripts/report_abc_extensions.py`。
 
-运行 `python scripts/test_full_conversation.py`，对 LoCoMo conv-41 全部 32 个会话、663 条消息按会话调用 `/add`，然后执行全部 136 道 `/search`。调用真实 LLM，仅从 `.env` 配置；4 个并发请求，各阶段独立执行，先完成所有写入尝试再检索。每个失败写入最多额外重试一次，成功写入验证幂等性。
+## 分支与回退
 
-结果保存到 `data/full-tests/<时间戳>/`，包括独立 SQLite 库、每次候选图、原始接口请求响应、逐题证据排名及汇总报告。评估 Hit@1/5/10、证据 Recall@1/5/10、全证据命中率、Precision@k 与 MRR@10，按全部、纯文本、多模态题和题型分别统计；失败搜索以空结果计零。写入失败单独报告，不把不完整库的结果包装为完整写入成功。仅输入原消息文本，不包含图像、图片描述、金标答案或证据；金标在写入完成后仅供本地评分。指标属于证据检索质量，不是官方答案判分成绩。
+三种独立方案均从检查点 `ddaf4b4` 创建：
 
+| 分支 | 用途 |
+|---|---|
+| `codex/abc-fusion-qa` | 方案 1：上下文/目标融合与局部问答关联 |
+| `codex/abc-multi-query` | 方案 2：多人子查询实验 |
+| `codex/abc-soft-recall` | 方案 3：人物/日期软召回 |
+| `codex/abc-factorial` | 三种实现的组合、完整测试与当前推荐配置 |
 
-### 归属格式与失败修复
+要回到原 ABC，保留 ABC 参数，将三个扩展开关全部设为 `off` 并重启。代码缺省值仍为 off，当前模板显式选择 1＋3，便于区分历史配置与新配置。
 
-未引用真实同名节点的字符串 `"null"` 在入库前规范为 JSON null；不将其他未知归属直接清空。人物统一使用规范姓名键，未具名说话者使用会话内键，避免 API 分区 ID 与图实体混淆。结构或证据校验失败时，传回原始输入、候选图和具体错误，最多追加一次完整图修复，再次验证仍失败则 `/add` 返回 502 且不部分写入。网络/结构化响应解析失败不走图修复。修复不保证语义正确，实体覆盖和检索排名仍需独立评测。完整评测脚本保留每次候选和逻辑调用次数；脚本自身的失败写入重试与生产内部修复分开统计。
+## 边界与来源
 
+当前模型及完整测试主要针对英文文本；示例或接口支持 Unicode 不代表中文检索效果已验证。元数据缺失、时间歧义、多人归属和间接证据仍可能造成漏召回。Add/Search 并发上限为配置限制，超过时返回 429，不能据此推断持续吞吐能力。
 
-### 分段抽取与全局证据校验（历史8条分段方案）
+基础检索思路参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。本项目独立实现，不包含上游源文件，不声称原方法原创；参考版本未声明许可证。模型许可遵循各发布者说明。参赛时如实披露实际使用的 BGE/MiniLM，榜单资格以主办方规则与确认为准。
 
-每 8 条消息作为一个抽取重点，额外附带开头 2 条及前后各 2 条上下文，始终使用原始请求的全局 message_index。后续段收到前段已验证的实体身份表，用于复用人物键和归属；任何段失败都不会写入部分消息或图。
-
-校验一次收集节点引用、归属循环、可见下标、连边端点和摘录问题，修复反馈最多包含前 50 个错误及剩余数量。摘录下标错误时，仅当该摘录在本段可见原文中精确匹配且只出现于一条消息，才自动重定位并同步边的证据下标；不修改摘录内容、不模糊匹配，也不猜测重复原文来自哪条消息。原下标正确时保留。
-
-合并分段图时，同 key 必须具有相同 kind 和 owner_key，否则拒绝；节点证据和同标签无向边证据取并集。最终合并图再次校验后才事务性写入。通常调用数为 ceil(消息数/8)，每段至多两次结构化调用；评测脚本额外的失败请求重试另算。该方案用更多调用量降低长输出错误，不承诺降低写入耗时或消除语义误判。
-
-
-### 使用消息引用绑定原文（当前抽取协议）
-
-LLM 输出节点、连边及支持它们的 `message_indices`，不输出摘录字符串。每段动态 JSON Schema 将节点和边的下标限定为该段实际可见的全局索引枚举；程序据此从请求中挂接完整原消息为 evidence.text，保留大小写、拼写错误和 Unicode 字符。HTTP `/add`、`/search` 契约不变，数据库仍保存原文证据。此举消除模型复制/改写摘录导致的拒绝写入，并减少生成文本量。
-
-**范围校验不等于语义验证**：索引合法并不能证明原文支持该关系，模型仍可能引用错误消息。相比要求模型同时复制摘录，这一协议改变了模型输出校验的对象；不可把成功入库率当成关系准确率。检索金标指标和抽样语义审核需单独报告。`admit_graph` 仍支持对已带摘录的历史候选执行精确匹配和唯一定位，用于离线诊断；新的 LLM 协议不接受自带 evidence 字段。
-
-
-### 当前策略：单条消息＋前两条上下文
-
-使用 `.env` 中的 gpt-4o-mini；缺省模型也设为 gpt-4o-mini，不切换其他模型。每条消息单独抽取，仅附同一 `/add` 请求中紧邻它的前两条消息；首条无上下文，第二条只有前一条。不附后续消息，不重复附开头消息。保留全局索引、已验证实体身份表、受限修复和事务性合并；身份表用于键与归属的一致性，不包含额外历史原文。当前 API 不从此前其他 `/add` 请求自动读取两条上下文。
-
-通常每条消息需要一次抽取调用，校验失败最多增加一次修复。只抽取当前消息表达的事实或提问，上文用于解指代。请求协议保持不变，整体检索算法不变。测试验证每次模型输入严格为当前消息及最多前两条，全文评测保存每次候选的可见索引用于核验。
-
-
-## Agent Memory Leaderboard 评测对接分支
-
-本分支从 baseline/infra-v1 创建。官方文本赛道使用独立入口 `memory.aml_api:app`，部署配置、接口差异、合成 smoke 和申请材料见 [对接说明](docs/agentmemories.md)。原 `memory.api:app` 研究接口保持原契约。配置只读根目录 .env，模型为 gpt-4o-mini。
+[历史图方案研究记录](docs/graph-historical-readme.md) · [历史 v1 方法说明](docs/v1-vanilla-rag.md) · [评测接口对接说明](docs/agentmemories.md)。历史文档中的模型、部署地址和分支状态不代表当前版本。
