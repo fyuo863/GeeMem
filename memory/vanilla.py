@@ -114,6 +114,9 @@ class HTTPEmbedder:
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
+        self.fusion_qa = cfg.get('RAG_FUSION_QA', 'off')
+        if self.fusion_qa not in ('off', 'on'):
+            raise ValueError('Invalid fusion/QA mode')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
         self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
@@ -170,6 +173,8 @@ class VanillaMemory:
             raise ValueError('Target attribution requires reranker')
         if self.second_pass == 'on' and self.reranker is None:
             raise ValueError('Second pass requires reranker')
+        if self.fusion_qa == 'on' and (self.reranker is None or self.target_mode != 'on'):
+            raise ValueError('Fusion/QA requires target reranking')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -297,7 +302,11 @@ class VanillaMemory:
             from .target_rerank import combine_target_scores
             with self.lock:
                 target = self.reranker.score(query, [self.retrieval_text(rows[i]) for i in candidates])
-            reranked = combine_target_scores(reranked, target)
+            if self.fusion_qa == 'on':
+                from .fusion_qa import fuse_scores
+                reranked = fuse_scores(rows, candidates, reranked, target)
+            else:
+                reranked = combine_target_scores(reranked, target)
         return reranked
 
     def search(self, payload):
@@ -383,6 +392,10 @@ class VanillaMemory:
                 from .rerank import context_support_scores
                 order, boosted = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
                 for i, score in boosted.items():scores[i] = score
+            if self.fusion_qa == 'on':
+                from .fusion_qa import answer_support
+                order, supported = answer_support(payload.query, rows, order, scores)
+                for i, score in supported.items():scores[i] = score
             if self.target_mode == 'on':
                 from .target_rerank import select_targets
                 order, adjusted = select_targets(payload.query, rows, order, scores, self.target_penalty_scale)
