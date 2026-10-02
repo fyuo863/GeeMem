@@ -120,6 +120,9 @@ class VanillaMemory:
         self.multi_query = cfg.get('RAG_MULTI_QUERY', 'off')
         if self.multi_query not in ('off', 'on'):
             raise ValueError('Invalid multi-query mode')
+        self.soft_recall = cfg.get('RAG_SOFT_RECALL', 'off')
+        if self.soft_recall not in ('off', 'on'):
+            raise ValueError('Invalid soft-recall mode')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
         self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
@@ -180,6 +183,8 @@ class VanillaMemory:
             raise ValueError('Fusion/QA requires target reranking')
         if self.multi_query == 'on' and self.reranker is None:
             raise ValueError('Multi-query requires reranker')
+        if self.soft_recall == 'on' and self.reranker is None:
+            raise ValueError('Soft recall requires reranker')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -385,6 +390,10 @@ class VanillaMemory:
                 with self.lock:
                     routes = candidate_routes(payload.query, rows, self.embedder, matrix, bm25, self.rrf, self.weight)
                 candidates = list(dict.fromkeys(candidates + [i for _, indices in routes for i in indices]))
+            if self.soft_recall == 'on':
+                from .soft_recall import metadata_candidates
+                metadata_route = metadata_candidates(payload.query, rows, order, bm25)
+                candidates = list(dict.fromkeys(candidates + metadata_route))
             reranked = self.score_candidates(payload.query, rows, candidates)
             if self.second_pass == 'on':
                 from .second_pass import additional_candidates
