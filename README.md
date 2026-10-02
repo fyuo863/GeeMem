@@ -1,5 +1,7 @@
 # GeeMem：Agent 长期记忆与原文证据检索
 
+> **学术榜模型迁移更新（2026-10-02）**：当前开发分支 `codex/text-embedding-v4` 已将 embedding 切换为官方 `text-embedding-v4` API（1024 维），保留 MiniLM 与 ABC＋1＋3。新模板需填写 `RAG_EMBEDDING_API_KEY` 并使用新数据库。真实 HTTP 全量测试完成：5,882 条消息、861 道纯文本问题，Hit@10 93.25%，Hit@100 98.60%，118 项自动测试通过。见[迁移配置](docs/text-embedding-v4-migration.md)与[完整对比](docs/text-embedding-v4-comparison-20261002.md)。以下 BGE 模型、启动配置、部署版本与实验结果为此前冻结版本的说明；当前开发分支配置以迁移文档和 `.env.example` 为准。线上仍为 BGE，原 `competition-final-20261002` tag 未移动；迁移版本尚未发布为新的参赛 tag。
+
 GeeMem 是一个通用 Agent 长期记忆模块，通过同步 `POST /add` 保存对话，通过 `POST /search` 返回相关原文证据。当前提供 Agent Memory Leaderboard 文本赛道适配接口，入口为 `memory.aml_api:app`。
 
 当前选择 **ABC＋方案 1＋方案 3（FM）**：混合召回、上下文与目标评分融合、局部问答关联，以及人物/日期软召回。多人子查询方案 2 保留实现但关闭。Add/Search 不调用生成式 LLM，不生成最终答案。

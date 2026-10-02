@@ -1,0 +1,84 @@
+{
+  "questions": 861,
+  "messages": 5882,
+  "metrics": {
+    "5": {
+      "v4": {
+        "recall": 0.8434225844004657,
+        "hit_rate": 0.8777648428405123,
+        "micro_recall": 0.7877094972067039,
+        "all_evidence_hit_rate": 0.8079161816065192,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 754,
+        "all_evidence_hit_questions": 694,
+        "matched_evidence": 846,
+        "gold_evidence": 1074
+      },
+      "BGE": {
+        "recall": 0.8428405122235157,
+        "hit_rate": 0.8777648428405123,
+        "micro_recall": 0.7867783985102421,
+        "all_evidence_hit_rate": 0.8067520372526193,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 754,
+        "all_evidence_hit_questions": 693,
+        "matched_evidence": 845,
+        "gold_evidence": 1074
+      }
+    },
+    "10": {
+      "v4": {
+        "recall": 0.9051222351571595,
+        "hit_rate": 0.9324796274738067,
+        "micro_recall": 0.8603351955307262,
+        "all_evidence_hit_rate": 0.8742724097788126,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 801,
+        "all_evidence_hit_questions": 751,
+        "matched_evidence": 924,
+        "gold_evidence": 1074
+      },
+      "BGE": {
+        "recall": 0.9055102832751262,
+        "hit_rate": 0.9324796274738067,
+        "micro_recall": 0.861266294227188,
+        "all_evidence_hit_rate": 0.8742724097788126,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 801,
+        "all_evidence_hit_questions": 751,
+        "matched_evidence": 925,
+        "gold_evidence": 1074
+      }
+    },
+    "100": {
+      "v4": {
+        "recall": 0.9757469926270858,
+        "hit_rate": 0.9860302677532014,
+        "micro_recall": 0.9590316573556797,
+        "all_evidence_hit_rate": 0.9650756693830035,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 847,
+        "all_evidence_hit_questions": 829,
+        "matched_evidence": 1030,
+        "gold_evidence": 1074
+      }
+    }
+  },
+  "changes": {
+    "wins": [],
+    "losses": []
+  },
+  "http_search_latency": {
+    "mean": 0.8522903804648906,
+    "p50": 0.7998504247516394,
+    "p95": 1.0966776553541422
+  },
+  "add_seconds": 540.521165041253,
+  "official_evaluation": false,
+  "errors": 0
+}
