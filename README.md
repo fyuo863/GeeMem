@@ -6,6 +6,7 @@ GeeMem 是一个通用 Agent 长期记忆模块，通过同步 `POST /add` 保�
 
 ## 当前版本
 
+- 比赛最终版本：`competition-final-20261002`（2026-10-02 经用户确认冻结），采用 ABC＋1＋3、BGE/MiniLM。此 tag 标识最终代码及配置模板，不表示远端已部署或已通过官方 Smoke/Full。
 - 实现分支：`codex/abc-factorial`。
 - 完整实验与报告提交：`58443cb`；当前 README 和配置在该提交基础上更新。
 - Embedding：`BAAI/bge-small-en-v1.5`。
@@ -88,7 +89,11 @@ Content-Type: application/json
 }
 ```
 
-`top_k` 必填，范围 1–100；无结果返回空数组。`score` 是排序分数，不是概率。`created_at` 来自已知源时间，未知时可为空。`user_id` 是数据分区键，调用方仍须负责正确绑定用户身份。
+`top_k` 必填，范围 1–100；**官网正式外部评测固定传 100**，上面的 10 仅为本地示例。选择题还会传顶层 `options` 字符串数组，例如 `"options": ["A. Hangzhou", "B. Shanghai"]`，开放题省略。无结果返回空数组。`score` 是排序分数，不是概率。`created_at` 来自已知源时间，未知时省略。`user_id` 是数据分区键，调用方仍须负责正确绑定用户身份。
+
+官网标准输入不保证提供扩展字段 `speaker`、`session_timestamp`；缺省时接口仍正常运行，但人物/日期通道可用信息会减少。此前带元数据的公开测试结果不能直接代表这种输入条件下的成绩。
+
+2026-10-02 已重新核对官网：[接口兼容性审查及容量、数据保留边界](docs/aml-contract-audit-20261002.md)。
 
 ## 安装与配置
 
