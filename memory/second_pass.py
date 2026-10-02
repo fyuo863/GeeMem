@@ -5,14 +5,15 @@ import numpy as np
 from .tags import RuleTagger
 
 
-def additional_candidates(query, rows, candidates, scores, lexical_score, limit=40):
+def additional_candidates(query, rows, candidates, scores, lexical_score, limit=40,
+                          top_threshold=4.0, gap_threshold=2.0):
     if not candidates or limit <= 0:
         return []
     ranked = sorted(range(len(candidates)), key=lambda j: -scores[j])
     top = float(scores[ranked[0]])
     tail = float(scores[ranked[min(9, len(ranked)-1)]])
     multiple_or_time = re.search(r'\b(when|before|after|activities|events|hobbies|countries|cities|list|both|all)\b', query, re.I)
-    if top >= 4 and top-tail >= 2 and not multiple_or_time:
+    if top >= top_threshold and top-tail >= gap_threshold and not multiple_or_time:
         return []
     # Clues must occur in at least two highly ranked source messages. This is
     # source corroboration, not a claim of factual/semantic verification.

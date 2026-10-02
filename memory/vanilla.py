@@ -83,9 +83,10 @@ class HTTPEmbedder:
         self.url = cfg['RAG_EMBEDDING_API_URL'].rstrip('/')
         self.model_name = cfg.get('RAG_EMBEDDING_API_MODEL', '')
         self.prefix = cfg.get('RAG_QUERY_PREFIX', '')
+        self.instruction = cfg.get('RAG_QUERY_INSTRUCTION', '')
         self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
         self.client = httpx.Client(timeout=self.timeout, trust_env=False)
-        self.identity = json.dumps(['http-embedding-v1', self.url, self.model_name, self.prefix], sort_keys=True)
+        self.identity = json.dumps(['http-embedding-v1', self.url, self.model_name, self.prefix, self.instruction], sort_keys=True)
 
     def documents(self, texts):
         payload = {'input': list(texts)}
@@ -105,6 +106,8 @@ class HTTPEmbedder:
         return arr / norms
 
     def queries(self, texts):
+        if self.instruction:
+            return self.documents([self.prefix + self.instruction + '\nQuery: ' + t for t in texts])
         return self.documents([self.prefix + t for t in texts])
 
 
@@ -149,6 +152,9 @@ class VanillaMemory:
         self.tag_vector_identity = json.dumps([getattr(self.tagger, 'identity', None), self.embedder.identity, 'sorted-space-join-v1'])
         self.rerank_selection = cfg.get('RAG_RERANK_SELECTION', 'direct')
         self.neighbor_penalty = float(cfg.get('RAG_RERANK_NEIGHBOR_PENALTY', '2'))
+        self.target_penalty_scale = float(cfg.get('RAG_TARGET_PENALTY_SCALE', '0.6'))
+        self.second_pass_top_threshold = float(cfg.get('RAG_SECOND_PASS_TOP_THRESHOLD', '4'))
+        self.second_pass_gap_threshold = float(cfg.get('RAG_SECOND_PASS_GAP_THRESHOLD', '2'))
         if self.rerank_selection not in ('direct', 'context_support') or not math.isfinite(self.neighbor_penalty) or self.neighbor_penalty < 0:
             raise ValueError('Invalid rerank selection')
         self.reranker = reranker
@@ -362,7 +368,8 @@ class VanillaMemory:
             reranked = self.score_candidates(payload.query, rows, candidates)
             if self.second_pass == 'on':
                 from .second_pass import additional_candidates
-                extra = additional_candidates(payload.query, rows, candidates, reranked, bm25)
+                extra = additional_candidates(payload.query, rows, candidates, reranked, bm25,
+                    top_threshold=self.second_pass_top_threshold, gap_threshold=self.second_pass_gap_threshold)
                 if extra:
                     extra_scores = self.score_candidates(payload.query, rows, extra)
                     candidates = candidates + extra
@@ -378,7 +385,7 @@ class VanillaMemory:
                 for i, score in boosted.items():scores[i] = score
             if self.target_mode == 'on':
                 from .target_rerank import select_targets
-                order, adjusted = select_targets(payload.query, rows, order, scores)
+                order, adjusted = select_targets(payload.query, rows, order, scores, self.target_penalty_scale)
                 for i, score in adjusted.items():scores[i] = score
         selected = []
         seen = set()
