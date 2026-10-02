@@ -117,6 +117,9 @@ class VanillaMemory:
         self.fusion_qa = cfg.get('RAG_FUSION_QA', 'off')
         if self.fusion_qa not in ('off', 'on'):
             raise ValueError('Invalid fusion/QA mode')
+        self.multi_query = cfg.get('RAG_MULTI_QUERY', 'off')
+        if self.multi_query not in ('off', 'on'):
+            raise ValueError('Invalid multi-query mode')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
         self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
@@ -175,6 +178,8 @@ class VanillaMemory:
             raise ValueError('Second pass requires reranker')
         if self.fusion_qa == 'on' and (self.reranker is None or self.target_mode != 'on'):
             raise ValueError('Fusion/QA requires target reranking')
+        if self.multi_query == 'on' and self.reranker is None:
+            raise ValueError('Multi-query requires reranker')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -374,6 +379,12 @@ class VanillaMemory:
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
         if self.reranker is not None:
             candidates = order[:max(payload.top_k, self.rerank_candidates)]
+            routes = []
+            if self.multi_query == 'on':
+                from .multi_query import candidate_routes
+                with self.lock:
+                    routes = candidate_routes(payload.query, rows, self.embedder, matrix, bm25, self.rrf, self.weight)
+                candidates = list(dict.fromkeys(candidates + [i for _, indices in routes for i in indices]))
             reranked = self.score_candidates(payload.query, rows, candidates)
             if self.second_pass == 'on':
                 from .second_pass import additional_candidates
@@ -400,6 +411,14 @@ class VanillaMemory:
                 from .target_rerank import select_targets
                 order, adjusted = select_targets(payload.query, rows, order, scores, self.target_penalty_scale)
                 for i, score in adjusted.items():scores[i] = score
+            if routes:
+                from .multi_query import merge_routes
+                ranked_routes = []
+                for subquery, indices in routes:
+                    sub_scores = self.score_candidates(subquery, rows, indices)
+                    ranked_routes.append([indices[j] for j in sorted(range(len(indices)), key=lambda j:-sub_scores[j])])
+                order, fused = merge_routes(order, ranked_routes)
+                for i, score in fused.items():scores[i] = score
         selected = []
         seen = set()
         def include(i):
