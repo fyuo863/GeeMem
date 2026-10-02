@@ -1,0 +1,556 @@
+{
+  "winner": "FM",
+  "ranked": [
+    "FM",
+    "F",
+    "FQM",
+    "FQ",
+    "M",
+    "ABC",
+    "QM",
+    "Q"
+  ],
+  "metrics": {
+    "5": {
+      "ABC": {
+        "recall": 0.8404152114862242,
+        "hit_rate": 0.8777648428405123,
+        "micro_recall": 0.7849162011173184,
+        "all_evidence_hit_rate": 0.8020954598370198,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 754,
+        "all_evidence_hit_questions": 689,
+        "matched_evidence": 843,
+        "gold_evidence": 1074
+      },
+      "F": {
+        "recall": 0.8416763678696159,
+        "hit_rate": 0.8766006984866124,
+        "micro_recall": 0.7858472998137802,
+        "all_evidence_hit_rate": 0.8055878928987195,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 753,
+        "all_evidence_hit_questions": 692,
+        "matched_evidence": 844,
+        "gold_evidence": 1074
+      },
+      "Q": {
+        "recall": 0.8426464881645325,
+        "hit_rate": 0.880093131548312,
+        "micro_recall": 0.7867783985102421,
+        "all_evidence_hit_rate": 0.8044237485448196,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 756,
+        "all_evidence_hit_questions": 691,
+        "matched_evidence": 845,
+        "gold_evidence": 1074
+      },
+      "M": {
+        "recall": 0.8415793558401241,
+        "hit_rate": 0.8789289871944121,
+        "micro_recall": 0.7858472998137802,
+        "all_evidence_hit_rate": 0.8032596041909197,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 755,
+        "all_evidence_hit_questions": 690,
+        "matched_evidence": 844,
+        "gold_evidence": 1074
+      },
+      "FQ": {
+        "recall": 0.8433255723709739,
+        "hit_rate": 0.8777648428405123,
+        "micro_recall": 0.7867783985102421,
+        "all_evidence_hit_rate": 0.8079161816065192,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 754,
+        "all_evidence_hit_questions": 694,
+        "matched_evidence": 845,
+        "gold_evidence": 1074
+      },
+      "FM": {
+        "recall": 0.8428405122235157,
+        "hit_rate": 0.8777648428405123,
+        "micro_recall": 0.7867783985102421,
+        "all_evidence_hit_rate": 0.8067520372526193,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 754,
+        "all_evidence_hit_questions": 693,
+        "matched_evidence": 845,
+        "gold_evidence": 1074
+      },
+      "QM": {
+        "recall": 0.8438106325184324,
+        "hit_rate": 0.8812572759022119,
+        "micro_recall": 0.7877094972067039,
+        "all_evidence_hit_rate": 0.8055878928987195,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 757,
+        "all_evidence_hit_questions": 692,
+        "matched_evidence": 846,
+        "gold_evidence": 1074
+      },
+      "FQM": {
+        "recall": 0.8444897167248738,
+        "hit_rate": 0.8789289871944121,
+        "micro_recall": 0.7877094972067039,
+        "all_evidence_hit_rate": 0.8090803259604191,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 755,
+        "all_evidence_hit_questions": 695,
+        "matched_evidence": 846,
+        "gold_evidence": 1074
+      }
+    },
+    "10": {
+      "ABC": {
+        "recall": 0.8988164532402019,
+        "hit_rate": 0.9266589057043073,
+        "micro_recall": 0.8556797020484171,
+        "all_evidence_hit_rate": 0.8672875436554133,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 796,
+        "all_evidence_hit_questions": 745,
+        "matched_evidence": 919,
+        "gold_evidence": 1074
+      },
+      "F": {
+        "recall": 0.9043461389212263,
+        "hit_rate": 0.9313154831199069,
+        "micro_recall": 0.8603351955307262,
+        "all_evidence_hit_rate": 0.8731082654249127,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 800,
+        "all_evidence_hit_questions": 750,
+        "matched_evidence": 924,
+        "gold_evidence": 1074
+      },
+      "Q": {
+        "recall": 0.8962941404734187,
+        "hit_rate": 0.9243306169965075,
+        "micro_recall": 0.8519553072625698,
+        "all_evidence_hit_rate": 0.8649592549476135,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 794,
+        "all_evidence_hit_questions": 743,
+        "matched_evidence": 915,
+        "gold_evidence": 1074
+      },
+      "M": {
+        "recall": 0.8999805975941018,
+        "hit_rate": 0.9278230500582072,
+        "micro_recall": 0.8566108007448789,
+        "all_evidence_hit_rate": 0.8684516880093132,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 797,
+        "all_evidence_hit_questions": 746,
+        "matched_evidence": 920,
+        "gold_evidence": 1074
+      },
+      "FQ": {
+        "recall": 0.9018238261544431,
+        "hit_rate": 0.9289871944121071,
+        "micro_recall": 0.8566108007448789,
+        "all_evidence_hit_rate": 0.8707799767171129,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 798,
+        "all_evidence_hit_questions": 748,
+        "matched_evidence": 920,
+        "gold_evidence": 1074
+      },
+      "FM": {
+        "recall": 0.9055102832751262,
+        "hit_rate": 0.9324796274738067,
+        "micro_recall": 0.861266294227188,
+        "all_evidence_hit_rate": 0.8742724097788126,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 801,
+        "all_evidence_hit_questions": 751,
+        "matched_evidence": 925,
+        "gold_evidence": 1074
+      },
+      "QM": {
+        "recall": 0.8974582848273186,
+        "hit_rate": 0.9254947613504074,
+        "micro_recall": 0.8528864059590316,
+        "all_evidence_hit_rate": 0.8661233993015134,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 795,
+        "all_evidence_hit_questions": 744,
+        "matched_evidence": 916,
+        "gold_evidence": 1074
+      },
+      "FQM": {
+        "recall": 0.902987970508343,
+        "hit_rate": 0.930151338766007,
+        "micro_recall": 0.8575418994413407,
+        "all_evidence_hit_rate": 0.8719441210710128,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "hit_questions": 799,
+        "all_evidence_hit_questions": 749,
+        "matched_evidence": 921,
+        "gold_evidence": 1074
+      }
+    }
+  },
+  "changes": {
+    "ABC": {
+      "wins": 0,
+      "losses": 0
+    },
+    "F": {
+      "wins": 5,
+      "losses": 1
+    },
+    "Q": {
+      "wins": 0,
+      "losses": 2
+    },
+    "M": {
+      "wins": 1,
+      "losses": 0
+    },
+    "FQ": {
+      "wins": 5,
+      "losses": 3
+    },
+    "FM": {
+      "wins": 6,
+      "losses": 1
+    },
+    "QM": {
+      "wins": 1,
+      "losses": 2
+    },
+    "FQM": {
+      "wins": 6,
+      "losses": 3
+    }
+  },
+  "latency": {
+    "ABC": {
+      "count": 60,
+      "mean": 0.6411262656096369,
+      "p50": 0.5587535994127393,
+      "p95": 0.865236484259367
+    },
+    "F": {
+      "count": 60,
+      "mean": 0.6445139018973957,
+      "p50": 0.5652490928769112,
+      "p95": 0.8652276779524982
+    },
+    "Q": {
+      "count": 60,
+      "mean": 0.6546959615933399,
+      "p50": 0.572428404353559,
+      "p95": 0.8775216330774128
+    },
+    "M": {
+      "count": 60,
+      "mean": 0.6895077088537316,
+      "p50": 0.6187390252016485,
+      "p95": 0.9237162024714052
+    },
+    "FQ": {
+      "count": 60,
+      "mean": 0.6554875567710648,
+      "p50": 0.5706717246212065,
+      "p95": 0.8725952776148915
+    },
+    "FM": {
+      "count": 60,
+      "mean": 0.6917745470224569,
+      "p50": 0.6318109813146293,
+      "p95": 0.9269847579766065
+    },
+    "QM": {
+      "count": 60,
+      "mean": 0.70886946770673,
+      "p50": 0.6581577607430518,
+      "p95": 0.9571172355208545
+    },
+    "FQM": {
+      "count": 60,
+      "mean": 0.7096832914277911,
+      "p50": 0.6300031542778015,
+      "p95": 0.9733902162872254
+    }
+  },
+  "paired": {
+    "FM": {
+      "wins": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 104,
+          "question": "Why did Melanie choose to use colors and patterns in her pottery project?"
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 86,
+          "question": "How does John plan to honor the memories of his beloved pet?"
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 78,
+          "question": "What did Nate think of the coconut milk ice cream he made?"
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 136,
+          "question": "What activity did Tim do after reading the stories about the Himalayan trek?"
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 143,
+          "question": "Why did Jolene get the new plant on 30 August, 2023?"
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 94,
+          "question": "What activity does Evan do to keep himself busy while healing his knee?"
+        }
+      ],
+      "losses": [
+        {
+          "sample_id": "conv-30",
+          "question_index": 42,
+          "question": "What did Jon say about Gina's progress with her store?"
+        }
+      ],
+      "hit_delta_cluster_percentile_95": [
+        0.0011862044829738072,
+        0.009544071755960892
+      ]
+    },
+    "F": {
+      "wins": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 104,
+          "question": "Why did Melanie choose to use colors and patterns in her pottery project?"
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 86,
+          "question": "How does John plan to honor the memories of his beloved pet?"
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 78,
+          "question": "What did Nate think of the coconut milk ice cream he made?"
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 136,
+          "question": "What activity did Tim do after reading the stories about the Himalayan trek?"
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 94,
+          "question": "What activity does Evan do to keep himself busy while healing his knee?"
+        }
+      ],
+      "losses": [
+        {
+          "sample_id": "conv-30",
+          "question_index": 42,
+          "question": "What did Jon say about Gina's progress with her store?"
+        }
+      ],
+      "hit_delta_cluster_percentile_95": [
+        0.0,
+        0.008733624454148471
+      ]
+    },
+    "FQM": {
+      "wins": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 104,
+          "question": "Why did Melanie choose to use colors and patterns in her pottery project?"
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 86,
+          "question": "How does John plan to honor the memories of his beloved pet?"
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 78,
+          "question": "What did Nate think of the coconut milk ice cream he made?"
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 136,
+          "question": "What activity did Tim do after reading the stories about the Himalayan trek?"
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 143,
+          "question": "Why did Jolene get the new plant on 30 August, 2023?"
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 94,
+          "question": "What activity does Evan do to keep himself busy while healing his knee?"
+        }
+      ],
+      "losses": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 120,
+          "question": "How do Melanie and Caroline describe their journey through life together?"
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 15,
+          "question": "Do Jon and Gina start businesses out of what they love?"
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 42,
+          "question": "What did Jon say about Gina's progress with her store?"
+        }
+      ],
+      "hit_delta_cluster_percentile_95": [
+        -0.003881108861913412,
+        0.00851063829787234
+      ]
+    },
+    "FQ": {
+      "wins": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 104,
+          "question": "Why did Melanie choose to use colors and patterns in her pottery project?"
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 86,
+          "question": "How does John plan to honor the memories of his beloved pet?"
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 78,
+          "question": "What did Nate think of the coconut milk ice cream he made?"
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 136,
+          "question": "What activity did Tim do after reading the stories about the Himalayan trek?"
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 94,
+          "question": "What activity does Evan do to keep himself busy while healing his knee?"
+        }
+      ],
+      "losses": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 120,
+          "question": "How do Melanie and Caroline describe their journey through life together?"
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 15,
+          "question": "Do Jon and Gina start businesses out of what they love?"
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 42,
+          "question": "What did Jon say about Gina's progress with her store?"
+        }
+      ],
+      "hit_delta_cluster_percentile_95": [
+        -0.005025125628140704,
+        0.007454739084132056
+      ]
+    },
+    "M": {
+      "wins": [
+        {
+          "sample_id": "conv-48",
+          "question_index": 143,
+          "question": "Why did Jolene get the new plant on 30 August, 2023?"
+        }
+      ],
+      "losses": [],
+      "hit_delta_cluster_percentile_95": [
+        0.0,
+        0.003579952267303103
+      ]
+    },
+    "ABC": {
+      "wins": [],
+      "losses": [],
+      "hit_delta_cluster_percentile_95": [
+        0.0,
+        0.0
+      ]
+    },
+    "QM": {
+      "wins": [
+        {
+          "sample_id": "conv-48",
+          "question_index": 143,
+          "question": "Why did Jolene get the new plant on 30 August, 2023?"
+        }
+      ],
+      "losses": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 120,
+          "question": "How do Melanie and Caroline describe their journey through life together?"
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 15,
+          "question": "Do Jon and Gina start businesses out of what they love?"
+        }
+      ],
+      "hit_delta_cluster_percentile_95": [
+        -0.0053195035460992905,
+        0.002395281379686669
+      ]
+    },
+    "Q": {
+      "wins": [],
+      "losses": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 120,
+          "question": "How do Melanie and Caroline describe their journey through life together?"
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 15,
+          "question": "Do Jon and Gina start businesses out of what they love?"
+        }
+      ],
+      "hit_delta_cluster_percentile_95": [
+        -0.006016847172081829,
+        0.0
+      ]
+    }
+  },
+  "abc_parity": 861,
+  "uncached_parity": 480,
+  "uncached_checks": 480
+}
