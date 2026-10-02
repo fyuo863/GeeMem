@@ -1,0 +1,77 @@
+{
+  "run": "bge-baseline-20261002T073855Z",
+  "questions": 861,
+  "messages": 5882,
+  "baseline_add": {
+    "total_seconds": 100.53247336111963,
+    "mean_seconds": 0.3642480918881146,
+    "p50": 0.3448994206264615,
+    "p95": 0.5610015457496047,
+    "p99": 0.6476274942979217
+  },
+  "metrics": {
+    "baseline": {
+      "5": {
+        "hit_rate": 0.7357392316647264,
+        "recall": 0.6913077221575475,
+        "micro_recall": 0.6378026070763501,
+        "all_evidence_hit_rate": 0.6495925494761351,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "matched_evidence": 685,
+        "gold_evidence": 1074
+      },
+      "10": {
+        "hit_rate": 0.8242142025611175,
+        "recall": 0.7882227396197129,
+        "micro_recall": 0.7402234636871509,
+        "all_evidence_hit_rate": 0.7543655413271245,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "matched_evidence": 795,
+        "gold_evidence": 1074
+      }
+    },
+    "ABC": {
+      "5": {
+        "hit_rate": 0.8777648428405123,
+        "recall": 0.8404152114862243,
+        "micro_recall": 0.7849162011173184,
+        "all_evidence_hit_rate": 0.8020954598370198,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "matched_evidence": 843,
+        "gold_evidence": 1074
+      },
+      "10": {
+        "hit_rate": 0.9266589057043073,
+        "recall": 0.8988164532402018,
+        "micro_recall": 0.8556797020484171,
+        "all_evidence_hit_rate": 0.8672875436554133,
+        "evaluated_questions": 859,
+        "skipped_no_evidence": 2,
+        "matched_evidence": 919,
+        "gold_evidence": 1074
+      }
+    }
+  },
+  "search_latency": {
+    "baseline": {
+      "total_seconds": 254.69302914943546,
+      "mean_seconds": 0.29581071910503537,
+      "p50": 0.29345736652612686,
+      "p95": 0.32403784431517124,
+      "p99": 0.3448808128014207
+    },
+    "ABC": {
+      "total_seconds": 559.6874718004838,
+      "mean_seconds": 0.6500435212549173,
+      "p50": 0.5692238230258226,
+      "p95": 0.8780058221891522,
+      "p99": 0.9008337836712599
+    }
+  },
+  "errors": 0,
+  "source_id_and_content_verified": true,
+  "official_evaluation": false
+}
