@@ -85,16 +85,47 @@ class HTTPEmbedder:
         self.prefix = cfg.get('RAG_QUERY_PREFIX', '')
         self.instruction = cfg.get('RAG_QUERY_INSTRUCTION', '')
         self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
-        self.client = httpx.Client(timeout=self.timeout, trust_env=False)
+        self.batch_size = int(cfg.get('RAG_EMBEDDING_BATCH_SIZE', '10' if self.model_name == 'text-embedding-v4' else '64'))
+        dimension = cfg.get('RAG_EMBEDDING_DIMENSIONS', '')
+        self.dimensions = int(dimension) if dimension else None
+        key = cfg.get('RAG_EMBEDDING_API_KEY', '')
+        if self.batch_size < 1 or (self.dimensions is not None and self.dimensions < 1):
+            raise ValueError('Invalid embedding batch size or dimensions')
+        if self.model_name == 'text-embedding-v4':
+            if not key:
+                raise ValueError('Set RAG_EMBEDDING_API_KEY in root .env for text-embedding-v4')
+            if self.batch_size > 10 or self.dimensions not in (None, 64, 128, 256, 512, 768, 1024, 1536, 2048):
+                raise ValueError('Invalid text-embedding-v4 batch size or dimensions')
+        self.client = httpx.Client(timeout=self.timeout, trust_env=False,
+            proxy=cfg.get('RAG_EMBEDDING_API_PROXY') or None,
+            headers={'Authorization': 'Bearer '+key} if key else {})
         self.identity = json.dumps(['http-embedding-v1', self.url, self.model_name, self.prefix, self.instruction], sort_keys=True)
+        if self.dimensions is not None:
+            self.identity = json.dumps([self.identity, 'dimensions', self.dimensions])
 
     def documents(self, texts):
-        payload = {'input': list(texts)}
-        if self.model_name: payload['model'] = self.model_name
-        response = self.client.post(self.url, json=payload); response.raise_for_status()
-        data = response.json().get('data', [])
-        ordered = sorted(data, key=lambda item: item.get('index', 0))
-        return self._vectors([item.get('embedding') for item in ordered], len(texts))
+        texts = list(texts)
+        if not texts:
+            raise ValueError('Embedding input must not be empty')
+        batches = []
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start:start+self.batch_size]
+            payload = {'input': batch, 'encoding_format': 'float'}
+            if self.model_name: payload['model'] = self.model_name
+            if self.dimensions is not None: payload['dimensions'] = self.dimensions
+            response = self.client.post(self.url, json=payload); response.raise_for_status()
+            data = response.json().get('data', [])
+            if (not isinstance(data, list) or any(not isinstance(item, dict) for item in data)
+                    or any(type(item.get('index')) is not int for item in data)
+                    or sorted(item['index'] for item in data) != list(range(len(batch)))):
+                raise ValueError('Invalid embedding response indexes')
+            ordered = sorted(data, key=lambda item: item['index'])
+            vectors = self._vectors([item.get('embedding') for item in ordered], len(batch))
+            if ((self.dimensions is not None and vectors.shape[1] != self.dimensions)
+                    or (batches and vectors.shape[1] != batches[0].shape[1])):
+                raise ValueError('Embedding dimension mismatch')
+            batches.append(vectors)
+        return np.concatenate(batches, axis=0)
 
     @staticmethod
     def _vectors(value, count):
