@@ -51,6 +51,16 @@ Otherwise select DIRECT and return queries=[], with no placeholder query.
 Every generated query must contain a short exact target/entity phrase copied
 from the original question. Set bridge to that phrase, NOT the whole question;
 source_id is always "__question__" at this initial routing stage.
+Before choosing queries, identify the requested terminal predicate and trace its
+arguments back to the named subject. Preserve EVERY relationship in that path.
+Resolve the innermost unknown entity first; do not replace a relative's attribute
+with the named person's attribute, or replace teaching with playing/listening.
+If multiple events are not yet identified, discover the events first; do not
+invent ordinal event names and treat them as known independent targets.
+Bridge is a literal substring of BOTH the source and the executable query.
+Use a short shared phrase rather than a paraphrased noun phrase. A direct fact
+does not need separate identity, event-date or context queries unless the question
+actually requires them. Memories are already scoped to the requesting user.
 Preserve the original time, person and other constraints. Options are proposed
 answers, NOT evidence. Never answer the question or invent intermediate entities.
 
@@ -88,6 +98,16 @@ Never invent intermediate entities or repeat a tried query. Keep all original
 constraints. Do not generate answers, calculations, or replacement memory text.
 Keep each quote to the shortest sufficient exact passage (3-600 characters),
 each needed_for to at most 200 characters, missing to at most 500 characters.
+Before accepting a quote, check its subject, relationship and object against the
+missing fact. Mentioning related words is not entailment: enjoying music does not
+prove performing it, a recommendation does not prove the user did it, and one
+person's relative is not another person's relative. Follow the resolved entity
+through each link. Do not fill a gap with another person's otherwise relevant fact.
+Ask only for missing facts NECESSARY to the original question. An unrelated date,
+the user's name, or extra background is not a gap for a simple attribute lookup.
+Before proposing a query, read it with its bridge substituted: the subject must
+have the correct type and role. Dates, durations, schools and activities are not
+people. Query only an unresolved relation, not an arbitrary topic in the evidence.
 If no grounded next query exists return queries=[]. If sufficient return queries=[].'''
 
 

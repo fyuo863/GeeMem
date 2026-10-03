@@ -114,6 +114,8 @@ def main():
     parser.add_argument('--cache-from', type=Path, help='Read-only copy of a compatible document cache.')
     parser.add_argument('--memory-from', type=Path, help='Read-only copy of a compatible ingested memory DB.')
     parser.add_argument('--ablation', action='store_true', help='Baseline, original multihop, binding-only, needs-only, combined.')
+    parser.add_argument('--question-ids', nargs='+', help='Explicit diagnostic subset; not a held-out evaluation.')
+    parser.add_argument('--prompt-baseline', type=Path, help='Frozen prompt JSON for paired previous/combined prompt-only comparison.')
     parser.add_argument('--synthetic', action='store_true', help='Four existing functional scenes plus two new dependency chains.')
     parser.add_argument('--top-k', type=int, choices=[3,5,10], default=10)
     parser.add_argument('--subquery-candidates',type=int,choices=range(1,101))
@@ -144,6 +146,12 @@ def main():
                    for s in sorted((s for s in samples if s['category']==kind and s['gold']
                                     and not s['abstention'] and s['id'] not in pilot_ids),
                        key=lambda s: hashlib.sha256(('multihop-stratified-v1:'+s['id']).encode()).hexdigest())[:args.per_category]]
+    if args.question_ids:
+        selected=set(args.question_ids)
+        available={s['id'] for s in samples}
+        if selected-available:
+            parser.error('Unknown question IDs: '+','.join(sorted(selected-available)))
+        samples=[s for s in samples if s['id'] in selected]
     cfg = load_settings()
     cfg.update(RAG_MEMORY_DB=str(out/'memory.sqlite3'), RAG_RESULT_WINDOW='0',
                AML_AUTH_MODE='bearer', AML_API_KEY='local-full-test')
@@ -152,6 +160,12 @@ def main():
     variants = ({'baseline':('off','off','off'), 'original':('llm','off','off'),
                  'bindings':('llm','on','off'), 'needs':('llm','off','on'), 'combined':('llm','on','on')}
                 if args.ablation else {'baseline':('off','off','off'),'multihop':('llm','off','off')})
+    old_prompts = None
+    if args.prompt_baseline:
+        if args.ablation:
+            parser.error('--prompt-baseline cannot be combined with --ablation')
+        old_prompts=json.loads(args.prompt_baseline.read_text(encoding='utf-8'))
+        variants={'baseline':('off','off','off'),'previous':('llm','on','on'),'combined':('llm','on','on')}
     manifest = dict(dataset_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
         count=len(samples), top_k=args.top_k, sample_ids=[s['id'] for s in samples], per_category=args.per_category,
         synthetic=args.synthetic,
@@ -162,6 +176,8 @@ def main():
         settings={k:v for k,v in cfg.items() if (k.startswith('RAG_') or k.startswith('LLM_'))
                   and not any(s in k for s in ('KEY', 'URL', 'PROXY'))},
         protocol='Full history for every selected question. Real in-process Add/Search. Document embedding cache only; uncached queries. No gold to retrieval/LLM. Abstention and unannotated cases excluded from evidence metrics.')
+    if old_prompts is not None:
+        manifest['prompt_baseline']=old_prompts
     manifest_path = out/'manifest.json'
     if args.resume:
         if json.loads(manifest_path.read_text(encoding='utf-8')) != manifest:
@@ -182,6 +198,21 @@ def main():
     stores = {name: TracedMemory(dict(cfg, RAG_MULTIHOP_MODE=mode, RAG_MULTIHOP_BINDINGS=binding,
                                     RAG_MULTIHOP_NEEDS=needs), embedding, reranker=reranker)
               for name, (mode,binding,needs) in variants.items()}
+    if old_prompts is not None:
+        # Per-instance replacement: identical code, schemas, budgets and retrieval;
+        # only the instruction strings differ. No global monkeypatch or API keys.
+        from memory import multihop, multihop_evidence
+        replacements=[(getattr(module,key),old_prompts[key])
+            for module,keys in [(multihop,['ROUTE_PROMPT','REVIEW_PROMPT']),
+                (multihop_evidence,['NEED_PLAN','REVIEW_BASE','BINDING_RULES','NEED_RULES','LEGACY_QUERY_RULES'])]
+            for key in keys]
+        planner=stores['previous'].multihop.planner
+        complete=planner.complete
+        def previous_complete(instruction, payload, schema, timeout):
+            for current, previous in replacements:
+                instruction=instruction.replace(current,previous)
+            return complete(instruction,payload,schema,timeout)
+        planner.complete=previous_complete
     for index, sample in enumerate(samples, 1):
         if all((name, sample['id']) in done for name in stores):
             continue

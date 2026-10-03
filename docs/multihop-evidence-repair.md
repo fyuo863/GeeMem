@@ -82,3 +82,5 @@ python scripts/test_multihop_full.py --out data/multihop/new-repair30 --per-cate
 自动化测试涵盖三段关系依次发现、错误来源纠正、程序分配位置、未知或歧义引用、需求遗漏与依赖缺失、冲突与时间不明、算术输入停止、一次纠错上限、调用预算、无进展停止、网络失败回退、用户隔离和 Add/Search 原文契约。模拟规划器通过不等于真实模型通过，效果必须以真实调用报告为准。
 
 已完成 146 项自动化测试、六场景和公共 30 题五方案消融，见 [2026-10-03 测试报告](llm-multihop-repairs-test-20261003.md)。组合方案 Recall@10 与原多跳持平，平均延迟增加；仍存在需求偏离原问题和角色混淆，两个增强开关保持默认关闭。
+
+后续仅优化提示词，完成六场景、十道已知错误/对照题及四道网络回退题补查，见 [提示词复查报告](multihop-prompt-check-20261003.md)。部分直接事实题减少多余需求，但公共十题 Recall@10 持平，亲属归属与旅行真实性错误仍存在。测试脚本可用 `--question-ids` 固定诊断题，并以 `--prompt-baseline data/multihop/prompt-before-20261003.json` 回放旧版组合提示词。
