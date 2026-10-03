@@ -1,0 +1,1308 @@
+{
+  "repairs-ablation30-20261003": {
+    "manifest": {
+      "dataset_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+      "count": 30,
+      "top_k": 10,
+      "sample_ids": [
+        "08e075c7",
+        "6a1eabeb",
+        "ce6d2d27",
+        "0977f2af",
+        "06db6396",
+        "efc3f7c2",
+        "10d9b85a",
+        "27016adc",
+        "d6062bb9",
+        "gpt4_f2262a51",
+        "7e00a6cb",
+        "cc539528",
+        "6ae235be",
+        "e3fc4d6e",
+        "4c36ccef",
+        "95228167",
+        "54026fce",
+        "a89d7624",
+        "75f70248",
+        "38146c39",
+        "21436231",
+        "f8c5f88b",
+        "5d3d2817",
+        "faba32e5",
+        "25e5aa4f",
+        "6e984302",
+        "gpt4_1a1dc16d",
+        "gpt4_7bc6cf22",
+        "gpt4_7f6b06db",
+        "gpt4_fa19884d"
+      ],
+      "per_category": 5,
+      "synthetic": false,
+      "variants": {
+        "baseline": [
+          "off",
+          "off",
+          "off"
+        ],
+        "original": [
+          "llm",
+          "off",
+          "off"
+        ],
+        "bindings": [
+          "llm",
+          "on",
+          "off"
+        ],
+        "needs": [
+          "llm",
+          "off",
+          "on"
+        ],
+        "combined": [
+          "llm",
+          "on",
+          "on"
+        ]
+      },
+      "source_sha256": {
+        "memory/multihop.py": "8d4fe089223dc40b9a366529c7ecb77b7897668b25b416d0041ff0c525308f2e",
+        "memory/multihop_evidence.py": "a24029ac4ae0fb199ca3a705e7c6b94828d3bf34673c7b5d19919b5053341f19",
+        "memory/vanilla.py": "2ab7292b6102e48352b848b611f8cf9f6b9778ca9b9831b465fc23e6a387c54e",
+        "scripts/test_multihop_live.py": "90923322cb887d98405af1f4edce8f967c11fd299527eff3fd625f41044f6226",
+        "scripts/test_multihop_full.py": "a52251950a3980ee25f1bb366d31001bac2188fabccbd9e36e97913e2f932306"
+      },
+      "settings": {
+        "LLM_MODEL": "gpt-4o-mini",
+        "RAG_MODEL_PATH": "data/models/bge-small-en-v1.5",
+        "RAG_RERANK_PATH": "data/models/ms-marco-MiniLM-L-6-v2",
+        "RAG_METADATA_MODE": "on",
+        "RAG_TARGET_MODE": "on",
+        "RAG_SECOND_PASS": "on",
+        "RAG_RERANK_MODE": "local",
+        "RAG_RERANK_CONTEXT": "1",
+        "RAG_RERANK_CANDIDATES": "400",
+        "RAG_RERANK_SELECTION": "context_support",
+        "RAG_RERANK_NEIGHBOR_PENALTY": "2",
+        "RAG_RESULT_WINDOW": "0",
+        "RAG_TAG_MODE": "off",
+        "RAG_RETRIEVAL_MODE": "hybrid",
+        "RAG_RRF_K": "60",
+        "RAG_LEXICAL_WEIGHT": "0.5",
+        "RAG_CHUNK_TOKENS": "320",
+        "RAG_CHUNK_OVERLAP": "40",
+        "RAG_RERANK_BATCH_SIZE": "32",
+        "RAG_RERANK_MAX_LENGTH": "512",
+        "RAG_DEVICE": "cuda",
+        "RAG_RERANK_DEVICE": "cuda",
+        "RAG_EMBEDDING_API_MODEL": "text-embedding-v4",
+        "RAG_EMBEDDING_DIMENSIONS": "1024",
+        "RAG_EMBEDDING_BATCH_SIZE": "10",
+        "RAG_QUERY_PREFIX": "",
+        "RAG_QUERY_INSTRUCTION": "",
+        "RAG_MEMORY_DB": "D:\\Program Data\\Github Program\\.实习\\CSIG_re\\data\\multihop\\repairs-ablation30-20261003\\memory.sqlite3",
+        "RAG_FUSION_QA": "on",
+        "RAG_MULTI_QUERY": "off",
+        "RAG_SOFT_RECALL": "on"
+      },
+      "protocol": "Full history for every selected question. Real in-process Add/Search. Document embedding cache only; uncached queries. No gold to retrieval/LLM. Abstention and unannotated cases excluded from evidence metrics."
+    },
+    "report": {
+      "expected_questions": 30,
+      "completed_searches": 150,
+      "variants": {
+        "baseline": {
+          "completed": 30,
+          "scored": 30,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.7,
+              "recall": 0.5666666666666667,
+              "micro_recall": 0.48936170212765956,
+              "all_evidence": 0.43333333333333335
+            },
+            "5": {
+              "hit": 0.8666666666666667,
+              "recall": 0.7611111111111111,
+              "micro_recall": 0.6808510638297872,
+              "all_evidence": 0.6666666666666666
+            },
+            "10": {
+              "hit": 0.9,
+              "recall": 0.7844444444444444,
+              "micro_recall": 0.723404255319149,
+              "all_evidence": 0.7
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.7,
+                "micro_recall": 0.7,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              }
+            },
+            "multi-session": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.3,
+                "micro_recall": 0.23076923076923078,
+                "all_evidence": 0.0
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.6,
+                "micro_recall": 0.46153846153846156,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.64,
+                "micro_recall": 0.5384615384615384,
+                "all_evidence": 0.4
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.8
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-preference": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.5,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.7,
+                "micro_recall": 0.6666666666666666,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.8
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.4,
+                "recall": 0.3,
+                "micro_recall": 0.25,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              }
+            }
+          },
+          "mean_seconds": 1.7657589567049097,
+          "p95_seconds": 2.1470269902609287,
+          "fallback_count": 0,
+          "strategies": {
+            "off": 30
+          },
+          "stops": {
+            "off": 30
+          },
+          "llm_calls": 0,
+          "search_calls": 30,
+          "abstention_nonempty": 0
+        },
+        "original": {
+          "completed": 30,
+          "scored": 30,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.8333333333333334,
+              "recall": 0.6944444444444444,
+              "micro_recall": 0.6170212765957447,
+              "all_evidence": 0.5666666666666667
+            },
+            "5": {
+              "hit": 0.8666666666666667,
+              "recall": 0.7944444444444444,
+              "micro_recall": 0.723404255319149,
+              "all_evidence": 0.7333333333333333
+            },
+            "10": {
+              "hit": 0.9,
+              "recall": 0.801111111111111,
+              "micro_recall": 0.7446808510638298,
+              "all_evidence": 0.7333333333333333
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              }
+            },
+            "multi-session": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.5,
+                "micro_recall": 0.38461538461538464,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.7,
+                "micro_recall": 0.5384615384615384,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.74,
+                "micro_recall": 0.6153846153846154,
+                "all_evidence": 0.6
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-preference": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.7,
+                "micro_recall": 0.6666666666666666,
+                "all_evidence": 0.6
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              },
+              "10": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.8
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.36666666666666664,
+                "micro_recall": 0.375,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              }
+            }
+          },
+          "mean_seconds": 9.991234540039052,
+          "p95_seconds": 22.925044410163515,
+          "fallback_count": 5,
+          "strategies": {
+            "direct": 20,
+            "chain": 2,
+            "split": 6,
+            "null": 2
+          },
+          "stops": {
+            "sufficient": 12,
+            "no_grounded_new_query": 13,
+            "fallback": 5
+          },
+          "llm_calls": 65,
+          "search_calls": 44,
+          "abstention_nonempty": 0
+        },
+        "bindings": {
+          "completed": 30,
+          "scored": 30,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.8,
+              "recall": 0.6733333333333333,
+              "micro_recall": 0.5957446808510638,
+              "all_evidence": 0.5666666666666667
+            },
+            "5": {
+              "hit": 0.8666666666666667,
+              "recall": 0.7899999999999999,
+              "micro_recall": 0.723404255319149,
+              "all_evidence": 0.7333333333333333
+            },
+            "10": {
+              "hit": 0.8666666666666667,
+              "recall": 0.7966666666666666,
+              "micro_recall": 0.7446808510638298,
+              "all_evidence": 0.7333333333333333
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              }
+            },
+            "multi-session": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.44000000000000006,
+                "micro_recall": 0.38461538461538464,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.74,
+                "micro_recall": 0.6153846153846154,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.78,
+                "micro_recall": 0.6923076923076923,
+                "all_evidence": 0.6
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-preference": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.5,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              },
+              "10": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.4,
+                "recall": 0.3,
+                "micro_recall": 0.25,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.4,
+                "recall": 0.4,
+                "micro_recall": 0.375,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 0.4,
+                "recall": 0.4,
+                "micro_recall": 0.375,
+                "all_evidence": 0.4
+              }
+            }
+          },
+          "mean_seconds": 12.024354356713593,
+          "p95_seconds": 21.697360785119233,
+          "fallback_count": 5,
+          "strategies": {
+            "direct": 20,
+            "chain": 2,
+            "split": 5,
+            "null": 3
+          },
+          "stops": {
+            "sufficient": 13,
+            "fallback": 5,
+            "no_grounded_new_query": 6,
+            "round_budget": 4,
+            "query_budget": 2
+          },
+          "llm_calls": 82,
+          "search_calls": 68,
+          "abstention_nonempty": 0
+        },
+        "needs": {
+          "completed": 30,
+          "scored": 30,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.8,
+              "recall": 0.6611111111111111,
+              "micro_recall": 0.574468085106383,
+              "all_evidence": 0.5333333333333333
+            },
+            "5": {
+              "hit": 0.8333333333333334,
+              "recall": 0.7444444444444444,
+              "micro_recall": 0.6808510638297872,
+              "all_evidence": 0.6666666666666666
+            },
+            "10": {
+              "hit": 0.9,
+              "recall": 0.801111111111111,
+              "micro_recall": 0.7446808510638298,
+              "all_evidence": 0.7333333333333333
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.7,
+                "micro_recall": 0.7,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              }
+            },
+            "multi-session": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.4,
+                "micro_recall": 0.3076923076923077,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.7,
+                "micro_recall": 0.5384615384615384,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.74,
+                "micro_recall": 0.6153846153846154,
+                "all_evidence": 0.6
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-preference": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.5,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 0.6,
+                "recall": 0.5,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.36666666666666664,
+                "micro_recall": 0.375,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              }
+            }
+          },
+          "mean_seconds": 13.991296163387597,
+          "p95_seconds": 31.101701410207884,
+          "fallback_count": 7,
+          "strategies": {
+            "direct": 18,
+            "chain": 2,
+            "split": 6,
+            "null": 4
+          },
+          "stops": {
+            "no_grounded_new_query": 17,
+            "fallback": 7,
+            "sufficient": 6
+          },
+          "llm_calls": 74,
+          "search_calls": 40,
+          "abstention_nonempty": 0
+        },
+        "combined": {
+          "completed": 30,
+          "scored": 30,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.8,
+              "recall": 0.7,
+              "micro_recall": 0.6170212765957447,
+              "all_evidence": 0.6
+            },
+            "5": {
+              "hit": 0.8666666666666667,
+              "recall": 0.7777777777777778,
+              "micro_recall": 0.7021276595744681,
+              "all_evidence": 0.7
+            },
+            "10": {
+              "hit": 0.9,
+              "recall": 0.801111111111111,
+              "micro_recall": 0.7446808510638298,
+              "all_evidence": 0.7333333333333333
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8,
+                "micro_recall": 0.8,
+                "all_evidence": 0.6
+              }
+            },
+            "multi-session": {
+              "3": {
+                "hit": 0.8,
+                "recall": 0.5,
+                "micro_recall": 0.38461538461538464,
+                "all_evidence": 0.2
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.7,
+                "micro_recall": 0.5384615384615384,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.74,
+                "micro_recall": 0.6153846153846154,
+                "all_evidence": 0.6
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-preference": {
+              "3": {
+                "hit": 0.6,
+                "recall": 0.5,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 0.8,
+                "recall": 0.7,
+                "micro_recall": 0.6666666666666666,
+                "all_evidence": 0.6
+              },
+              "10": {
+                "hit": 0.8,
+                "recall": 0.8,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.8
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.4,
+                "recall": 0.4,
+                "micro_recall": 0.375,
+                "all_evidence": 0.4
+              },
+              "5": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              },
+              "10": {
+                "hit": 0.6,
+                "recall": 0.4666666666666667,
+                "micro_recall": 0.5,
+                "all_evidence": 0.4
+              }
+            }
+          },
+          "mean_seconds": 14.242944760030756,
+          "p95_seconds": 32.424869490088874,
+          "fallback_count": 6,
+          "strategies": {
+            "direct": 18,
+            "chain": 2,
+            "split": 6,
+            "null": 4
+          },
+          "stops": {
+            "no_grounded_new_query": 18,
+            "fallback": 6,
+            "sufficient": 6
+          },
+          "llm_calls": 78,
+          "search_calls": 51,
+          "abstention_nonempty": 0
+        }
+      }
+    }
+  },
+  "repairs-chain6-final-20261003": {
+    "manifest": {
+      "dataset_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+      "count": 6,
+      "top_k": 3,
+      "sample_ids": [
+        "synthetic-0",
+        "synthetic-1",
+        "synthetic-2",
+        "synthetic-3",
+        "synthetic-4",
+        "synthetic-5"
+      ],
+      "per_category": null,
+      "synthetic": true,
+      "variants": {
+        "baseline": [
+          "off",
+          "off",
+          "off"
+        ],
+        "original": [
+          "llm",
+          "off",
+          "off"
+        ],
+        "bindings": [
+          "llm",
+          "on",
+          "off"
+        ],
+        "needs": [
+          "llm",
+          "off",
+          "on"
+        ],
+        "combined": [
+          "llm",
+          "on",
+          "on"
+        ]
+      },
+      "source_sha256": {
+        "memory/multihop.py": "8d4fe089223dc40b9a366529c7ecb77b7897668b25b416d0041ff0c525308f2e",
+        "memory/multihop_evidence.py": "a24029ac4ae0fb199ca3a705e7c6b94828d3bf34673c7b5d19919b5053341f19",
+        "memory/vanilla.py": "2ab7292b6102e48352b848b611f8cf9f6b9778ca9b9831b465fc23e6a387c54e",
+        "scripts/test_multihop_live.py": "90923322cb887d98405af1f4edce8f967c11fd299527eff3fd625f41044f6226",
+        "scripts/test_multihop_full.py": "a52251950a3980ee25f1bb366d31001bac2188fabccbd9e36e97913e2f932306"
+      },
+      "settings": {
+        "LLM_MODEL": "gpt-4o-mini",
+        "RAG_MODEL_PATH": "data/models/bge-small-en-v1.5",
+        "RAG_RERANK_PATH": "data/models/ms-marco-MiniLM-L-6-v2",
+        "RAG_METADATA_MODE": "on",
+        "RAG_TARGET_MODE": "on",
+        "RAG_SECOND_PASS": "on",
+        "RAG_RERANK_MODE": "local",
+        "RAG_RERANK_CONTEXT": "1",
+        "RAG_RERANK_CANDIDATES": "400",
+        "RAG_RERANK_SELECTION": "context_support",
+        "RAG_RERANK_NEIGHBOR_PENALTY": "2",
+        "RAG_RESULT_WINDOW": "0",
+        "RAG_TAG_MODE": "off",
+        "RAG_RETRIEVAL_MODE": "hybrid",
+        "RAG_RRF_K": "60",
+        "RAG_LEXICAL_WEIGHT": "0.5",
+        "RAG_CHUNK_TOKENS": "320",
+        "RAG_CHUNK_OVERLAP": "40",
+        "RAG_RERANK_BATCH_SIZE": "32",
+        "RAG_RERANK_MAX_LENGTH": "512",
+        "RAG_DEVICE": "cuda",
+        "RAG_RERANK_DEVICE": "cuda",
+        "RAG_EMBEDDING_API_MODEL": "text-embedding-v4",
+        "RAG_EMBEDDING_DIMENSIONS": "1024",
+        "RAG_EMBEDDING_BATCH_SIZE": "10",
+        "RAG_QUERY_PREFIX": "",
+        "RAG_QUERY_INSTRUCTION": "",
+        "RAG_MEMORY_DB": "D:\\Program Data\\Github Program\\.实习\\CSIG_re\\data\\multihop\\repairs-chain6-final-20261003\\memory.sqlite3",
+        "RAG_FUSION_QA": "on",
+        "RAG_MULTI_QUERY": "off",
+        "RAG_SOFT_RECALL": "on",
+        "RAG_MULTIHOP_CANDIDATES": "1"
+      },
+      "protocol": "Full history for every selected question. Real in-process Add/Search. Document embedding cache only; uncached queries. No gold to retrieval/LLM. Abstention and unannotated cases excluded from evidence metrics."
+    },
+    "report": {
+      "expected_questions": 6,
+      "completed_searches": 30,
+      "variants": {
+        "baseline": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.7222222222222222,
+              "micro_recall": 0.6428571428571429,
+              "all_evidence": 0.5
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.5833333333333333,
+                "micro_recall": 0.5454545454545454,
+                "all_evidence": 0.25
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 0.3828512500040233,
+          "p95_seconds": 0.501322950120084,
+          "fallback_count": 0,
+          "strategies": {
+            "off": 6
+          },
+          "stops": {
+            "off": 6
+          },
+          "llm_calls": 0,
+          "search_calls": 6,
+          "abstention_nonempty": 0
+        },
+        "original": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.7222222222222222,
+              "micro_recall": 0.6428571428571429,
+              "all_evidence": 0.5
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.5833333333333333,
+                "micro_recall": 0.5454545454545454,
+                "all_evidence": 0.25
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 11.652571300044656,
+          "p95_seconds": 14.261490124976262,
+          "fallback_count": 1,
+          "strategies": {
+            "direct": 1,
+            "split": 1,
+            "chain": 4
+          },
+          "stops": {
+            "sufficient": 3,
+            "fallback": 1,
+            "no_grounded_new_query": 2
+          },
+          "llm_calls": 12,
+          "search_calls": 12,
+          "abstention_nonempty": 0
+        },
+        "bindings": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.7222222222222222,
+              "micro_recall": 0.6428571428571429,
+              "all_evidence": 0.5
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.5833333333333333,
+                "micro_recall": 0.5454545454545454,
+                "all_evidence": 0.25
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 9.132243416582545,
+          "p95_seconds": 12.576635424862616,
+          "fallback_count": 2,
+          "strategies": {
+            "direct": 1,
+            "split": 1,
+            "chain": 3,
+            "null": 1
+          },
+          "stops": {
+            "sufficient": 4,
+            "fallback": 2
+          },
+          "llm_calls": 12,
+          "search_calls": 12,
+          "abstention_nonempty": 0
+        },
+        "needs": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.8333333333333331,
+              "micro_recall": 0.7857142857142857,
+              "all_evidence": 0.6666666666666666
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.75,
+                "micro_recall": 0.7272727272727273,
+                "all_evidence": 0.5
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 17.26943785014252,
+          "p95_seconds": 29.60020700027235,
+          "fallback_count": 1,
+          "strategies": {
+            "direct": 1,
+            "split": 1,
+            "chain": 3,
+            "null": 1
+          },
+          "stops": {
+            "sufficient": 4,
+            "fallback": 1,
+            "no_grounded_new_query": 1
+          },
+          "llm_calls": 14,
+          "search_calls": 13,
+          "abstention_nonempty": 0
+        },
+        "combined": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.8888888888888888,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.8333333333333334
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8181818181818182,
+                "all_evidence": 0.75
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 14.6368996167245,
+          "p95_seconds": 22.198458850150928,
+          "fallback_count": 1,
+          "strategies": {
+            "direct": 1,
+            "split": 1,
+            "null": 1,
+            "chain": 3
+          },
+          "stops": {
+            "sufficient": 5,
+            "fallback": 1
+          },
+          "llm_calls": 15,
+          "search_calls": 15,
+          "abstention_nonempty": 0
+        }
+      }
+    }
+  }
+}

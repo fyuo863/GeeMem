@@ -199,6 +199,10 @@ python scripts/smoke_aml.py --live
 
 要回到原 ABC，保留 ABC 参数，将三个扩展开关全部设为 `off` 并重启。代码缺省值仍为 off，当前模板显式选择 1＋3，便于区分历史配置与新配置。
 
+## 多跳实验分支
+
+`codex/llm-multihop` 提供可选的 gpt-4o-mini 检索规划、依赖式追加查询，以及来源绑定和证据需求检查，仍返回原文。该实验不代表服务器已启用 LLM。增强开关 `RAG_MULTIHOP_BINDINGS` 和 `RAG_MULTIHOP_NEEDS` 默认关闭：30 题五方案测试中，组合版 Recall@10 与原多跳持平、延迟增加，尚不建议默认启用。详见 [实现说明](docs/multihop-evidence-repair.md) 和 [测试结果及失败案例](docs/llm-multihop-repairs-test-20261003.md)。
+
 ## 边界与来源
 
 当前模型及完整测试主要针对英文文本；示例或接口支持 Unicode 不代表中文检索效果已验证。元数据缺失、时间歧义、多人归属和间接证据仍可能造成漏召回。Add/Search 并发上限为配置限制，超过时返回 429，不能据此推断持续吞吐能力。
