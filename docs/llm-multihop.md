@@ -1,5 +1,7 @@
 # LLM 多跳实验
 
+来源绑定与结构化证据需求的可选增强，见 [实现与消融测试说明](multihop-evidence-repair.md)。两个增强开关默认关闭，便于与原多跳版本比较。
+
 分支 `codex/llm-multihop`，从 `main` 的 `b90ea62` 创建。没有迁入 `codex/evidence-memory` 的事实、规则多跳或证据窗口模块。
 
 ## Search 流程

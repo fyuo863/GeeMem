@@ -146,10 +146,15 @@ class MultiHop:
         self.chars = int(cfg.get('RAG_MULTIHOP_EVIDENCE_CHARS','1200'))
         self.timeout = float(cfg.get('RAG_MULTIHOP_LLM_TIMEOUT','20'))
         self.seconds = float(cfg.get('RAG_MULTIHOP_SECONDS','90'))
+        self.bindings = cfg.get('RAG_MULTIHOP_BINDINGS','off')
+        self.needs = cfg.get('RAG_MULTIHOP_NEEDS','off')
+        self.llm_limit = int(cfg.get('RAG_MULTIHOP_LLM_CALLS', str(self.rounds+2)))
         if (self.mode not in ('off','llm') or not 1<=self.rounds<=4 or not 2<=self.query_limit<=10
                 or not 1<=self.candidates<=100 or not 8<=self.evidence_limit<=24
                 or not 200<=self.chars<=2400 or not math.isfinite(self.timeout)
-                or not 1<=self.timeout<=60 or not math.isfinite(self.seconds) or not 1<=self.seconds<=300):
+                or not 1<=self.timeout<=60 or not math.isfinite(self.seconds) or not 1<=self.seconds<=300
+                or self.bindings not in ('off','on') or self.needs not in ('off','on')
+                or not 2<=self.llm_limit<=8):
             raise ValueError('Invalid multihop configuration')
         self.planner = planner
         if self.mode == 'llm' and planner is None:
@@ -166,6 +171,9 @@ class MultiHop:
         supports={}
         seen_evidence=set()
         phase='route'
+        planner=self.planner
+        enhanced=self.bindings=='on' or self.needs=='on'
+        previous_progress=None
 
         def remaining():
             return self.seconds-(time.perf_counter()-started)
@@ -178,6 +186,19 @@ class MultiHop:
         def search(query, k):
             # user_id and options are copied from the caller, never from the LLM.
             return retrieve(payload.model_copy(update={'query':query,'top_k':k}))['data']
+
+        def repair_budget():
+            if trace['llm_calls']>=self.llm_limit or remaining()<=0:
+                return False
+            trace['llm_calls']+=1
+            return True
+
+        if enhanced:
+            from .multihop_evidence import EvidencePlanner
+            trace.update(bindings=self.bindings,needs=self.needs,repairs=0,repair_errors=[],
+                         validation_errors=[],binding_registry=[],need_states=[])
+            planner=EvidencePlanner(self.planner,self.bindings=='on',self.needs=='on',
+                                    trace,repair_budget,timeout)
 
         def collect(query,hits):
             history.append(query)
@@ -229,7 +250,7 @@ class MultiHop:
 
         try:
             trace['llm_calls']+=1
-            plan=Route.model_validate(self.planner.route(payload.query,payload.options,timeout()))
+            plan=Route.model_validate(planner.route(payload.query,payload.options,timeout()))
             trace['strategy']=plan.strategy
             trace['initial_plan']=plan.model_dump()
             # Always keep one exact original-query result for fail-open behavior.
@@ -242,6 +263,9 @@ class MultiHop:
             for iteration in range(self.rounds):
                 if remaining()<=0:
                     trace['stop']='time_budget'
+                    break
+                if trace['llm_calls']>=self.llm_limit:
+                    trace['stop']='llm_budget'
                     break
                 pending=pending[:max(0,self.query_limit-trace['search_calls'])]
                 before=set(pool)
@@ -257,9 +281,12 @@ class MultiHop:
                 evidence=packet()
                 sources={'__question__':payload.query,**{e['id']:e['content'] for e in evidence}}
                 seen_evidence.update(e['id'] for e in evidence)
+                if trace['llm_calls']>=self.llm_limit:
+                    trace['stop']='llm_budget'
+                    break
                 trace['llm_calls']+=1
                 phase='review'
-                review=Review.model_validate(self.planner.review(payload.query,payload.options,
+                review=Review.model_validate(planner.review(payload.query,payload.options,
                     plan.strategy,evidence,list(history),timeout()))
                 valid={}
                 invalid_support=False
@@ -274,6 +301,8 @@ class MultiHop:
                     new_candidates=len(set(pool)-before),evidence_ids=[e['id'] for e in evidence],
                     review=review.model_dump(),valid_support_ids=list(supports))
                 trace['rounds'].append(step)
+                if enhanced:
+                    step['need_states']=list(planner.states)
                 # Quote validation proves provenance, not semantic entailment.
                 if review.sufficient and supports and not invalid_support:
                     trace['stop']='sufficient'
@@ -281,6 +310,12 @@ class MultiHop:
                 if trace['search_calls']>=self.query_limit:
                     trace['stop']='query_budget'
                     break
+                if enhanced:
+                    progress=(tuple(sorted(supports)),planner.progress_token)
+                    if iteration>0 and len(set(pool)-before)==0 and progress==previous_progress:
+                        trace['stop']='no_progress'
+                        break
+                    previous_progress=progress
                 pending=accepted(review.queries,sources,1 if plan.strategy=='chain' else 3)
                 if not pending:
                     trace['stop']='no_grounded_new_query'
@@ -304,7 +339,7 @@ class MultiHop:
             ordered=sorted(ids,key=lambda i:(i not in supports,-fused[i],ids.index(i)))
             chosen=ordered[:payload.top_k]
             trace['support_ids']=list(supports)
-            trace['supports_fit']=len(supports)<=payload.top_k
+            trace['supports_fit']=len(supports)<=payload.top_k and not trace.get('support_overflow',False)
             trace['history']=history
             # Score is the fused ranking signal, not a calibrated confidence.
             # A support tier offset makes response scores consistent with its order.

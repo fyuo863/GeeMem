@@ -12,7 +12,7 @@ import time
 
 from test_multihop_live import (
     PROJECT_ROOT, HTTPEmbedder, LocalReranker, HTTPReranker, TracedMemory,
-    TestClient, create_app, load_settings, batches, metrics, np, public_samples,
+    TestClient, create_app, load_settings, batches, metrics, np, public_samples, synthetic,
 )
 
 
@@ -82,15 +82,17 @@ class DocumentCache:
 
 def summarize(cases, expected):
     result = dict(expected_questions=expected, completed_searches=len(cases), variants={})
-    for name in ('baseline', 'multihop'):
+    names = list(dict.fromkeys(c['variant'] for c in cases)) or ['baseline','multihop']
+    for name in names:
         arm = [c for c in cases if c['variant'] == name]
         scored = [c for c in arm if c['gold'] and not c['abstention']]
+        ks = [k for k in (3,5,10) if k<=min((c.get('top_k',10) for c in arm),default=10)]
         result['variants'][name] = dict(
             completed=len(arm), scored=len(scored), abstention=sum(c['abstention'] for c in arm),
             unannotated=sum(not c['gold'] and not c['abstention'] for c in arm),
-            metrics={str(k): metrics(scored, k) for k in (3, 5, 10)} if scored else {},
+            metrics={str(k): metrics(scored, k) for k in ks} if scored else {},
             categories={kind: {str(k): metrics([c for c in scored if c['category']==kind], k)
-                               for k in (3, 5, 10)} for kind in sorted({c['category'] for c in scored})},
+                               for k in ks} for kind in sorted({c['category'] for c in scored})},
             mean_seconds=float(np.mean([c['seconds'] for c in arm])) if arm else None,
             p95_seconds=float(np.percentile([c['seconds'] for c in arm], 95)) if arm else None,
             fallback_count=sum(c['trace'].get('fallback', False) for c in arm),
@@ -110,11 +112,32 @@ def main():
     parser.add_argument('--per-category', type=int, choices=range(1, 31),
                         help='Deterministic answerable sample per category, excluding the prior eight pilot questions.')
     parser.add_argument('--cache-from', type=Path, help='Read-only copy of a compatible document cache.')
+    parser.add_argument('--memory-from', type=Path, help='Read-only copy of a compatible ingested memory DB.')
+    parser.add_argument('--ablation', action='store_true', help='Baseline, original multihop, binding-only, needs-only, combined.')
+    parser.add_argument('--synthetic', action='store_true', help='Four existing functional scenes plus two new dependency chains.')
+    parser.add_argument('--top-k', type=int, choices=[3,5,10], default=10)
+    parser.add_argument('--subquery-candidates',type=int,choices=range(1,101))
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=args.resume)
     source = PROJECT_ROOT/'data/longmemeval/longmemeval_s_cleaned.json'
     samples = list(samples_from(source))
+    if args.synthetic:
+        if args.per_category:
+            parser.error('--synthetic cannot be combined with --per-category')
+        samples = [dict(s,abstention=False) for s in synthetic()]
+        definitions=[
+            ('Which city hosts the headquarters of the company that employs Iris\'s mentor?',
+             ['Iris is mentored by Dario.','Dario works for Aurora Systems.','Aurora Systems has its headquarters in Oslo.'],
+             ['Iris works for Cobalt Media.','Cobalt Media has its headquarters in London.','Iris lives in Rome.']),
+            ('What instrument does the instructor of Veda\'s brother teach?',
+             ['Veda has a brother named Niko.','Niko takes lessons from Selene.','Selene teaches the clarinet.'],
+             ['Veda takes lessons from Pascal.','Pascal teaches the violin.','Niko enjoys listening to the cello.'])]
+        for i,(question,facts,distractors) in enumerate(definitions,4):
+            texts=facts+distractors+['We discussed a garden and travel plans.']*6
+            samples.append(dict(id=f'synthetic-{i}',category='chain',question=question,abstention=False,
+                sessions=[(str(j),[dict(role='user',content=t,timestamp=1704067200000+j*60000)]) for j,t in enumerate(texts)],
+                gold=['0:0','1:0','2:0']))
     if args.per_category:
         pilot_ids = {s['id'] for s in public_samples()}
         samples = [s for kind in sorted({s['category'] for s in samples})
@@ -124,10 +147,17 @@ def main():
     cfg = load_settings()
     cfg.update(RAG_MEMORY_DB=str(out/'memory.sqlite3'), RAG_RESULT_WINDOW='0',
                AML_AUTH_MODE='bearer', AML_API_KEY='local-full-test')
+    if args.subquery_candidates is not None:
+        cfg['RAG_MULTIHOP_CANDIDATES']=str(args.subquery_candidates)
+    variants = ({'baseline':('off','off','off'), 'original':('llm','off','off'),
+                 'bindings':('llm','on','off'), 'needs':('llm','off','on'), 'combined':('llm','on','on')}
+                if args.ablation else {'baseline':('off','off','off'),'multihop':('llm','off','off')})
     manifest = dict(dataset_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
-        count=len(samples), top_k=10, sample_ids=[s['id'] for s in samples], per_category=args.per_category,
+        count=len(samples), top_k=args.top_k, sample_ids=[s['id'] for s in samples], per_category=args.per_category,
+        synthetic=args.synthetic,
+        variants={k:list(v) for k,v in variants.items()},
         source_sha256={p: hashlib.sha256((PROJECT_ROOT/p).read_bytes()).hexdigest()
-                       for p in ['memory/multihop.py', 'memory/vanilla.py',
+                       for p in ['memory/multihop.py', 'memory/multihop_evidence.py', 'memory/vanilla.py',
                                  'scripts/test_multihop_live.py', 'scripts/test_multihop_full.py']},
         settings={k:v for k,v in cfg.items() if (k.startswith('RAG_') or k.startswith('LLM_'))
                   and not any(s in k for s in ('KEY', 'URL', 'PROXY'))},
@@ -141,13 +171,17 @@ def main():
     cases_path = out/'cases.jsonl'
     cases = [json.loads(line) for line in cases_path.read_text(encoding='utf-8').split('\n') if line] if cases_path.exists() else []
     done = {(c['variant'], c['id']) for c in cases}
+    if args.memory_from and not (out/'memory.sqlite3').exists():
+        with closing(sqlite3.connect(args.memory_from.resolve().as_uri()+'?mode=ro', uri=True)) as src, closing(sqlite3.connect(out/'memory.sqlite3')) as dst:
+            src.backup(dst)
     if args.cache_from and not (out/'document-cache.sqlite3').exists():
         with closing(sqlite3.connect(args.cache_from.resolve().as_uri()+'?mode=ro', uri=True)) as src, closing(sqlite3.connect(out/'document-cache.sqlite3')) as dst:
             src.backup(dst)
     embedding = DocumentCache(HTTPEmbedder(cfg), out/'document-cache.sqlite3')
     reranker = HTTPReranker(cfg) if cfg.get('RAG_RERANK_API_URL') else LocalReranker(cfg)
-    stores = {name: TracedMemory(dict(cfg, RAG_MULTIHOP_MODE=mode), embedding, reranker=reranker)
-              for name, mode in [('baseline', 'off'), ('multihop', 'llm')]}
+    stores = {name: TracedMemory(dict(cfg, RAG_MULTIHOP_MODE=mode, RAG_MULTIHOP_BINDINGS=binding,
+                                    RAG_MULTIHOP_NEEDS=needs), embedding, reranker=reranker)
+              for name, (mode,binding,needs) in variants.items()}
     for index, sample in enumerate(samples, 1):
         if all((name, sample['id']) in done for name in stores):
             continue
@@ -158,7 +192,11 @@ def main():
             before = time.perf_counter()
             fresh = embedding.prefetch([m['content'] for m in mapping.values()], args.embedding_workers)
             print('EMBEDDED', index, fresh, round(time.perf_counter()-before, 2), flush=True)
-            for name, store in stores.items():
+            # Rotate measured variants to distribute warm-up and transient network effects.
+            names=list(stores)
+            names=names[(index-1)%len(names):]+names[:(index-1)%len(names)]
+            for name in names:
+                store=stores[name]
                 if (name, sample['id']) in done:
                     continue
                 phase = name+'-add'
@@ -170,17 +208,17 @@ def main():
                         assert response.json() == dict(success=True, **{k:body[k] for k in ('user_id','session_id','request_id')})
                     phase = name+'-search'
                     before = time.perf_counter()
-                    response = client.post('/search', json=dict(user_id=requests[0]['user_id'], query=sample['question'], top_k=10))
+                    response = client.post('/search', json=dict(user_id=requests[0]['user_id'], query=sample['question'], top_k=args.top_k))
                     seconds = time.perf_counter()-before
                     assert response.status_code == 200, response.status_code
                     hits = response.json()['data']
-                    assert len(hits)<=10 and len({h['id'] for h in hits})==len(hits)
+                    assert len(hits)<=args.top_k and len({h['id'] for h in hits})==len(hits)
                     assert all(h['id'] in mapping and h['content']==mapping[h['id']]['content'] for h in hits)
                     assert all(a['score']>=b['score'] for a,b in zip(hits,hits[1:]))
                     case = dict(variant=name, id=sample['id'], category=sample['category'],
                         question=sample['question'], gold=sample['gold'], abstention=sample['abstention'],
                         ranked_messages=[mapping[h['id']]['message'] for h in hits], hits=hits,
-                        trace=store.last_trace, seconds=seconds)
+                        trace=store.last_trace, seconds=seconds, top_k=args.top_k)
                     with cases_path.open('a', encoding='utf-8') as f:
                         f.write(json.dumps(case, ensure_ascii=False)+'\n')
                     cases.append(case)
@@ -193,8 +231,8 @@ def main():
             with (out/'errors.jsonl').open('a', encoding='utf-8') as f:
                 f.write(json.dumps(failure)+'\n')
             print('ERROR', failure, flush=True)
-    print('FINISHED', len(cases), '/', len(samples)*2, flush=True)
-    if len(cases) != len(samples)*2:
+    print('FINISHED', len(cases), '/', len(samples)*len(stores), flush=True)
+    if len(cases) != len(samples)*len(stores):
         raise SystemExit(2)
 
 
