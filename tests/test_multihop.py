@@ -198,3 +198,14 @@ def test_time_budget_stops_planning_but_preserves_baseline():
     trace={}
     out=runner.run(request(),retrieve,lambda q,d:[1]*len(d),trace)
     assert trace['stop']=='time_budget' and out['data'][0]['content']=='Alice lives in Paris.'
+
+
+def test_long_bridge_can_only_shorten_to_a_name_already_in_the_cited_phrase():
+    class LongBridge(ChainPlanner):
+        def route(self,*args):
+            return Route(strategy='chain',queries=[Query(query='Who is Alice married to?',source_id='__question__',bridge='spouse of Alice')])
+    trace={}
+    MultiHop({'RAG_MULTIHOP_MODE':'llm'},LongBridge()).run(request(),
+        lambda p:{'data':[hit('spouse','Alice is married to Bob.')]},lambda q,d:[1]*len(d),trace)
+    assert trace['shortened_bridges']==1
+    assert trace['rounds'][0]['queries'][0]['bridge']=='Alice'
