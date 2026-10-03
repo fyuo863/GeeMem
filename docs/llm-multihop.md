@@ -64,4 +64,16 @@ python scripts/test_multihop_live.py --out data/multihop/new-chain-check --case-
 
 输出目录必须不存在，防止覆盖结果。第二条运行四个自建场景（直接、拆分、两级关系、三级关系），第三条运行之前相同的八题公开 LongMemEval-S 完整历史回归样本。缓存只复制到新库，并由 VanillaMemory 的 embedding/chunk identity 检查兼容性；不会修改原数据库。脚本只在测试进程中切换 off/llm，不改 `.env`。
 
+适量分层测试（六类各五题，排除上述八题与拒答题，保留每题完整历史）：
+
+本次实际结果见 [30 题分层对比报告](llm-multihop-stratified30-20261003.md)：Recall@10 为 78.44% → 80.11%，Hit@10 持平，平均耗时约 5.61 倍。
+
+```powershell
+python scripts/test_multihop_full.py --out data/multihop/new-stratified30 --per-category 5 --embedding-workers 6
+# 中断后使用相同目录、选择参数及源码/配置续跑：
+python scripts/test_multihop_full.py --out data/multihop/new-stratified30 --per-category 5 --embedding-workers 6 --resume
+```
+
+该脚本仅缓存文档向量以加速 Add 准备，Search 的查询编码仍实际调用 API。每条结果落盘，可从中断处继续；编码并发只影响准备速度，不改变两版检索实现。省略 `--per-category` 才会运行全部 500 题。拒答题和没有消息级 gold 的题不纳入证据召回分母，分别计数；检索接口不生成答案，不能由此评价拒答正确率。
+
 脚本通过真实 FastAPI Add/Search 处理器测试响应、原文一致性、用户范围、唯一 ID 和降序分数。它报告 Hit、题均 Recall、Micro Recall、全证据命中@3/5/10 及耗时，另列 fallback_count。若全部回退，这些数值只验证基线路径与回退开销，**不能当作多跳性能**。人工构造样例用于功能验证，公开八题已用于此前分析，只能作为开发回归，均不是官网成绩。不会生成最终答案。
