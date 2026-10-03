@@ -3,6 +3,8 @@
 
 GeeMem 是一个通用 Agent 长期记忆模块，通过同步 `POST /add` 保存对话，通过 `POST /search` 返回相关原文证据。当前提供 Agent Memory Leaderboard 文本赛道适配接口，入口为 `memory.aml_api:app`。
 
+本分支 `codex/llm-multihop` 从 `main` 的 `b90ea62` 创建，增加可选的 **gpt-4o-mini 检索编排**：直接检索、独立子问题并行检索、依赖式逐步检索，以及带来源引用的证据缺口检查。默认 `RAG_MULTIHOP_MODE=off`；启用时只有 Search 调用生成式 LLM，Add 和赛事响应结构保持原样。实验尚未部署。配置、预算、失败回退及测试见 [多跳实验说明](docs/llm-multihop.md)。下文参赛版本说明对应关闭该实验开关的基线。
+
 当前选择 **ABC＋方案 1＋方案 3（FM）**：混合召回、上下文与目标评分融合、局部问答关联，以及人物/日期软召回。多人子查询方案 2 保留实现但关闭。Add/Search 不调用生成式 LLM，不生成最终答案。
 
 ## 当前版本
