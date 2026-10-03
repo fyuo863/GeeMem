@@ -53,10 +53,13 @@ LLM 连接失败、结构化输出不合法、可捕获的子检索网络错误�
 
 ## 测试
 
+实际小范围结果见 [2026-10-03 测试报告](llm-multihop-test-20261003.md)：前五证据集中度改善，但真实下一跳存在来源绑定失败，尚不适合替换生产版本。
+
 ```powershell
 python -m pytest -q -p no:cacheprovider
 python scripts/test_multihop_live.py --out data/multihop/new-synthetic-run
 python scripts/test_multihop_live.py --out data/multihop/new-public-run --public --public-cache data/evidence-memory/longmemeval-pilot-20261002-cuda/baseline.sqlite3
+python scripts/test_multihop_live.py --out data/multihop/new-chain-check --case-id synthetic-3 --top-k 3 --subquery-candidates 1
 ```
 
 输出目录必须不存在，防止覆盖结果。第二条运行四个自建场景（直接、拆分、两级关系、三级关系），第三条运行之前相同的八题公开 LongMemEval-S 完整历史回归样本。缓存只复制到新库，并由 VanillaMemory 的 embedding/chunk identity 检查兼容性；不会修改原数据库。脚本只在测试进程中切换 off/llm，不改 `.env`。

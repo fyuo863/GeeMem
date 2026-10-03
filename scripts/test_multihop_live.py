@@ -95,11 +95,16 @@ def main():
     parser.add_argument('--out',required=True)
     parser.add_argument('--public-cache',type=Path,help='Existing compatible public pilot baseline DB; copied, never modified.')
     parser.add_argument('--public',action='store_true',help='Use eight public full-history regression questions instead of four constructed cases.')
+    parser.add_argument('--top-k',type=int,choices=[3,5,10],default=10)
+    parser.add_argument('--subquery-candidates',type=int,choices=range(1,101))
+    parser.add_argument('--case-id',help='Optional single case for focused mechanism checks.')
     args=parser.parse_args()
     out=Path(args.out).resolve();out.mkdir(parents=True,exist_ok=False)
     cfg=load_settings()
     cfg.update(RAG_MEMORY_DB=str(out/'memory.sqlite3'),RAG_RESULT_WINDOW='0',RAG_MULTIHOP_MODE='off',
                AML_AUTH_MODE='bearer',AML_API_KEY='local-test')
+    if args.subquery_candidates is not None:
+        cfg['RAG_MULTIHOP_CANDIDATES']=str(args.subquery_candidates)
     if args.public_cache:
         if not args.public: parser.error('--public-cache requires --public')
         with closing(sqlite3.connect(args.public_cache.resolve().as_uri()+'?mode=ro',uri=True)) as src,closing(sqlite3.connect(cfg['RAG_MEMORY_DB'])) as dst:
@@ -113,9 +118,13 @@ def main():
                        for p in [PROJECT_ROOT/'memory/multihop.py',PROJECT_ROOT/'memory/vanilla.py',Path(__file__)]},
         settings={k:v for k,v in cfg.items() if (k.startswith('RAG_') or k=='LLM_MODEL') and not any(s in k for s in ('KEY','URL','PROXY'))},
         protocol='Actual in-process Add/Search handlers; actual embedding, reranker and gpt-4o-mini calls. No gold sent to memory. Not an answer-level or official score.',
-        evaluation='public regression' if args.public else 'constructed functional scenarios')
+        evaluation='public regression' if args.public else 'constructed functional scenarios',
+        top_k=args.top_k,case_id=args.case_id)
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     samples=public_samples() if args.public else synthetic()
+    if args.case_id:
+        samples=[s for s in samples if s['id']==args.case_id]
+        if not samples: parser.error('Unknown case-id')
     cases=[]
     for sample in samples:
         requests,mapping=batches(sample,cfg)
@@ -127,11 +136,11 @@ def main():
                     assert r.status_code==200, r.status_code
                     assert r.json()==dict(success=True,**{k:body[k] for k in ('user_id','session_id','request_id')})
                 before=time.perf_counter()
-                r=client.post('/search',json=dict(user_id=requests[0]['user_id'],query=sample['question'],top_k=10))
+                r=client.post('/search',json=dict(user_id=requests[0]['user_id'],query=sample['question'],top_k=args.top_k))
                 seconds=time.perf_counter()-before
                 assert r.status_code==200,r.status_code
                 hits=r.json()['data']
-                assert len(hits)<=10 and len({h['id'] for h in hits})==len(hits)
+                assert len(hits)<=args.top_k and len({h['id'] for h in hits})==len(hits)
                 assert all(h['id'] in mapping and h['content']==mapping[h['id']]['content'] for h in hits)
                 assert all(a['score']>=b['score'] for a,b in zip(hits,hits[1:]))
                 case=dict(variant=name,id=sample['id'],category=sample['category'],question=sample['question'],gold=sample['gold'],
@@ -142,7 +151,7 @@ def main():
     result={}
     for name in stores:
         arm=[c for c in cases if c['variant']==name]
-        result[name]=dict(metrics={str(k):metrics(arm,k) for k in (3,5,10)},
+        result[name]=dict(metrics={str(k):metrics(arm,k) for k in (3,5,10) if k<=args.top_k},
             mean_seconds=float(np.mean([c['seconds'] for c in arm])),p95_seconds=float(np.percentile([c['seconds'] for c in arm],95)),
             fallback_count=sum(c['trace'].get('fallback',False) for c in arm),
             llm_calls=sum(c['trace'].get('llm_calls',0) for c in arm),
