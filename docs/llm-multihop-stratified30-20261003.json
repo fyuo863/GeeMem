@@ -1,0 +1,330 @@
+{
+  "expected_questions": 30,
+  "completed_searches": 60,
+  "variants": {
+    "baseline": {
+      "completed": 30,
+      "scored": 30,
+      "abstention": 0,
+      "unannotated": 0,
+      "metrics": {
+        "3": {
+          "hit": 0.7,
+          "recall": 0.5666666666666667,
+          "micro_recall": 0.48936170212765956,
+          "all_evidence": 0.43333333333333335
+        },
+        "5": {
+          "hit": 0.8666666666666667,
+          "recall": 0.7611111111111111,
+          "micro_recall": 0.6808510638297872,
+          "all_evidence": 0.6666666666666666
+        },
+        "10": {
+          "hit": 0.9,
+          "recall": 0.7844444444444444,
+          "micro_recall": 0.723404255319149,
+          "all_evidence": 0.7
+        }
+      },
+      "categories": {
+        "knowledge-update": {
+          "3": {
+            "hit": 1.0,
+            "recall": 0.7,
+            "micro_recall": 0.7,
+            "all_evidence": 0.4
+          },
+          "5": {
+            "hit": 1.0,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.6
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.6
+          }
+        },
+        "multi-session": {
+          "3": {
+            "hit": 0.6,
+            "recall": 0.3,
+            "micro_recall": 0.23076923076923078,
+            "all_evidence": 0.0
+          },
+          "5": {
+            "hit": 0.8,
+            "recall": 0.6,
+            "micro_recall": 0.46153846153846156,
+            "all_evidence": 0.4
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 0.64,
+            "micro_recall": 0.5384615384615384,
+            "all_evidence": 0.4
+          }
+        },
+        "single-session-assistant": {
+          "3": {
+            "hit": 0.8,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.8
+          },
+          "5": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          }
+        },
+        "single-session-preference": {
+          "3": {
+            "hit": 0.6,
+            "recall": 0.5,
+            "micro_recall": 0.5,
+            "all_evidence": 0.4
+          },
+          "5": {
+            "hit": 0.8,
+            "recall": 0.7,
+            "micro_recall": 0.6666666666666666,
+            "all_evidence": 0.6
+          },
+          "10": {
+            "hit": 0.8,
+            "recall": 0.8,
+            "micro_recall": 0.8333333333333334,
+            "all_evidence": 0.8
+          }
+        },
+        "single-session-user": {
+          "3": {
+            "hit": 0.8,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.8
+          },
+          "5": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          }
+        },
+        "temporal-reasoning": {
+          "3": {
+            "hit": 0.4,
+            "recall": 0.3,
+            "micro_recall": 0.25,
+            "all_evidence": 0.2
+          },
+          "5": {
+            "hit": 0.6,
+            "recall": 0.4666666666666667,
+            "micro_recall": 0.5,
+            "all_evidence": 0.4
+          },
+          "10": {
+            "hit": 0.6,
+            "recall": 0.4666666666666667,
+            "micro_recall": 0.5,
+            "all_evidence": 0.4
+          }
+        }
+      },
+      "mean_seconds": 1.9032229867608597,
+      "p95_seconds": 2.190823870128952,
+      "fallback_count": 0,
+      "strategies": {
+        "off": 30
+      },
+      "stops": {
+        "off": 30
+      },
+      "llm_calls": 0,
+      "search_calls": 30,
+      "abstention_nonempty": 0
+    },
+    "multihop": {
+      "completed": 30,
+      "scored": 30,
+      "abstention": 0,
+      "unannotated": 0,
+      "metrics": {
+        "3": {
+          "hit": 0.8666666666666667,
+          "recall": 0.7277777777777777,
+          "micro_recall": 0.6382978723404256,
+          "all_evidence": 0.6
+        },
+        "5": {
+          "hit": 0.8666666666666667,
+          "recall": 0.7611111111111111,
+          "micro_recall": 0.6808510638297872,
+          "all_evidence": 0.6666666666666666
+        },
+        "10": {
+          "hit": 0.9,
+          "recall": 0.801111111111111,
+          "micro_recall": 0.7446808510638298,
+          "all_evidence": 0.7333333333333333
+        }
+      },
+      "categories": {
+        "knowledge-update": {
+          "3": {
+            "hit": 1.0,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.6
+          },
+          "5": {
+            "hit": 1.0,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.6
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 0.8,
+            "micro_recall": 0.8,
+            "all_evidence": 0.6
+          }
+        },
+        "multi-session": {
+          "3": {
+            "hit": 0.8,
+            "recall": 0.5,
+            "micro_recall": 0.38461538461538464,
+            "all_evidence": 0.2
+          },
+          "5": {
+            "hit": 0.8,
+            "recall": 0.5,
+            "micro_recall": 0.38461538461538464,
+            "all_evidence": 0.2
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 0.74,
+            "micro_recall": 0.6153846153846154,
+            "all_evidence": 0.6
+          }
+        },
+        "single-session-assistant": {
+          "3": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          },
+          "5": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          }
+        },
+        "single-session-preference": {
+          "3": {
+            "hit": 0.8,
+            "recall": 0.7,
+            "micro_recall": 0.6666666666666666,
+            "all_evidence": 0.6
+          },
+          "5": {
+            "hit": 0.8,
+            "recall": 0.8,
+            "micro_recall": 0.8333333333333334,
+            "all_evidence": 0.8
+          },
+          "10": {
+            "hit": 0.8,
+            "recall": 0.8,
+            "micro_recall": 0.8333333333333334,
+            "all_evidence": 0.8
+          }
+        },
+        "single-session-user": {
+          "3": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          },
+          "5": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          },
+          "10": {
+            "hit": 1.0,
+            "recall": 1.0,
+            "micro_recall": 1.0,
+            "all_evidence": 1.0
+          }
+        },
+        "temporal-reasoning": {
+          "3": {
+            "hit": 0.6,
+            "recall": 0.36666666666666664,
+            "micro_recall": 0.375,
+            "all_evidence": 0.2
+          },
+          "5": {
+            "hit": 0.6,
+            "recall": 0.4666666666666667,
+            "micro_recall": 0.5,
+            "all_evidence": 0.4
+          },
+          "10": {
+            "hit": 0.6,
+            "recall": 0.4666666666666667,
+            "micro_recall": 0.5,
+            "all_evidence": 0.4
+          }
+        }
+      },
+      "mean_seconds": 10.672795146688198,
+      "p95_seconds": 20.974500545044396,
+      "fallback_count": 1,
+      "strategies": {
+        "direct": 20,
+        "chain": 2,
+        "split": 8
+      },
+      "stops": {
+        "no_grounded_new_query": 19,
+        "sufficient": 10,
+        "fallback": 1
+      },
+      "llm_calls": 67,
+      "search_calls": 49,
+      "abstention_nonempty": 0
+    }
+  }
+}

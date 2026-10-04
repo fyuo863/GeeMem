@@ -143,7 +143,9 @@ class HTTPEmbedder:
 
 
 class VanillaMemory:
-    def __init__(self, cfg, embedder=None, tagger=None, reranker=None):
+    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None):
+        from .multihop import MultiHop
+        self.multihop = MultiHop(cfg, multihop_planner)
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
         self.fusion_qa = cfg.get('RAG_FUSION_QA', 'off')
         if self.fusion_qa not in ('off', 'on'):
@@ -216,6 +218,8 @@ class VanillaMemory:
             raise ValueError('Multi-query requires reranker')
         if self.soft_recall == 'on' and self.reranker is None:
             raise ValueError('Soft recall requires reranker')
+        if self.multihop.mode != 'off' and (self.reranker is None or self.window != 0):
+            raise ValueError('Multihop requires reranker and result window=0')
         if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -350,7 +354,17 @@ class VanillaMemory:
                 reranked = combine_target_scores(reranked, target)
         return reranked
 
-    def search(self, payload):
+    def search(self, payload, *, trace=None):
+        if self.multihop.mode == 'off':
+            if trace is not None:
+                trace.update(mode='off')
+            return self._search_direct(payload)
+        def rerank(query, documents):
+            with self.lock:
+                return self.reranker.score(query, documents)
+        return self.multihop.run(payload,self._search_direct,rerank,trace if trace is not None else {})
+
+    def _search_direct(self, payload):
         with closing(self.connect()) as db:
             rows = db.execute('SELECT m.*, s.role, s.speaker, s.session_timestamp, s.source_id, s.source_index, s.char_start, s.char_end, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
                               'LEFT JOIN rag_sources s ON s.memory_id=m.id LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',

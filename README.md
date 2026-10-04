@@ -3,6 +3,8 @@
 
 GeeMem 是一个通用 Agent 长期记忆模块，通过同步 `POST /add` 保存对话，通过 `POST /search` 返回相关原文证据。当前提供 Agent Memory Leaderboard 文本赛道适配接口，入口为 `memory.aml_api:app`。
 
+本分支 `codex/llm-multihop` 从 `main` 的 `b90ea62` 创建，增加可选的 **gpt-4o-mini 检索编排**：直接检索、独立子问题并行检索、依赖式逐步检索，以及带来源引用的证据缺口检查。默认 `RAG_MULTIHOP_MODE=off`；启用时只有 Search 调用生成式 LLM，Add 和赛事响应结构保持原样。实验尚未部署。配置、预算、失败回退及测试见 [多跳实验说明](docs/llm-multihop.md)。下文参赛版本说明对应关闭该实验开关的基线。
+
 当前选择 **ABC＋方案 1＋方案 3（FM）**：混合召回、上下文与目标评分融合、局部问答关联，以及人物/日期软召回。多人子查询方案 2 保留实现但关闭。Add/Search 不调用生成式 LLM，不生成最终答案。
 
 ## 当前版本
@@ -197,10 +199,39 @@ python scripts/smoke_aml.py --live
 
 要回到原 ABC，保留 ABC 参数，将三个扩展开关全部设为 `off` 并重启。代码缺省值仍为 off，当前模板显式选择 1＋3，便于区分历史配置与新配置。
 
+## 多跳合并版本
+
+`codex/llm-multihop` 已合并进 `main`，合并提交以带注释的 `multihop` tag 标记。选用原长提示词，gpt-4o-mini 规划直接检索、独立拆分或依赖式多跳，再通过来源绑定和证据需求检查追加查询，最终仍返回原文。
+
+当前 `.env.example` 与本机根 `.env` 选择：
+
+```dotenv
+RAG_MULTIHOP_MODE=llm
+RAG_MULTIHOP_PROMPT_STYLE=long
+RAG_MULTIHOP_BINDINGS=on
+RAG_MULTIHOP_NEEDS=on
+RAG_MULTIHOP_LLM_CALLS=8
+RAG_MULTIHOP_ROUNDS=3
+RAG_MULTIHOP_QUERIES=6
+RAG_MULTIHOP_SECONDS=90
+RAG_MULTIHOP_LLM_TIMEOUT=20
+RAG_RESULT_WINDOW=0
+```
+
+配置仅从项目根 `.env` 读取。代码在未指定模式时仍默认关闭多跳；新部署请采用以上显式配置，并提供原有 LLM 凭据、embedding 和 reranker 配置。设置 `RAG_MULTIHOP_MODE=off` 可回到直接检索。本次合并没有同步或重启远端服务。
+
+上轮 30 题测试中，选中方案 Hit@10 为 96.67%、Recall@10 为 87.44%、全证据命中@10 为 80.00%，平均耗时 10.61 秒；包含 3 次连接回退。这是开发集检索结果，不是官方答案评分。详见 [实现说明](docs/multihop-evidence-repair.md) 与 [最新对照报告](docs/compact-multihop-results-20261004.md)。
+
+## 提示词简化实验（2026-10-04）
+
+`RAG_MULTIHOP_PROMPT_STYLE=long|short|focused` 可比较原提示词、仅缩短提示词、以及逐需求读取证据并独立生成下一查询的流程。缺省为 `long`；`RAG_MULTIHOP_MODE=off` 仍完全关闭 LLM 多跳。`focused` 自带需求依赖与字面来源校验，最终 `/search` 仍只返回原文。
+
+实验配置为 8 次 LLM、6 次检索、90 秒总预算；本次合并已在本机选用其中的 long 配置，远端部署尚未同步。短提示词不保证理解更准确；非法依赖仍会被拒绝并回退。对照结果、输入输出错误案例和复现记录见 [提示词简化实验报告](docs/compact-multihop-results-20261004.md)，逐项数值见 [JSON 汇总](docs/compact-multihop-results-20261004.json)。
+
 ## 边界与来源
 
 当前模型及完整测试主要针对英文文本；示例或接口支持 Unicode 不代表中文检索效果已验证。元数据缺失、时间歧义、多人归属和间接证据仍可能造成漏召回。Add/Search 并发上限为配置限制，超过时返回 429，不能据此推断持续吞吐能力。
 
-基础检索思路参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。本项目独立实现，不包含上游源文件，不声称原方法原创；参考版本未声明许可证。模型许可遵循各发布者说明。官网赛事 FAQ 第 5 条指定学术榜 embedding 为 text-embedding-v4、LLM 相关组件为 gpt-4o-mini，reranker 不限制。当前实际使用 v4/MiniLM，没有生成式 LLM；模型配置符合该条要求不代表已通过全部参赛审核。
+基础检索思路参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。本项目独立实现，不包含上游源文件，不声称原方法原创；参考版本未声明许可证。模型许可遵循各发布者说明。官网赛事 FAQ 第 5 条指定学术榜 embedding 为 text-embedding-v4、LLM 相关组件为 gpt-4o-mini，reranker 不限制。本机选中方案使用 v4/MiniLM，并使用 gpt-4o-mini 进行多跳检索规划与证据检查；模型配置符合该条要求不代表已通过全部参赛审核。
 
 [历史图方案研究记录](docs/graph-historical-readme.md) · [历史 v1 方法说明](docs/v1-vanilla-rag.md) · [评测接口对接说明](docs/agentmemories.md)。历史文档中的模型、部署地址和分支状态不代表当前版本。

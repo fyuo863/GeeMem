@@ -1,0 +1,4058 @@
+{
+  "prompts-v3-chain6-20261003": {
+    "source_sha256": {
+      "memory/multihop.py": "351bc8d09dd44e082b4c6f56e2619b32e212cd6f920f47be6acf58ba45d6569a",
+      "memory/multihop_evidence.py": "7306419516e9475c10fe038501a652b75b7d941a0247ddb2f2f6b12cb8093b84",
+      "memory/vanilla.py": "2ab7292b6102e48352b848b611f8cf9f6b9778ca9b9831b465fc23e6a387c54e",
+      "scripts/test_multihop_live.py": "90923322cb887d98405af1f4edce8f967c11fd299527eff3fd625f41044f6226",
+      "scripts/test_multihop_full.py": "53f1f2b82a3ced09503201ccefec43f1d94a92225778e5db6cff356f5683ade0"
+    },
+    "sample_ids": [
+      "synthetic-0",
+      "synthetic-1",
+      "synthetic-2",
+      "synthetic-3",
+      "synthetic-4",
+      "synthetic-5"
+    ],
+    "settings": {
+      "LLM_MODEL": "gpt-4o-mini",
+      "RAG_MODEL_PATH": "data/models/bge-small-en-v1.5",
+      "RAG_RERANK_PATH": "data/models/ms-marco-MiniLM-L-6-v2",
+      "RAG_METADATA_MODE": "on",
+      "RAG_TARGET_MODE": "on",
+      "RAG_SECOND_PASS": "on",
+      "RAG_RERANK_MODE": "local",
+      "RAG_RERANK_CONTEXT": "1",
+      "RAG_RERANK_CANDIDATES": "400",
+      "RAG_RERANK_SELECTION": "context_support",
+      "RAG_RERANK_NEIGHBOR_PENALTY": "2",
+      "RAG_RESULT_WINDOW": "0",
+      "RAG_TAG_MODE": "off",
+      "RAG_RETRIEVAL_MODE": "hybrid",
+      "RAG_RRF_K": "60",
+      "RAG_LEXICAL_WEIGHT": "0.5",
+      "RAG_CHUNK_TOKENS": "320",
+      "RAG_CHUNK_OVERLAP": "40",
+      "RAG_RERANK_BATCH_SIZE": "32",
+      "RAG_RERANK_MAX_LENGTH": "512",
+      "RAG_DEVICE": "cuda",
+      "RAG_RERANK_DEVICE": "cuda",
+      "RAG_EMBEDDING_API_MODEL": "text-embedding-v4",
+      "RAG_EMBEDDING_DIMENSIONS": "1024",
+      "RAG_EMBEDDING_BATCH_SIZE": "10",
+      "RAG_QUERY_PREFIX": "",
+      "RAG_QUERY_INSTRUCTION": "",
+      "RAG_MEMORY_DB": "D:\\Program Data\\Github Program\\.实习\\CSIG_re\\data\\multihop\\prompts-v3-chain6-20261003\\memory.sqlite3",
+      "RAG_FUSION_QA": "on",
+      "RAG_MULTI_QUERY": "off",
+      "RAG_SOFT_RECALL": "on",
+      "RAG_MULTIHOP_CANDIDATES": "1"
+    },
+    "report": {
+      "expected_questions": 6,
+      "completed_searches": 18,
+      "variants": {
+        "baseline": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.7222222222222222,
+              "micro_recall": 0.6428571428571429,
+              "all_evidence": 0.5
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.5833333333333333,
+                "micro_recall": 0.5454545454545454,
+                "all_evidence": 0.25
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 0.30585578332344693,
+          "p95_seconds": 0.44208969990722835,
+          "fallback_count": 0,
+          "strategies": {
+            "off": 6
+          },
+          "stops": {
+            "off": 6
+          },
+          "llm_calls": 0,
+          "search_calls": 6,
+          "abstention_nonempty": 0
+        },
+        "previous": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.7777777777777777,
+              "micro_recall": 0.7142857142857143,
+              "all_evidence": 0.5
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.6666666666666666,
+                "micro_recall": 0.6363636363636364,
+                "all_evidence": 0.25
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 5.833153183416774,
+          "p95_seconds": 10.991038725245744,
+          "fallback_count": 2,
+          "strategies": {
+            "direct": 1,
+            "split": 1,
+            "chain": 3,
+            "null": 1
+          },
+          "stops": {
+            "sufficient": 3,
+            "fallback": 2,
+            "no_grounded_new_query": 1
+          },
+          "llm_calls": 13,
+          "search_calls": 12,
+          "abstention_nonempty": 0
+        },
+        "combined": {
+          "completed": 6,
+          "scored": 6,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.8888888888888888,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.8333333333333334
+            }
+          },
+          "categories": {
+            "chain": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8181818181818182,
+                "all_evidence": 0.75
+              }
+            },
+            "direct": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "split": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 8.1731495000422,
+          "p95_seconds": 13.558908549835905,
+          "fallback_count": 0,
+          "strategies": {
+            "direct": 1,
+            "split": 1,
+            "chain": 4
+          },
+          "stops": {
+            "sufficient": 6
+          },
+          "llm_calls": 15,
+          "search_calls": 15,
+          "abstention_nonempty": 0
+        }
+      }
+    },
+    "fallbacks": [
+      {
+        "id": "synthetic-2",
+        "variant": "previous",
+        "cause": "ConnectError",
+        "phase": "review"
+      },
+      {
+        "id": "synthetic-3",
+        "variant": "previous",
+        "cause": "ConnectError",
+        "phase": "route"
+      }
+    ],
+    "cases": [
+      {
+        "id": "synthetic-0",
+        "variant": "baseline",
+        "question": "Where does Mira live?",
+        "gold": [
+          "6:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "7:0",
+          "8:0"
+        ],
+        "seconds": 0.4554027998819947,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-0",
+        "variant": "previous",
+        "question": "Where does Mira live?",
+        "gold": [
+          "6:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "7:0",
+          "8:0"
+        ],
+        "seconds": 3.4749004002660513,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Location of Mira",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "871fe082408c02d882ab2471c8af1ad7563257333e5688debc050c35378752cc",
+                "quote": "Mira lives in Tallinn.",
+                "needed_for": "Location of Mira"
+              }
+            ],
+            "reason": "The evidence directly states where Mira lives."
+          }
+        ],
+        "queries": [
+          "Where does Mira live?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "synthetic-0",
+        "variant": "combined",
+        "question": "Where does Mira live?",
+        "gold": [
+          "6:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "7:0",
+          "8:0"
+        ],
+        "seconds": 4.500523100141436,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Find Mira's residence",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "871fe082408c02d882ab2471c8af1ad7563257333e5688debc050c35378752cc",
+                "quote": "Mira lives in Tallinn.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "Mira's residence is established in the evidence."
+          }
+        ],
+        "queries": [
+          "Where does Mira live?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "synthetic-1",
+        "variant": "previous",
+        "question": "What is the total cost of my bicycle and tent?",
+        "gold": [
+          "6:0",
+          "7:0"
+        ],
+        "ranked_messages": [
+          "7:0",
+          "6:0",
+          "12:0"
+        ],
+        "seconds": 5.710156899876893,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Cost of the bicycle",
+            "kind": "operand",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Cost of the tent",
+            "kind": "operand",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "2c05cacf33d447cf5ba034f4bef5bba232401fcac5fd23d8c2acc833ec087ef1",
+                "quote": "I paid $240 for my bicycle.",
+                "needed_for": "Cost of the bicycle"
+              }
+            ],
+            "reason": "The cost of the bicycle is directly stated in E2."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "3c2236b5906a68302105218e6763ee81a722925451e1ba9020e99af814c726a2",
+                "quote": "My tent cost $180.",
+                "needed_for": "Cost of the tent"
+              }
+            ],
+            "reason": "The cost of the tent is directly stated in E1."
+          }
+        ],
+        "queries": [
+          "What is the total cost of my bicycle and tent?",
+          "What is the cost of my bicycle?",
+          "What is the cost of my tent?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "synthetic-1",
+        "variant": "combined",
+        "question": "What is the total cost of my bicycle and tent?",
+        "gold": [
+          "6:0",
+          "7:0"
+        ],
+        "ranked_messages": [
+          "7:0",
+          "6:0",
+          "12:0"
+        ],
+        "seconds": 7.409828300122172,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the cost of the bicycle",
+            "kind": "operand",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the cost of the tent",
+            "kind": "operand",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "2c05cacf33d447cf5ba034f4bef5bba232401fcac5fd23d8c2acc833ec087ef1",
+                "quote": "I paid $240 for my bicycle.",
+                "needed_for": "Identify the cost of the bicycle"
+              }
+            ],
+            "reason": "The cost of the bicycle is explicitly stated."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "3c2236b5906a68302105218e6763ee81a722925451e1ba9020e99af814c726a2",
+                "quote": "My tent cost $180.",
+                "needed_for": "Identify the cost of the tent"
+              }
+            ],
+            "reason": "The cost of the tent is explicitly stated."
+          }
+        ],
+        "queries": [
+          "What is the total cost of my bicycle and tent?",
+          "What is the cost of my bicycle?",
+          "What is the cost of my tent?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "synthetic-1",
+        "variant": "baseline",
+        "question": "What is the total cost of my bicycle and tent?",
+        "gold": [
+          "6:0",
+          "7:0"
+        ],
+        "ranked_messages": [
+          "7:0",
+          "12:0",
+          "6:0"
+        ],
+        "seconds": 0.2637678999453783,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-2",
+        "variant": "combined",
+        "question": "Where does the spouse of Leona work?",
+        "gold": [
+          "6:0",
+          "7:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "7:0",
+          "9:0"
+        ],
+        "seconds": 6.3344789003022015,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Leona's spouse X",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Find X's employer",
+            "kind": "relation",
+            "depends_on": [
+              "N1"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "e0dd98acd213d08b9e75ee7f5d72179f4fd5fe3c518694c1c821e2739a03f5a7",
+                "quote": "Leona is married to Tomas.",
+                "needed_for": "Identify Leona's spouse X"
+              }
+            ],
+            "reason": "X=Tomas, so the required relation concerns Tomas."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "e6da6b533c8fc41395afccf4f8eaf4aff6aa5c2152ed42f4647ae8d5926d30f2",
+                "quote": "Tomas works at Cedar Labs.",
+                "needed_for": "Find X's employer"
+              }
+            ],
+            "reason": "The required relation concerns Tomas's employer."
+          }
+        ],
+        "queries": [
+          "Where does the spouse of Leona work?",
+          "Who is Leona married to?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "synthetic-2",
+        "variant": "baseline",
+        "question": "Where does the spouse of Leona work?",
+        "gold": [
+          "6:0",
+          "7:0"
+        ],
+        "ranked_messages": [
+          "9:0",
+          "6:0",
+          "7:0"
+        ],
+        "seconds": 0.2424308001063764,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-2",
+        "variant": "previous",
+        "question": "Where does the spouse of Leona work?",
+        "gold": [
+          "6:0",
+          "7:0"
+        ],
+        "ranked_messages": [
+          "9:0",
+          "6:0",
+          "7:0"
+        ],
+        "seconds": 4.447560099884868,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Leona's spouse.",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Determine the employer of Leona's spouse.",
+            "kind": "relation",
+            "depends_on": [
+              "N1"
+            ]
+          }
+        ],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-3",
+        "variant": "baseline",
+        "question": "Who is the CEO of the company where the spouse of Nadia works?",
+        "gold": [
+          "6:0",
+          "7:0",
+          "8:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "8:0",
+          "11:0"
+        ],
+        "seconds": 0.40215039998292923,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-3",
+        "variant": "previous",
+        "question": "Who is the CEO of the company where the spouse of Nadia works?",
+        "gold": [
+          "6:0",
+          "7:0",
+          "8:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "8:0",
+          "11:0"
+        ],
+        "seconds": 1.6114424001425505,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-3",
+        "variant": "combined",
+        "question": "Who is the CEO of the company where the spouse of Nadia works?",
+        "gold": [
+          "6:0",
+          "7:0",
+          "8:0"
+        ],
+        "ranked_messages": [
+          "6:0",
+          "8:0",
+          "7:0"
+        ],
+        "seconds": 8.649024699814618,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Nadia's spouse X",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the company where X works Y",
+            "kind": "relation",
+            "depends_on": [
+              "N1"
+            ]
+          },
+          {
+            "id": "N3",
+            "description": "Find the CEO of Y",
+            "kind": "fact",
+            "depends_on": [
+              "N2"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "eb0ec8bcdb21cf211af55e8e4f7dc249828a1da7a867684ab7e174e13ecb9392",
+                "quote": "Nadia is married to Elias.",
+                "needed_for": "Identify Nadia's spouse X"
+              }
+            ],
+            "reason": "X=Elias, so the required relation concerns Elias."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "51b181a988a1775a962e34fc4254b665c078cbac50427cc6d2bfe4619221dc92",
+                "quote": "Elias works at Solstice Analytics.",
+                "needed_for": "Identify the company where X works Y"
+              }
+            ],
+            "reason": "Y=Solstice Analytics, so the required relation concerns Solstice Analytics."
+          },
+          {
+            "need_id": "N3",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "553df0748af4e5fe03bce409e892e8ecf86e808a0d8fb14ea41b1aa697c69917",
+                "quote": "The CEO of Solstice Analytics is Ruth Chen.",
+                "needed_for": "Find the CEO of Y"
+              }
+            ],
+            "reason": "The CEO of Solstice Analytics is Ruth Chen."
+          }
+        ],
+        "queries": [
+          "Who is the CEO of the company where the spouse of Nadia works?",
+          "Who is Nadia married to?",
+          "What company does Elias work for?"
+        ],
+        "validation_errors": [
+          [],
+          []
+        ]
+      },
+      {
+        "id": "synthetic-4",
+        "variant": "previous",
+        "question": "Which city hosts the headquarters of the company that employs Iris's mentor?",
+        "gold": [
+          "0:0",
+          "1:0",
+          "2:0"
+        ],
+        "ranked_messages": [
+          "0:0",
+          "1:0",
+          "5:0"
+        ],
+        "seconds": 12.104647800326347,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Iris's mentor.",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Determine the company that employs Iris's mentor.",
+            "kind": "relation",
+            "depends_on": [
+              "N1"
+            ]
+          },
+          {
+            "id": "N3",
+            "description": "Find the city that hosts the headquarters of the company that employs Iris's mentor.",
+            "kind": "relation",
+            "depends_on": [
+              "N2"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "e2ef177b899e50bcedbe887d60ccdbf7eb1c08b9f832a5617c7ce29b4df42992",
+                "quote": "Iris is mentored by Dario.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence directly states that Iris is mentored by Dario."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "9b22af00c3ef1b3c2236b5278f055e03e97af031ce77025087dfedca0e3042cf",
+                "quote": "Dario works for Aurora Systems.",
+                "needed_for": "N2"
+              }
+            ],
+            "reason": "The evidence confirms that Dario works for Aurora Systems, fulfilling the requirement to identify the company that employs Iris's mentor."
+          },
+          {
+            "need_id": "N3",
+            "status": "missing",
+            "supports": [],
+            "reason": "There is no evidence provided that specifies the city that hosts the headquarters of Aurora Systems."
+          }
+        ],
+        "queries": [
+          "Which city hosts the headquarters of the company that employs Iris's mentor?",
+          "Who is Iris's mentor?",
+          "What company does Dario work for?"
+        ],
+        "validation_errors": [
+          [],
+          [
+            "N2: query must target an unresolved need with supported dependencies"
+          ]
+        ]
+      },
+      {
+        "id": "synthetic-4",
+        "variant": "combined",
+        "question": "Which city hosts the headquarters of the company that employs Iris's mentor?",
+        "gold": [
+          "0:0",
+          "1:0",
+          "2:0"
+        ],
+        "ranked_messages": [
+          "0:0",
+          "2:0",
+          "1:0"
+        ],
+        "seconds": 15.195536499843001,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Iris's mentor X",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the company that employs X",
+            "kind": "relation",
+            "depends_on": [
+              "N1"
+            ]
+          },
+          {
+            "id": "N3",
+            "description": "Find the city that hosts the headquarters of that company",
+            "kind": "fact",
+            "depends_on": [
+              "N2"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "e2ef177b899e50bcedbe887d60ccdbf7eb1c08b9f832a5617c7ce29b4df42992",
+                "quote": "Iris is mentored by Dario.",
+                "needed_for": "Identify Iris's mentor X"
+              }
+            ],
+            "reason": "X=Dario, so the required relation concerns Dario."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "9b22af00c3ef1b3c2236b5278f055e03e97af031ce77025087dfedca0e3042cf",
+                "quote": "Dario works for Aurora Systems.",
+                "needed_for": "Identify the company that employs X"
+              }
+            ],
+            "reason": "The company that employs Dario is Aurora Systems."
+          },
+          {
+            "need_id": "N3",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "25fe23bfceb74f085c85849ad90d74ca6ced6493fe2df95a56d14372979dcce9",
+                "quote": "Aurora Systems has its headquarters in Oslo.",
+                "needed_for": "Find the city that hosts the headquarters of that company"
+              }
+            ],
+            "reason": "The city that hosts the headquarters of Aurora Systems is Oslo."
+          }
+        ],
+        "queries": [
+          "Which city hosts the headquarters of the company that employs Iris's mentor?",
+          "Who is Iris's mentor?",
+          "What company employs Dario?",
+          "Which city hosts the headquarters of Aurora Systems?"
+        ],
+        "validation_errors": [
+          [],
+          [],
+          []
+        ]
+      },
+      {
+        "id": "synthetic-4",
+        "variant": "baseline",
+        "question": "Which city hosts the headquarters of the company that employs Iris's mentor?",
+        "gold": [
+          "0:0",
+          "1:0",
+          "2:0"
+        ],
+        "ranked_messages": [
+          "0:0",
+          "5:0",
+          "3:0"
+        ],
+        "seconds": 0.16924000019207597,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-5",
+        "variant": "combined",
+        "question": "What instrument does the instructor of Veda's brother teach?",
+        "gold": [
+          "0:0",
+          "1:0",
+          "2:0"
+        ],
+        "ranked_messages": [
+          "0:0",
+          "3:0",
+          "4:0"
+        ],
+        "seconds": 6.9495055000297725,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Veda's brother's instructor X",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Find the instrument that X teaches",
+            "kind": "fact",
+            "depends_on": [
+              "N1"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "28ae254312d2c9afa8e75baff57d4194a6c77bc9c2c85826619378e68b3c42d1",
+                "quote": "Veda has a brother named Niko.",
+                "needed_for": "Identify Veda's brother's instructor X"
+              },
+              {
+                "source_id": "e5e3c9f0ef6c365eafc6c495dfc6cec0567e8f16f8f5182aadd1eabe5570df36",
+                "quote": "Veda takes lessons from Pascal.",
+                "needed_for": "Identify Veda's brother's instructor X"
+              }
+            ],
+            "reason": "Niko is Veda's brother, and Veda takes lessons from Pascal, establishing Pascal as Niko's instructor."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "10ed6c81f0e0d777b165598eb07f441b60246e2957abec102d67c566a2202b32",
+                "quote": "Pascal teaches the violin.",
+                "needed_for": "Find the instrument that X teaches"
+              }
+            ],
+            "reason": "Pascal is identified as the instructor, and it is established that he teaches the violin."
+          }
+        ],
+        "queries": [
+          "What instrument does the instructor of Veda's brother teach?",
+          "What instrument does Veda's brother's instructor teach?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "synthetic-5",
+        "variant": "baseline",
+        "question": "What instrument does the instructor of Veda's brother teach?",
+        "gold": [
+          "0:0",
+          "1:0",
+          "2:0"
+        ],
+        "ranked_messages": [
+          "0:0",
+          "3:0",
+          "4:0"
+        ],
+        "seconds": 0.3021427998319268,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "synthetic-5",
+        "variant": "previous",
+        "question": "What instrument does the instructor of Veda's brother teach?",
+        "gold": [
+          "0:0",
+          "1:0",
+          "2:0"
+        ],
+        "ranked_messages": [
+          "0:0",
+          "3:0",
+          "4:0"
+        ],
+        "seconds": 7.650211500003934,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify Veda's brother.",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Determine the instrument that Veda's brother plays.",
+            "kind": "relation",
+            "depends_on": [
+              "N1"
+            ]
+          },
+          {
+            "id": "N3",
+            "description": "Find out who the instructor of Veda's brother is.",
+            "kind": "relation",
+            "depends_on": [
+              "N2"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "28ae254312d2c9afa8e75baff57d4194a6c77bc9c2c85826619378e68b3c42d1",
+                "quote": "Veda has a brother named Niko.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence directly identifies Veda's brother as Niko."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "e5e3c9f0ef6c365eafc6c495dfc6cec0567e8f16f8f5182aadd1eabe5570df36",
+                "quote": "Veda takes lessons from Pascal.",
+                "needed_for": "N2"
+              }
+            ],
+            "reason": "Veda's brother, Niko, is implied to take lessons from the same instructor as Veda, which is Pascal."
+          },
+          {
+            "need_id": "N3",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "10ed6c81f0e0d777b165598eb07f441b60246e2957abec102d67c566a2202b32",
+                "quote": "Pascal teaches the violin.",
+                "needed_for": "N3"
+              }
+            ],
+            "reason": "The evidence states that Pascal, who is the instructor of Veda's brother, teaches the violin."
+          }
+        ],
+        "queries": [
+          "What instrument does the instructor of Veda's brother teach?",
+          "What instrument does Veda's brother play?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      }
+    ]
+  },
+  "prompts-v3-errors10-20261003": {
+    "source_sha256": {
+      "memory/multihop.py": "351bc8d09dd44e082b4c6f56e2619b32e212cd6f920f47be6acf58ba45d6569a",
+      "memory/multihop_evidence.py": "7306419516e9475c10fe038501a652b75b7d941a0247ddb2f2f6b12cb8093b84",
+      "memory/vanilla.py": "2ab7292b6102e48352b848b611f8cf9f6b9778ca9b9831b465fc23e6a387c54e",
+      "scripts/test_multihop_live.py": "90923322cb887d98405af1f4edce8f967c11fd299527eff3fd625f41044f6226",
+      "scripts/test_multihop_full.py": "53f1f2b82a3ced09503201ccefec43f1d94a92225778e5db6cff356f5683ade0"
+    },
+    "sample_ids": [
+      "5d3d2817",
+      "21436231",
+      "25e5aa4f",
+      "faba32e5",
+      "gpt4_7f6b06db",
+      "6a1eabeb",
+      "ce6d2d27",
+      "08e075c7",
+      "06db6396",
+      "4c36ccef"
+    ],
+    "settings": {
+      "LLM_MODEL": "gpt-4o-mini",
+      "RAG_MODEL_PATH": "data/models/bge-small-en-v1.5",
+      "RAG_RERANK_PATH": "data/models/ms-marco-MiniLM-L-6-v2",
+      "RAG_METADATA_MODE": "on",
+      "RAG_TARGET_MODE": "on",
+      "RAG_SECOND_PASS": "on",
+      "RAG_RERANK_MODE": "local",
+      "RAG_RERANK_CONTEXT": "1",
+      "RAG_RERANK_CANDIDATES": "400",
+      "RAG_RERANK_SELECTION": "context_support",
+      "RAG_RERANK_NEIGHBOR_PENALTY": "2",
+      "RAG_RESULT_WINDOW": "0",
+      "RAG_TAG_MODE": "off",
+      "RAG_RETRIEVAL_MODE": "hybrid",
+      "RAG_RRF_K": "60",
+      "RAG_LEXICAL_WEIGHT": "0.5",
+      "RAG_CHUNK_TOKENS": "320",
+      "RAG_CHUNK_OVERLAP": "40",
+      "RAG_RERANK_BATCH_SIZE": "32",
+      "RAG_RERANK_MAX_LENGTH": "512",
+      "RAG_DEVICE": "cuda",
+      "RAG_RERANK_DEVICE": "cuda",
+      "RAG_EMBEDDING_API_MODEL": "text-embedding-v4",
+      "RAG_EMBEDDING_DIMENSIONS": "1024",
+      "RAG_EMBEDDING_BATCH_SIZE": "10",
+      "RAG_QUERY_PREFIX": "",
+      "RAG_QUERY_INSTRUCTION": "",
+      "RAG_MEMORY_DB": "D:\\Program Data\\Github Program\\.实习\\CSIG_re\\data\\multihop\\prompts-v3-errors10-20261003\\memory.sqlite3",
+      "RAG_FUSION_QA": "on",
+      "RAG_MULTI_QUERY": "off",
+      "RAG_SOFT_RECALL": "on"
+    },
+    "report": {
+      "expected_questions": 10,
+      "completed_searches": 30,
+      "variants": {
+        "baseline": {
+          "completed": 10,
+          "scored": 10,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.8,
+              "recall": 0.7,
+              "micro_recall": 0.625,
+              "all_evidence": 0.6
+            },
+            "5": {
+              "hit": 1.0,
+              "recall": 0.8833333333333332,
+              "micro_recall": 0.8125,
+              "all_evidence": 0.8
+            },
+            "10": {
+              "hit": 1.0,
+              "recall": 0.8833333333333332,
+              "micro_recall": 0.8125,
+              "all_evidence": 0.8
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.75,
+                "micro_recall": 0.75,
+                "all_evidence": 0.5
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.875,
+                "micro_recall": 0.875,
+                "all_evidence": 0.75
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.875,
+                "micro_recall": 0.875,
+                "all_evidence": 0.75
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 0.75,
+                "recall": 0.75,
+                "micro_recall": 0.75,
+                "all_evidence": 0.75
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.0,
+                "recall": 0.0,
+                "micro_recall": 0.0,
+                "all_evidence": 0.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.3333333333333333,
+                "micro_recall": 0.3333333333333333,
+                "all_evidence": 0.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.3333333333333333,
+                "micro_recall": 0.3333333333333333,
+                "all_evidence": 0.0
+              }
+            }
+          },
+          "mean_seconds": 1.7932135600131005,
+          "p95_seconds": 2.422697320068255,
+          "fallback_count": 0,
+          "strategies": {
+            "off": 10
+          },
+          "stops": {
+            "off": 10
+          },
+          "llm_calls": 0,
+          "search_calls": 10,
+          "abstention_nonempty": 0
+        },
+        "previous": {
+          "completed": 10,
+          "scored": 10,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.9,
+              "recall": 0.8,
+              "micro_recall": 0.6875,
+              "all_evidence": 0.7
+            },
+            "5": {
+              "hit": 0.9,
+              "recall": 0.85,
+              "micro_recall": 0.75,
+              "all_evidence": 0.8
+            },
+            "10": {
+              "hit": 1.0,
+              "recall": 0.8833333333333332,
+              "micro_recall": 0.8125,
+              "all_evidence": 0.8
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.75,
+                "micro_recall": 0.75,
+                "all_evidence": 0.5
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.875,
+                "micro_recall": 0.875,
+                "all_evidence": 0.75
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.875,
+                "micro_recall": 0.875,
+                "all_evidence": 0.75
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 0.0,
+                "recall": 0.0,
+                "micro_recall": 0.0,
+                "all_evidence": 0.0
+              },
+              "5": {
+                "hit": 0.0,
+                "recall": 0.0,
+                "micro_recall": 0.0,
+                "all_evidence": 0.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.3333333333333333,
+                "micro_recall": 0.3333333333333333,
+                "all_evidence": 0.0
+              }
+            }
+          },
+          "mean_seconds": 13.195344079984352,
+          "p95_seconds": 22.939159950218155,
+          "fallback_count": 3,
+          "strategies": {
+            "direct": 7,
+            "split": 2,
+            "null": 1
+          },
+          "stops": {
+            "round_budget": 1,
+            "no_grounded_new_query": 4,
+            "fallback": 3,
+            "sufficient": 2
+          },
+          "llm_calls": 30,
+          "search_calls": 20,
+          "abstention_nonempty": 0
+        },
+        "combined": {
+          "completed": 10,
+          "scored": 10,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.9,
+              "recall": 0.7333333333333333,
+              "micro_recall": 0.6875,
+              "all_evidence": 0.6
+            },
+            "5": {
+              "hit": 1.0,
+              "recall": 0.8833333333333332,
+              "micro_recall": 0.8125,
+              "all_evidence": 0.8
+            },
+            "10": {
+              "hit": 1.0,
+              "recall": 0.8833333333333332,
+              "micro_recall": 0.8125,
+              "all_evidence": 0.8
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.75,
+                "micro_recall": 0.75,
+                "all_evidence": 0.5
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.875,
+                "micro_recall": 0.875,
+                "all_evidence": 0.75
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.875,
+                "micro_recall": 0.875,
+                "all_evidence": 0.75
+              }
+            },
+            "single-session-assistant": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 0.75,
+                "recall": 0.75,
+                "micro_recall": 0.75,
+                "all_evidence": 0.75
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            },
+            "temporal-reasoning": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.3333333333333333,
+                "micro_recall": 0.3333333333333333,
+                "all_evidence": 0.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.3333333333333333,
+                "micro_recall": 0.3333333333333333,
+                "all_evidence": 0.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.3333333333333333,
+                "micro_recall": 0.3333333333333333,
+                "all_evidence": 0.0
+              }
+            }
+          },
+          "mean_seconds": 10.744451580010354,
+          "p95_seconds": 24.213552590040464,
+          "fallback_count": 4,
+          "strategies": {
+            "direct": 7,
+            "split": 2,
+            "null": 1
+          },
+          "stops": {
+            "sufficient": 5,
+            "fallback": 4,
+            "no_grounded_new_query": 1
+          },
+          "llm_calls": 26,
+          "search_calls": 14,
+          "abstention_nonempty": 0
+        }
+      }
+    },
+    "fallbacks": [
+      {
+        "id": "25e5aa4f",
+        "variant": "combined",
+        "cause": "ConnectError",
+        "phase": "review"
+      },
+      {
+        "id": "faba32e5",
+        "variant": "previous",
+        "cause": "ConnectError",
+        "phase": "review"
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "previous",
+        "cause": "ConnectError",
+        "phase": "route"
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "combined",
+        "cause": "ConnectError",
+        "phase": "route"
+      },
+      {
+        "id": "08e075c7",
+        "variant": "combined",
+        "cause": "ConnectError",
+        "phase": "review"
+      },
+      {
+        "id": "06db6396",
+        "variant": "combined",
+        "cause": "ConnectError",
+        "phase": "review"
+      },
+      {
+        "id": "06db6396",
+        "variant": "previous",
+        "cause": "ConnectError",
+        "phase": "review"
+      }
+    ],
+    "cases": [
+      {
+        "id": "5d3d2817",
+        "variant": "baseline",
+        "question": "What was my previous occupation?",
+        "gold": [
+          "answer_235eb6fb:4"
+        ],
+        "ranked_messages": [
+          "answer_235eb6fb:8",
+          "answer_235eb6fb:4",
+          "sharegpt_ipLglky_48:1",
+          "answer_235eb6fb:7",
+          "answer_235eb6fb:9",
+          "sharegpt_ipLglky_48:2",
+          "answer_235eb6fb:5",
+          "sharegpt_ipLglky_48:2",
+          "ultrachat_106114:4",
+          "sharegpt_ipLglky_48:1"
+        ],
+        "seconds": 2.584392399992794,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "5d3d2817",
+        "variant": "previous",
+        "question": "What was my previous occupation?",
+        "gold": [
+          "answer_235eb6fb:4"
+        ],
+        "ranked_messages": [
+          "answer_235eb6fb:8",
+          "answer_235eb6fb:4",
+          "answer_235eb6fb:9",
+          "answer_235eb6fb:7",
+          "sharegpt_ipLglky_48:2",
+          "sharegpt_ipLglky_48:1",
+          "answer_235eb6fb:5",
+          "sharegpt_ipLglky_48:1",
+          "sharegpt_ipLglky_48:2",
+          "ultrachat_106114:4"
+        ],
+        "seconds": 17.70533369993791,
+        "stop": "round_budget",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The user's previous occupation.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "User identification to confirm the previous occupation.",
+            "kind": "preference",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "71d34d69ee354ae42c36d268c2e8eb21eaae75ddd76468a89a99bbca88fbf2d1",
+                "quote": "In my previous role at the startup, I was responsible for managing a team of interns",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "d1e7526f9c1c1a98438cd13ce90fd02a5b6c5799e8e605e27c26a2287ed4ce4a",
+                "quote": "as a marketing specialist at a small startup",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "Both quotes establish the user's previous occupations at a startup, confirming their roles as a manager of interns and a marketing specialist."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "User identification to confirm the previous occupation is not supported by the current evidence."
+          }
+        ],
+        "queries": [
+          "What was my previous occupation?",
+          "What was the user's role at startup?",
+          "What was interns's previous occupation?"
+        ],
+        "validation_errors": [
+          [],
+          [],
+          []
+        ]
+      },
+      {
+        "id": "5d3d2817",
+        "variant": "combined",
+        "question": "What was my previous occupation?",
+        "gold": [
+          "answer_235eb6fb:4"
+        ],
+        "ranked_messages": [
+          "answer_235eb6fb:8",
+          "answer_235eb6fb:4",
+          "sharegpt_ipLglky_48:2",
+          "answer_235eb6fb:9",
+          "sharegpt_ipLglky_48:1",
+          "sharegpt_ipLglky_48:1",
+          "answer_235eb6fb:5",
+          "sharegpt_ipLglky_48:2",
+          "answer_235eb6fb:7",
+          "ultrachat_106114:4"
+        ],
+        "seconds": 9.674212200101465,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the user's previous occupation",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "71d34d69ee354ae42c36d268c2e8eb21eaae75ddd76468a89a99bbca88fbf2d1",
+                "quote": "In my previous role at the startup, I was responsible for managing a team of interns, and I had to manually assign tasks and track their progress.",
+                "needed_for": "Identify the user's previous occupation"
+              },
+              {
+                "source_id": "d1e7526f9c1c1a98438cd13ce90fd02a5b6c5799e8e605e27c26a2287ed4ce4a",
+                "quote": "I've used Trello in my previous role as a marketing specialist at a small startup",
+                "needed_for": "Identify the user's previous occupation"
+              }
+            ],
+            "reason": "X=the user, so the required relation concerns the user's previous occupation."
+          }
+        ],
+        "queries": [
+          "What was my previous occupation?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "21436231",
+        "variant": "previous",
+        "question": "How many largemouth bass did I catch on my fishing trip to Lake Michigan?",
+        "gold": [
+          "answer_1e6d4567:2"
+        ],
+        "ranked_messages": [
+          "answer_1e6d4567:2",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:3",
+          "answer_1e6d4567:3",
+          "answer_1e6d4567:0",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:5",
+          "answer_1e6d4567:4",
+          "answer_1e6d4567:9"
+        ],
+        "seconds": 11.938486999832094,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The number of largemouth bass caught on the fishing trip to Lake Michigan.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "The date of the fishing trip to Lake Michigan.",
+            "kind": "event_time",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "Confirmation that the fishing trip to Lake Michigan occurred.",
+            "kind": "coverage",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "2cc375d112821b55baabf7c082094c7a4d5e358812f4b2798def9664666087c9",
+                "quote": "I caught 12 largemouth bass on my last trip there",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence directly states the number of largemouth bass caught on the fishing trip."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "The evidence does not provide a specific date for the fishing trip."
+          },
+          {
+            "need_id": "N3",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "2cc375d112821b55baabf7c082094c7a4d5e358812f4b2798def9664666087c9",
+                "quote": "I caught 12 largemouth bass on my last trip there",
+                "needed_for": "N3"
+              }
+            ],
+            "reason": "The evidence confirms that the fishing trip to Lake Michigan occurred."
+          }
+        ],
+        "queries": [
+          "How many largemouth bass did I catch on my fishing trip to Lake Michigan?",
+          "When did last trip go fishing in Lake Michigan?"
+        ],
+        "validation_errors": [
+          [],
+          []
+        ]
+      },
+      {
+        "id": "21436231",
+        "variant": "combined",
+        "question": "How many largemouth bass did I catch on my fishing trip to Lake Michigan?",
+        "gold": [
+          "answer_1e6d4567:2"
+        ],
+        "ranked_messages": [
+          "answer_1e6d4567:2",
+          "answer_1e6d4567:3",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:0",
+          "answer_1e6d4567:3",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:5",
+          "answer_1e6d4567:4",
+          "answer_1e6d4567:9"
+        ],
+        "seconds": 10.37185150012374,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the number of largemouth bass caught by the user on their fishing trip to Lake Michigan.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "2cc375d112821b55baabf7c082094c7a4d5e358812f4b2798def9664666087c9",
+                "quote": "I caught 12 largemouth bass on my last trip there",
+                "needed_for": "Identify the number of largemouth bass caught by the user on their fishing trip to Lake Michigan."
+              }
+            ],
+            "reason": "The subject is the user's fishing trip to Lake Michigan, and the evidence states the exact number of largemouth bass caught."
+          }
+        ],
+        "queries": [
+          "How many largemouth bass did I catch on my fishing trip to Lake Michigan?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "21436231",
+        "variant": "baseline",
+        "question": "How many largemouth bass did I catch on my fishing trip to Lake Michigan?",
+        "gold": [
+          "answer_1e6d4567:2"
+        ],
+        "ranked_messages": [
+          "answer_1e6d4567:2",
+          "answer_1e6d4567:3",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:3",
+          "answer_1e6d4567:4",
+          "answer_1e6d4567:5",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:0",
+          "answer_1e6d4567:1",
+          "answer_1e6d4567:9"
+        ],
+        "seconds": 1.5587580995634198,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "25e5aa4f",
+        "variant": "combined",
+        "question": "Where did I complete my Bachelor's degree in Computer Science?",
+        "gold": [
+          "answer_986de8c3:4"
+        ],
+        "ranked_messages": [
+          "answer_986de8c3:11",
+          "answer_986de8c3:0",
+          "answer_986de8c3:1",
+          "answer_986de8c3:4",
+          "answer_986de8c3:11",
+          "answer_986de8c3:10",
+          "answer_986de8c3:3",
+          "answer_986de8c3:5",
+          "answer_986de8c3:1",
+          "18807892_4:7"
+        ],
+        "seconds": 5.266095099970698,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the location where the user completed their Bachelor's degree in Computer Science.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "25e5aa4f",
+        "variant": "baseline",
+        "question": "Where did I complete my Bachelor's degree in Computer Science?",
+        "gold": [
+          "answer_986de8c3:4"
+        ],
+        "ranked_messages": [
+          "answer_986de8c3:11",
+          "answer_986de8c3:0",
+          "answer_986de8c3:1",
+          "answer_986de8c3:4",
+          "answer_986de8c3:11",
+          "answer_986de8c3:10",
+          "answer_986de8c3:3",
+          "answer_986de8c3:5",
+          "answer_986de8c3:1",
+          "18807892_4:7"
+        ],
+        "seconds": 1.9796108999289572,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "25e5aa4f",
+        "variant": "previous",
+        "question": "Where did I complete my Bachelor's degree in Computer Science?",
+        "gold": [
+          "answer_986de8c3:4"
+        ],
+        "ranked_messages": [
+          "answer_986de8c3:4",
+          "answer_986de8c3:11",
+          "answer_986de8c3:0",
+          "answer_986de8c3:11",
+          "answer_986de8c3:1",
+          "answer_986de8c3:3",
+          "answer_986de8c3:5",
+          "answer_986de8c3:1",
+          "answer_986de8c3:10",
+          "18807892_4:7"
+        ],
+        "seconds": 13.672484500333667,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The name of the institution where the Bachelor's degree in Computer Science was completed.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "The specific degree type (Bachelor's) and field (Computer Science) to confirm the educational context.",
+            "kind": "relation",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "The time frame during which the Bachelor's degree was completed, if applicable.",
+            "kind": "event_time",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "46d55640afb668394bf294e694e879bf6e5fa4d31505ac07291249f73905a848",
+                "quote": "I completed my undergrad in CS from UCLA, which has a great reputation in the industry.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The quote directly states the institution where the Bachelor's degree in Computer Science was completed."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "46d55640afb668394bf294e694e879bf6e5fa4d31505ac07291249f73905a848",
+                "quote": "I completed my undergrad in CS from UCLA, which has a great reputation in the industry.",
+                "needed_for": "N2"
+              }
+            ],
+            "reason": "The quote confirms the specific degree type (Bachelor's) and field (Computer Science) in the educational context."
+          },
+          {
+            "need_id": "N3",
+            "status": "missing",
+            "supports": [],
+            "reason": "The evidence does not provide a specific time frame during which the Bachelor's degree was completed."
+          }
+        ],
+        "queries": [
+          "Where did I complete my Bachelor's degree in Computer Science?",
+          "When did UCLA complete their Bachelor's degree in Computer Science?"
+        ],
+        "validation_errors": [
+          [],
+          []
+        ]
+      },
+      {
+        "id": "faba32e5",
+        "variant": "baseline",
+        "question": "How long did Alex marinate the BBQ ribs in special sauce?",
+        "gold": [
+          "answer_39b12014:2"
+        ],
+        "ranked_messages": [
+          "answer_39b12014:2",
+          "answer_39b12014:3",
+          "answer_39b12014:1",
+          "answer_39b12014:1",
+          "answer_39b12014:3",
+          "answer_39b12014:4",
+          "answer_39b12014:0",
+          "answer_39b12014:6",
+          "answer_39b12014:5",
+          "answer_39b12014:1"
+        ],
+        "seconds": 1.6175808003172278,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "faba32e5",
+        "variant": "previous",
+        "question": "How long did Alex marinate the BBQ ribs in special sauce?",
+        "gold": [
+          "answer_39b12014:2"
+        ],
+        "ranked_messages": [
+          "answer_39b12014:2",
+          "answer_39b12014:3",
+          "answer_39b12014:1",
+          "answer_39b12014:1",
+          "answer_39b12014:3",
+          "answer_39b12014:4",
+          "answer_39b12014:0",
+          "answer_39b12014:6",
+          "answer_39b12014:5",
+          "answer_39b12014:1"
+        ],
+        "seconds": 4.920233400072902,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Duration of marination for BBQ ribs",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identity of the special sauce used",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "faba32e5",
+        "variant": "combined",
+        "question": "How long did Alex marinate the BBQ ribs in special sauce?",
+        "gold": [
+          "answer_39b12014:2"
+        ],
+        "ranked_messages": [
+          "answer_39b12014:2",
+          "answer_39b12014:3",
+          "answer_39b12014:1",
+          "answer_39b12014:0",
+          "answer_39b12014:3",
+          "answer_39b12014:1",
+          "answer_39b12014:1",
+          "answer_39b12014:6",
+          "answer_39b12014:4",
+          "answer_39b12014:5"
+        ],
+        "seconds": 6.212771799881011,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Find the marination duration of Alex for the BBQ ribs in special sauce.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "37eedeaeb3a31f5d41fabe8b66c737f05fd5b679ed19b686ccab760f23f71bae",
+                "quote": "Alex telling me he marinated them in a special sauce for 24 hours before grilling them to perfection.",
+                "needed_for": "Find the marination duration of Alex for the BBQ ribs in special sauce."
+              }
+            ],
+            "reason": "X=Alex, so the required relation concerns Alex's marination duration."
+          }
+        ],
+        "queries": [
+          "How long did Alex marinate the BBQ ribs in special sauce?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "gpt4_7f6b06db",
+        "variant": "previous",
+        "question": "What is the order of the three trips I took in the past three months, from earliest to latest?",
+        "gold": [
+          "answer_5d8c99d3_1:8",
+          "answer_5d8c99d3_2:0",
+          "answer_5d8c99d3_3:0"
+        ],
+        "ranked_messages": [
+          "4bf66c38_2:1",
+          "d9ca4aca:10",
+          "39c1bf6a:4",
+          "answer_5d8c99d3_1:6",
+          "39c1bf6a:5",
+          "answer_5d8c99d3_1:8",
+          "d9ca4aca:6",
+          "answer_5d8c99d3_1:7",
+          "4bf66c38_2:1",
+          "39c1bf6a:5"
+        ],
+        "seconds": 12.656252099666744,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Dates of the first trip taken in the past three months.",
+            "kind": "event_time",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Dates of the second trip taken in the past three months.",
+            "kind": "event_time",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "Dates of the third trip taken in the past three months.",
+            "kind": "event_time",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "db0da857659ab62c6555f9f780e2f4b9310bd351a266006c45ba5e9ea65fded5",
+                "quote": "Golden Week is a significant holiday period in Japan that takes place from April 29th to May 5th",
+                "needed_for": "Dates of the first trip taken in the past three months."
+              }
+            ],
+            "reason": "The evidence from E2 provides a specific date range for the first trip during Golden Week, which is from April 29th to May 5th."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "e4107338e105cf29d805b66cbda14e96a68586340267a8a705b596d653c7dc7c",
+                "quote": "I've been taking fitness classes for recreation at my local gym for the past three months",
+                "needed_for": "Dates of the second trip taken in the past three months."
+              }
+            ],
+            "reason": "The evidence from E6 indicates that the second trip occurred within the last three months, aligning with the timeframe of the fitness classes."
+          },
+          {
+            "need_id": "N3",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "425fba0d3efa2817e2fed0619df150c6f61d833ec57b79dca488d90fc8532146",
+                "quote": "I've been collecting stamps for three months now, and I've already got over 200 unique stamps from different countries",
+                "needed_for": "Dates of the third trip taken in the past three months."
+              }
+            ],
+            "reason": "The evidence from E8 confirms that the third trip took place within the last three months, specifically related to the stamp collection."
+          }
+        ],
+        "queries": [
+          "What is the order of the three trips I took in the past three months, from earliest to latest?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "gpt4_7f6b06db",
+        "variant": "combined",
+        "question": "What is the order of the three trips I took in the past three months, from earliest to latest?",
+        "gold": [
+          "answer_5d8c99d3_1:8",
+          "answer_5d8c99d3_2:0",
+          "answer_5d8c99d3_3:0"
+        ],
+        "ranked_messages": [
+          "answer_5d8c99d3_1:8",
+          "4bf66c38_2:1",
+          "39c1bf6a:4",
+          "39c1bf6a:5",
+          "4bf66c38_2:1",
+          "39c1bf6a:5",
+          "answer_5d8c99d3_1:6",
+          "d9ca4aca:10",
+          "d9ca4aca:6",
+          "answer_5d8c99d3_1:7"
+        ],
+        "seconds": 34.341651199851185,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the date of my first trip in the past three months",
+            "kind": "event_time",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the date of my second trip in the past three months",
+            "kind": "event_time",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "Identify the date of my third trip in the past three months",
+            "kind": "event_time",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "0a767f23e2bece07595d2b96be598dd9d89edebdf5d1c476cfc6f60ef37cf6e2",
+                "quote": "I just got back from a day hike to Muir Woods National Monument with my family today, and it was amazing!",
+                "needed_for": "Identify the date of my first trip in the past three months."
+              }
+            ],
+            "reason": "The first trip was to Muir Woods National Monument, which is supported by the evidence."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "db0da857659ab62c6555f9f780e2f4b9310bd351a266006c45ba5e9ea65fded5",
+                "quote": "Golden Week is a significant holiday period in Japan that takes place from April 29th to May 5th,",
+                "needed_for": "Identify the date of my second trip in the past three months."
+              }
+            ],
+            "reason": "The second trip is planned during Golden Week, which is from April 29th to May 5th."
+          },
+          {
+            "need_id": "N3",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "425fba0d3efa2817e2fed0619df150c6f61d833ec57b79dca488d90fc8532146",
+                "quote": "Just last week, I received a package with 50 new stamps, including a rare 1962 Jamaican stamp that I've been searching for months.",
+                "needed_for": "Identify the date of my third trip in the past three months."
+              }
+            ],
+            "reason": "The third trip is indicated by the recent acquisition of stamps, which occurred last week."
+          }
+        ],
+        "queries": [
+          "What is the order of the three trips I took in the past three months, from earliest to latest?",
+          "When did I start collecting stamps?",
+          "When did I travel during Golden Week?",
+          "When did I visit Muir Woods National Monument?"
+        ],
+        "validation_errors": [
+          [],
+          [
+            "Invalid/ambiguous binding at E6: anchor must occur once in an exact unique quote; template must contain one {target}"
+          ],
+          []
+        ]
+      },
+      {
+        "id": "gpt4_7f6b06db",
+        "variant": "baseline",
+        "question": "What is the order of the three trips I took in the past three months, from earliest to latest?",
+        "gold": [
+          "answer_5d8c99d3_1:8",
+          "answer_5d8c99d3_2:0",
+          "answer_5d8c99d3_3:0"
+        ],
+        "ranked_messages": [
+          "39c1bf6a:5",
+          "4bf66c38_2:1",
+          "answer_5d8c99d3_1:6",
+          "answer_5d8c99d3_1:8",
+          "answer_5d8c99d3_1:7",
+          "d9ca4aca:10",
+          "d9ca4aca:6",
+          "39c1bf6a:4",
+          "39c1bf6a:5",
+          "4bf66c38_2:1"
+        ],
+        "seconds": 1.9869258999824524,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "6a1eabeb",
+        "variant": "combined",
+        "question": "What was my personal best time in the charity 5K run?",
+        "gold": [
+          "answer_a25d4a91_1:4",
+          "answer_a25d4a91_2:0"
+        ],
+        "ranked_messages": [
+          "answer_a25d4a91_1:4",
+          "answer_a25d4a91_2:0",
+          "answer_a25d4a91_2:1",
+          "answer_a25d4a91_1:5",
+          "answer_a25d4a91_2:10",
+          "answer_a25d4a91_2:11",
+          "answer_a25d4a91_2:1",
+          "answer_a25d4a91_1:3",
+          "answer_a25d4a91_2:9",
+          "answer_a25d4a91_1:5"
+        ],
+        "seconds": 6.828417799901217,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Find the user's personal best time in the charity 5K run",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "17933cf4ecafcacaab390cd38e6faa5c480fb691b45104e51e7f8fb4c908f30b",
+                "quote": "I'm hoping to beat my personal best time of 25:50 this time around.",
+                "needed_for": "Find the user's personal best time in the charity 5K run"
+              },
+              {
+                "source_id": "7fbd696ac838ab9e48ecb0689de89a17de8616f67443929a208af0dba492c73b",
+                "quote": "I recently set a personal best time in a charity 5K run with a time of 27:12.",
+                "needed_for": "Find the user's personal best time in the charity 5K run"
+              }
+            ],
+            "reason": "X=the user, so the required relation concerns the user's personal best time."
+          }
+        ],
+        "queries": [
+          "What was my personal best time in the charity 5K run?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "6a1eabeb",
+        "variant": "baseline",
+        "question": "What was my personal best time in the charity 5K run?",
+        "gold": [
+          "answer_a25d4a91_1:4",
+          "answer_a25d4a91_2:0"
+        ],
+        "ranked_messages": [
+          "answer_a25d4a91_1:4",
+          "answer_a25d4a91_2:0",
+          "answer_a25d4a91_1:5",
+          "answer_a25d4a91_2:1",
+          "answer_a25d4a91_2:10",
+          "answer_a25d4a91_1:3",
+          "answer_a25d4a91_2:11",
+          "answer_a25d4a91_2:1",
+          "answer_a25d4a91_2:9",
+          "answer_a25d4a91_1:5"
+        ],
+        "seconds": 1.4676196998916566,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "6a1eabeb",
+        "variant": "previous",
+        "question": "What was my personal best time in the charity 5K run?",
+        "gold": [
+          "answer_a25d4a91_1:4",
+          "answer_a25d4a91_2:0"
+        ],
+        "ranked_messages": [
+          "answer_a25d4a91_1:4",
+          "answer_a25d4a91_2:0",
+          "answer_a25d4a91_1:5",
+          "answer_a25d4a91_2:1",
+          "answer_a25d4a91_2:10",
+          "answer_a25d4a91_2:11",
+          "answer_a25d4a91_2:1",
+          "answer_a25d4a91_1:3",
+          "answer_a25d4a91_2:9",
+          "answer_a25d4a91_1:5"
+        ],
+        "seconds": 26.85913830017671,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The personal best time in the charity 5K run.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Confirmation of the event being a charity 5K run.",
+            "kind": "event_time",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "User's identity to link to their personal best time.",
+            "kind": "preference",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "7fbd696ac838ab9e48ecb0689de89a17de8616f67443929a208af0dba492c73b",
+                "quote": "I recently set a personal best time in a charity 5K run with a time of 27:12.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The quote directly states the user's personal best time in a charity 5K run."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "7fbd696ac838ab9e48ecb0689de89a17de8616f67443929a208af0dba492c73b",
+                "quote": "I recently set a personal best time in a charity 5K run with a time of 27:12.",
+                "needed_for": "N2"
+              }
+            ],
+            "reason": "The quote confirms that the event is a charity 5K run."
+          },
+          {
+            "need_id": "N3",
+            "status": "missing",
+            "supports": [],
+            "reason": "User's identity is not established in the provided evidence."
+          }
+        ],
+        "queries": [
+          "What was my personal best time in the charity 5K run?",
+          "What was the date of the charity 5K run with a personal best time of 27:12?",
+          "What is the date of the charity 5K run with a personal best time of 27:12?"
+        ],
+        "validation_errors": [
+          [
+            "Invalid support source/quote: E2"
+          ],
+          [],
+          [
+            "N1: query must target an unresolved need with supported dependencies"
+          ]
+        ]
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "baseline",
+        "question": "What day of the week do I take a cocktail-making class?",
+        "gold": [
+          "answer_73540165_1:4",
+          "answer_73540165_2:0"
+        ],
+        "ranked_messages": [
+          "answer_73540165_2:1",
+          "answer_73540165_2:8",
+          "answer_73540165_2:0",
+          "answer_73540165_2:9",
+          "answer_73540165_2:1",
+          "answer_73540165_2:2",
+          "answer_73540165_2:3",
+          "answer_73540165_2:7",
+          "answer_73540165_2:10",
+          "answer_73540165_2:9"
+        ],
+        "seconds": 2.2250700001604855,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "previous",
+        "question": "What day of the week do I take a cocktail-making class?",
+        "gold": [
+          "answer_73540165_1:4",
+          "answer_73540165_2:0"
+        ],
+        "ranked_messages": [
+          "answer_73540165_2:1",
+          "answer_73540165_2:8",
+          "answer_73540165_2:0",
+          "answer_73540165_2:9",
+          "answer_73540165_2:1",
+          "answer_73540165_2:2",
+          "answer_73540165_2:3",
+          "answer_73540165_2:7",
+          "answer_73540165_2:10",
+          "answer_73540165_2:9"
+        ],
+        "seconds": 3.3464851998724043,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "combined",
+        "question": "What day of the week do I take a cocktail-making class?",
+        "gold": [
+          "answer_73540165_1:4",
+          "answer_73540165_2:0"
+        ],
+        "ranked_messages": [
+          "answer_73540165_2:1",
+          "answer_73540165_2:8",
+          "answer_73540165_2:0",
+          "answer_73540165_2:9",
+          "answer_73540165_2:1",
+          "answer_73540165_2:2",
+          "answer_73540165_2:3",
+          "answer_73540165_2:7",
+          "answer_73540165_2:10",
+          "answer_73540165_2:9"
+        ],
+        "seconds": 3.407494599930942,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "08e075c7",
+        "variant": "previous",
+        "question": "How long have I been using my Fitbit Charge 3?",
+        "gold": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2"
+        ],
+        "ranked_messages": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_1:1",
+          "answer_cdbe2250_2:4",
+          "answer_cdbe2250_2:1",
+          "answer_cdbe2250_1:4"
+        ],
+        "seconds": 16.28682059980929,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The date when the user started using the Fitbit Charge 3.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "The current date to calculate the duration of use.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "427a8cf58218a0a00ef40a117676afa6c6e73a38ed60e8cf5ce64a6645fe339e",
+                "quote": "I've been using my Fitbit Charge 3 for 6 months now",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "45c26b593db007a1d7c09817f4799f0251d5dbcf92371ba309f971f07fb8e267",
+                "quote": "I've been using my Fitbit Charge 3 for 9 months now",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence from E1 and E3 provides two different durations of use for the Fitbit Charge 3, indicating a change over time."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "The date from E3 provides a current reference date for calculating the duration of use."
+          }
+        ],
+        "queries": [
+          "How long have I been using my Fitbit Charge 3?",
+          "When did Fitbit Charge 3 start being used?"
+        ],
+        "validation_errors": [
+          [
+            "Invalid support source/quote: E3",
+            "N2: supported requires valid evidence AND supported dependencies"
+          ],
+          [
+            "Invalid support source/quote: E3",
+            "N2: supported requires valid evidence AND supported dependencies",
+            "N1: query must target an unresolved need with supported dependencies"
+          ]
+        ]
+      },
+      {
+        "id": "08e075c7",
+        "variant": "combined",
+        "question": "How long have I been using my Fitbit Charge 3?",
+        "gold": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2"
+        ],
+        "ranked_messages": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:2",
+          "answer_cdbe2250_1:1",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_2:1",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_2:4",
+          "answer_cdbe2250_1:4"
+        ],
+        "seconds": 9.563738599885255,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the duration of Fitbit Charge 3 usage",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "08e075c7",
+        "variant": "baseline",
+        "question": "How long have I been using my Fitbit Charge 3?",
+        "gold": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2"
+        ],
+        "ranked_messages": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:2",
+          "answer_cdbe2250_1:1",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_2:1",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_2:4",
+          "answer_cdbe2250_1:4"
+        ],
+        "seconds": 1.6907434999011457,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "06db6396",
+        "variant": "combined",
+        "question": "How many projects have I completed since starting painting classes?",
+        "gold": [
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0"
+        ],
+        "ranked_messages": [
+          "answer_da72b1b4_1:8",
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_2:0",
+          "answer_da72b1b4_1:5",
+          "answer_da72b1b4_1:7",
+          "answer_da72b1b4_1:3",
+          "answer_da72b1b4_2:1",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:5"
+        ],
+        "seconds": 11.834765400271863,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the number of projects completed by the user since starting painting classes.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the start date of the user's painting classes.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "Determine the time period from the start date of painting classes to the present.",
+            "kind": "event_time",
+            "depends_on": [
+              "N2"
+            ]
+          }
+        ],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "06db6396",
+        "variant": "baseline",
+        "question": "How many projects have I completed since starting painting classes?",
+        "gold": [
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0"
+        ],
+        "ranked_messages": [
+          "answer_da72b1b4_1:8",
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_2:0",
+          "answer_da72b1b4_1:5",
+          "answer_da72b1b4_1:7",
+          "answer_da72b1b4_1:3",
+          "answer_da72b1b4_2:1",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:5"
+        ],
+        "seconds": 1.442271400243044,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "06db6396",
+        "variant": "previous",
+        "question": "How many projects have I completed since starting painting classes?",
+        "gold": [
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0"
+        ],
+        "ranked_messages": [
+          "answer_da72b1b4_1:8",
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_2:0",
+          "answer_da72b1b4_1:5",
+          "answer_da72b1b4_1:7",
+          "answer_da72b1b4_1:3",
+          "answer_da72b1b4_2:1",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:5"
+        ],
+        "seconds": 18.14807530026883,
+        "stop": "fallback",
+        "fallback": true,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Count of projects completed by the user since starting painting classes.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Date when the user started painting classes.",
+            "kind": "event_time",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "9b298070931dc747874b6d0f8597182b7fd199ea8cea9190569a20a07ebf594c",
+                "quote": "I've completed 4 projects since starting painting classes",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "6d60378e0f9fe830e7a85c43b9a225883a425868bff029f9a56d58cc126adc64",
+                "quote": "I've completed 4 projects since starting painting classes",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "3f4b9a23987ae6954c3c1944a07af358ddcadf9b4c8a7897d89839b4bd0782e9",
+                "quote": "I just finished my 5th project since starting painting classes",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence from sources E1, E2, and E4 confirms the count of projects completed since starting painting classes."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "There is no evidence provided that indicates the date when the user started painting classes."
+          }
+        ],
+        "queries": [],
+        "validation_errors": [
+          [],
+          []
+        ]
+      },
+      {
+        "id": "4c36ccef",
+        "variant": "baseline",
+        "question": "Can you remind me of the name of the romantic Italian restaurant in Rome you recommended for dinner?",
+        "gold": [
+          "answer_ultrachat_448704:3"
+        ],
+        "ranked_messages": [
+          "answer_ultrachat_448704:2",
+          "answer_ultrachat_448704:3",
+          "answer_ultrachat_448704:1",
+          "answer_ultrachat_448704:0",
+          "answer_ultrachat_448704:4",
+          "answer_ultrachat_448704:5",
+          "answer_ultrachat_448704:7",
+          "answer_ultrachat_448704:6",
+          "sharegpt_m8F4NxL_0:1",
+          "sharegpt_m8F4NxL_0:0"
+        ],
+        "seconds": 1.3791629001498222,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "4c36ccef",
+        "variant": "previous",
+        "question": "Can you remind me of the name of the romantic Italian restaurant in Rome you recommended for dinner?",
+        "gold": [
+          "answer_ultrachat_448704:3"
+        ],
+        "ranked_messages": [
+          "answer_ultrachat_448704:3",
+          "answer_ultrachat_448704:1",
+          "answer_ultrachat_448704:2",
+          "answer_ultrachat_448704:0",
+          "answer_ultrachat_448704:7",
+          "answer_ultrachat_448704:6",
+          "answer_ultrachat_448704:4",
+          "sharegpt_m8F4NxL_0:0",
+          "sharegpt_m8F4NxL_0:1",
+          "answer_ultrachat_448704:5"
+        ],
+        "seconds": 6.420130699872971,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The name of the romantic Italian restaurant in Rome.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Confirmation that the restaurant is Italian and romantic.",
+            "kind": "fact",
+            "depends_on": [
+              "N1"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "d41a5c76378df8652b995a5afe3122146ee33bf9757c5b8f8e6684bf395c5a81",
+                "quote": "For a romantic dinner, I would recommend Roscioli.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The quote directly states the name of the recommended romantic Italian restaurant, Roscioli."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "d41a5c76378df8652b995a5afe3122146ee33bf9757c5b8f8e6684bf395c5a81",
+                "quote": "For a romantic dinner, I would recommend Roscioli.",
+                "needed_for": "N2"
+              }
+            ],
+            "reason": "The quote confirms that Roscioli is recommended for a romantic dinner, establishing it as both Italian and romantic."
+          }
+        ],
+        "queries": [
+          "Can you remind me of the name of the romantic Italian restaurant in Rome you recommended for dinner?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "4c36ccef",
+        "variant": "combined",
+        "question": "Can you remind me of the name of the romantic Italian restaurant in Rome you recommended for dinner?",
+        "gold": [
+          "answer_ultrachat_448704:3"
+        ],
+        "ranked_messages": [
+          "answer_ultrachat_448704:3",
+          "answer_ultrachat_448704:1",
+          "answer_ultrachat_448704:2",
+          "answer_ultrachat_448704:0",
+          "answer_ultrachat_448704:7",
+          "answer_ultrachat_448704:6",
+          "answer_ultrachat_448704:4",
+          "sharegpt_m8F4NxL_0:0",
+          "sharegpt_m8F4NxL_0:1",
+          "answer_ultrachat_448704:5"
+        ],
+        "seconds": 9.94351760018617,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the romantic Italian restaurant in Rome that was recommended for dinner.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the user who requested the restaurant recommendation.",
+            "kind": "relation",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "d41a5c76378df8652b995a5afe3122146ee33bf9757c5b8f8e6684bf395c5a81",
+                "quote": "For a romantic dinner, I would recommend Roscioli.",
+                "needed_for": "Identify the romantic Italian restaurant in Rome that was recommended for dinner."
+              }
+            ],
+            "reason": "The required relation concerns the romantic Italian restaurant recommended for dinner."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "The user who requested the restaurant recommendation is not identified in the provided evidence."
+          }
+        ],
+        "queries": [
+          "Can you remind me of the name of the romantic Italian restaurant in Rome you recommended for dinner?"
+        ],
+        "validation_errors": [
+          [
+            "N1: query must target an unresolved need with supported dependencies"
+          ]
+        ]
+      }
+    ]
+  },
+  "prompts-v3-network-recheck4-20261003": {
+    "source_sha256": {
+      "memory/multihop.py": "351bc8d09dd44e082b4c6f56e2619b32e212cd6f920f47be6acf58ba45d6569a",
+      "memory/multihop_evidence.py": "7306419516e9475c10fe038501a652b75b7d941a0247ddb2f2f6b12cb8093b84",
+      "memory/vanilla.py": "2ab7292b6102e48352b848b611f8cf9f6b9778ca9b9831b465fc23e6a387c54e",
+      "scripts/test_multihop_live.py": "90923322cb887d98405af1f4edce8f967c11fd299527eff3fd625f41044f6226",
+      "scripts/test_multihop_full.py": "53f1f2b82a3ced09503201ccefec43f1d94a92225778e5db6cff356f5683ade0"
+    },
+    "sample_ids": [
+      "25e5aa4f",
+      "ce6d2d27",
+      "08e075c7",
+      "06db6396"
+    ],
+    "settings": {
+      "LLM_MODEL": "gpt-4o-mini",
+      "RAG_MODEL_PATH": "data/models/bge-small-en-v1.5",
+      "RAG_RERANK_PATH": "data/models/ms-marco-MiniLM-L-6-v2",
+      "RAG_METADATA_MODE": "on",
+      "RAG_TARGET_MODE": "on",
+      "RAG_SECOND_PASS": "on",
+      "RAG_RERANK_MODE": "local",
+      "RAG_RERANK_CONTEXT": "1",
+      "RAG_RERANK_CANDIDATES": "400",
+      "RAG_RERANK_SELECTION": "context_support",
+      "RAG_RERANK_NEIGHBOR_PENALTY": "2",
+      "RAG_RESULT_WINDOW": "0",
+      "RAG_TAG_MODE": "off",
+      "RAG_RETRIEVAL_MODE": "hybrid",
+      "RAG_RRF_K": "60",
+      "RAG_LEXICAL_WEIGHT": "0.5",
+      "RAG_CHUNK_TOKENS": "320",
+      "RAG_CHUNK_OVERLAP": "40",
+      "RAG_RERANK_BATCH_SIZE": "32",
+      "RAG_RERANK_MAX_LENGTH": "512",
+      "RAG_DEVICE": "cuda",
+      "RAG_RERANK_DEVICE": "cuda",
+      "RAG_EMBEDDING_API_MODEL": "text-embedding-v4",
+      "RAG_EMBEDDING_DIMENSIONS": "1024",
+      "RAG_EMBEDDING_BATCH_SIZE": "10",
+      "RAG_QUERY_PREFIX": "",
+      "RAG_QUERY_INSTRUCTION": "",
+      "RAG_MEMORY_DB": "D:\\Program Data\\Github Program\\.实习\\CSIG_re\\data\\multihop\\prompts-v3-network-recheck4-20261003\\memory.sqlite3",
+      "RAG_FUSION_QA": "on",
+      "RAG_MULTI_QUERY": "off",
+      "RAG_SOFT_RECALL": "on"
+    },
+    "report": {
+      "expected_questions": 4,
+      "completed_searches": 12,
+      "variants": {
+        "baseline": {
+          "completed": 4,
+          "scored": 4,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 0.75,
+              "recall": 0.5,
+              "micro_recall": 0.5714285714285714,
+              "all_evidence": 0.25
+            },
+            "5": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            },
+            "10": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.6666666666666666,
+                "micro_recall": 0.6666666666666666,
+                "all_evidence": 0.3333333333333333
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 0.0,
+                "recall": 0.0,
+                "micro_recall": 0.0,
+                "all_evidence": 0.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 1.7925203499617055,
+          "p95_seconds": 2.060603680065833,
+          "fallback_count": 0,
+          "strategies": {
+            "off": 4
+          },
+          "stops": {
+            "off": 4
+          },
+          "llm_calls": 0,
+          "search_calls": 4,
+          "abstention_nonempty": 0
+        },
+        "previous": {
+          "completed": 4,
+          "scored": 4,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            },
+            "5": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            },
+            "10": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 14.02023042505607,
+          "p95_seconds": 16.775176379969345,
+          "fallback_count": 0,
+          "strategies": {
+            "direct": 3,
+            "split": 1
+          },
+          "stops": {
+            "sufficient": 1,
+            "no_grounded_new_query": 3
+          },
+          "llm_calls": 13,
+          "search_calls": 9,
+          "abstention_nonempty": 0
+        },
+        "combined": {
+          "completed": 4,
+          "scored": 4,
+          "abstention": 0,
+          "unannotated": 0,
+          "metrics": {
+            "3": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            },
+            "5": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            },
+            "10": {
+              "hit": 1.0,
+              "recall": 0.875,
+              "micro_recall": 0.8571428571428571,
+              "all_evidence": 0.75
+            }
+          },
+          "categories": {
+            "knowledge-update": {
+              "3": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 0.8333333333333334,
+                "micro_recall": 0.8333333333333334,
+                "all_evidence": 0.6666666666666666
+              }
+            },
+            "single-session-user": {
+              "3": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "5": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              },
+              "10": {
+                "hit": 1.0,
+                "recall": 1.0,
+                "micro_recall": 1.0,
+                "all_evidence": 1.0
+              }
+            }
+          },
+          "mean_seconds": 8.930982275051065,
+          "p95_seconds": 14.041433975170364,
+          "fallback_count": 0,
+          "strategies": {
+            "direct": 3,
+            "split": 1
+          },
+          "stops": {
+            "sufficient": 2,
+            "no_grounded_new_query": 2
+          },
+          "llm_calls": 10,
+          "search_calls": 5,
+          "abstention_nonempty": 0
+        }
+      }
+    },
+    "fallbacks": [],
+    "cases": [
+      {
+        "id": "25e5aa4f",
+        "variant": "baseline",
+        "question": "Where did I complete my Bachelor's degree in Computer Science?",
+        "gold": [
+          "answer_986de8c3:4"
+        ],
+        "ranked_messages": [
+          "answer_986de8c3:11",
+          "answer_986de8c3:0",
+          "answer_986de8c3:1",
+          "answer_986de8c3:4",
+          "answer_986de8c3:11",
+          "answer_986de8c3:10",
+          "answer_986de8c3:3",
+          "answer_986de8c3:5",
+          "answer_986de8c3:1",
+          "18807892_4:7"
+        ],
+        "seconds": 2.085888700094074,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "25e5aa4f",
+        "variant": "previous",
+        "question": "Where did I complete my Bachelor's degree in Computer Science?",
+        "gold": [
+          "answer_986de8c3:4"
+        ],
+        "ranked_messages": [
+          "answer_986de8c3:4",
+          "answer_986de8c3:11",
+          "answer_986de8c3:0",
+          "answer_986de8c3:1",
+          "answer_986de8c3:11",
+          "answer_986de8c3:1",
+          "answer_986de8c3:3",
+          "18807892_4:7",
+          "answer_986de8c3:10",
+          "answer_986de8c3:5"
+        ],
+        "seconds": 8.598201300017536,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The name of the institution where the Bachelor's degree in Computer Science was completed.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "The degree type (Bachelor's) and field of study (Computer Science) to confirm the specific degree.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "46d55640afb668394bf294e694e879bf6e5fa4d31505ac07291249f73905a848",
+                "quote": "I completed my undergrad in CS from UCLA, which has a great reputation in the industry.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The quote directly states the institution where the Bachelor's degree in Computer Science was completed."
+          },
+          {
+            "need_id": "N2",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "46d55640afb668394bf294e694e879bf6e5fa4d31505ac07291249f73905a848",
+                "quote": "I completed my undergrad in CS from UCLA, which has a great reputation in the industry.",
+                "needed_for": "N2"
+              }
+            ],
+            "reason": "The quote confirms the degree type (Bachelor's) and field of study (Computer Science) as it mentions completing an undergrad in CS."
+          }
+        ],
+        "queries": [
+          "Where did I complete my Bachelor's degree in Computer Science?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "25e5aa4f",
+        "variant": "combined",
+        "question": "Where did I complete my Bachelor's degree in Computer Science?",
+        "gold": [
+          "answer_986de8c3:4"
+        ],
+        "ranked_messages": [
+          "answer_986de8c3:4",
+          "answer_986de8c3:11",
+          "answer_986de8c3:0",
+          "answer_986de8c3:1",
+          "answer_986de8c3:11",
+          "answer_986de8c3:1",
+          "answer_986de8c3:3",
+          "18807892_4:7",
+          "answer_986de8c3:10",
+          "answer_986de8c3:5"
+        ],
+        "seconds": 6.105741399805993,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the location where the user completed their Bachelor's degree in Computer Science.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "46d55640afb668394bf294e694e879bf6e5fa4d31505ac07291249f73905a848",
+                "quote": "I completed my undergrad in CS from UCLA, which has a great reputation in the industry.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The subject is the user's Bachelor's degree in Computer Science, which was completed at UCLA."
+          }
+        ],
+        "queries": [
+          "Where did I complete my Bachelor's degree in Computer Science?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "previous",
+        "question": "What day of the week do I take a cocktail-making class?",
+        "gold": [
+          "answer_73540165_1:4",
+          "answer_73540165_2:0"
+        ],
+        "ranked_messages": [
+          "answer_73540165_2:8",
+          "answer_73540165_2:1",
+          "answer_73540165_2:0",
+          "answer_73540165_2:10",
+          "answer_73540165_2:9",
+          "answer_73540165_2:1",
+          "answer_73540165_2:9",
+          "answer_73540165_2:2",
+          "answer_73540165_2:7",
+          "answer_73540165_2:11"
+        ],
+        "seconds": 16.904834399931133,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The day of the week for the cocktail-making class.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "User's schedule or preferences regarding the cocktail-making class.",
+            "kind": "preference",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "fc9376540b4d9baf4351cdec7233e499c1c310e3607cef6c32fa747beec27795",
+                "quote": "I have a cocktail-making class on Friday, and I'm thinking of experimenting with some new recipes.",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The quote directly states the day of the week for the cocktail-making class."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "There is no evidence provided regarding the user's schedule or preferences for the cocktail-making class."
+          }
+        ],
+        "queries": [
+          "What day of the week do I take a cocktail-making class?",
+          "What time does Friday start?",
+          "What are the user's preferences regarding the cocktail-making class on Friday?"
+        ],
+        "validation_errors": [
+          [],
+          [],
+          []
+        ]
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "combined",
+        "question": "What day of the week do I take a cocktail-making class?",
+        "gold": [
+          "answer_73540165_1:4",
+          "answer_73540165_2:0"
+        ],
+        "ranked_messages": [
+          "answer_73540165_2:8",
+          "answer_73540165_2:1",
+          "answer_73540165_2:0",
+          "answer_73540165_2:9",
+          "answer_73540165_2:10",
+          "answer_73540165_2:1",
+          "answer_73540165_2:9",
+          "answer_73540165_2:3",
+          "answer_73540165_2:2",
+          "answer_73540165_2:7"
+        ],
+        "seconds": 5.958402400370687,
+        "stop": "sufficient",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the day of the week for the cocktail-making class",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "fc9376540b4d9baf4351cdec7233e499c1c310e3607cef6c32fa747beec27795",
+                "quote": "I have a cocktail-making class on Friday, and I'm thinking of experimenting with some new recipes.",
+                "needed_for": "Identify the day of the week for the cocktail-making class"
+              }
+            ],
+            "reason": "The subject is the cocktail-making class, which is explicitly stated to be on Friday."
+          }
+        ],
+        "queries": [
+          "What day of the week do I take a cocktail-making class?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "ce6d2d27",
+        "variant": "baseline",
+        "question": "What day of the week do I take a cocktail-making class?",
+        "gold": [
+          "answer_73540165_1:4",
+          "answer_73540165_2:0"
+        ],
+        "ranked_messages": [
+          "answer_73540165_2:1",
+          "answer_73540165_2:8",
+          "answer_73540165_2:0",
+          "answer_73540165_2:9",
+          "answer_73540165_2:1",
+          "answer_73540165_2:2",
+          "answer_73540165_2:3",
+          "answer_73540165_2:7",
+          "answer_73540165_2:10",
+          "answer_73540165_2:9"
+        ],
+        "seconds": 1.9173218999058008,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "08e075c7",
+        "variant": "combined",
+        "question": "How long have I been using my Fitbit Charge 3?",
+        "gold": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2"
+        ],
+        "ranked_messages": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:2",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_1:1",
+          "answer_cdbe2250_2:4",
+          "answer_cdbe2250_2:1",
+          "answer_cdbe2250_1:4"
+        ],
+        "seconds": 8.670547899790108,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the duration of Fitbit Charge 3 usage",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "conflict",
+            "supports": [],
+            "reason": "The evidence from E1 states 6 months, but E3 states 9 months, creating a conflict."
+          }
+        ],
+        "queries": [
+          "How long have I been using my Fitbit Charge 3?"
+        ],
+        "validation_errors": [
+          []
+        ]
+      },
+      {
+        "id": "08e075c7",
+        "variant": "baseline",
+        "question": "How long have I been using my Fitbit Charge 3?",
+        "gold": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2"
+        ],
+        "ranked_messages": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:2",
+          "answer_cdbe2250_1:1",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_2:1",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_2:4",
+          "answer_cdbe2250_1:4"
+        ],
+        "seconds": 1.532836299855262,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "08e075c7",
+        "variant": "previous",
+        "question": "How long have I been using my Fitbit Charge 3?",
+        "gold": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2"
+        ],
+        "ranked_messages": [
+          "answer_cdbe2250_1:2",
+          "answer_cdbe2250_2:2",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_1:3",
+          "answer_cdbe2250_2:3",
+          "answer_cdbe2250_1:1",
+          "answer_cdbe2250_2:4",
+          "answer_cdbe2250_2:1",
+          "answer_cdbe2250_1:4"
+        ],
+        "seconds": 16.04044760018587,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The date when the user started using the Fitbit Charge 3.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "The current date to calculate the duration of use.",
+            "kind": "fact",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "427a8cf58218a0a00ef40a117676afa6c6e73a38ed60e8cf5ce64a6645fe339e",
+                "quote": "I've been using my Fitbit Charge 3 for 6 months now",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "45c26b593db007a1d7c09817f4799f0251d5dbcf92371ba309f971f07fb8e267",
+                "quote": "I've been using my Fitbit Charge 3 for 9 months now",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence from E1 and E3 provides two different durations of use for the Fitbit Charge 3, indicating a change in the duration over time."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "The timestamps from E1 and E3 provide the current dates relevant to the durations of use."
+          }
+        ],
+        "queries": [
+          "How long have I been using my Fitbit Charge 3?",
+          "When did Fitbit Charge 3 start being used?"
+        ],
+        "validation_errors": [
+          [
+            "Invalid support source/quote: E3",
+            "N2: supported requires valid evidence AND supported dependencies"
+          ],
+          [
+            "Invalid support source/quote: E1",
+            "Invalid support source/quote: E3",
+            "N2: supported requires valid evidence AND supported dependencies",
+            "N1: query must target an unresolved need with supported dependencies"
+          ]
+        ]
+      },
+      {
+        "id": "06db6396",
+        "variant": "baseline",
+        "question": "How many projects have I completed since starting painting classes?",
+        "gold": [
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0"
+        ],
+        "ranked_messages": [
+          "answer_da72b1b4_1:8",
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_2:0",
+          "answer_da72b1b4_1:5",
+          "answer_da72b1b4_1:7",
+          "answer_da72b1b4_1:3",
+          "answer_da72b1b4_2:1",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:5"
+        ],
+        "seconds": 1.6340344999916852,
+        "stop": null,
+        "fallback": false,
+        "requirements": [],
+        "states": [],
+        "queries": [],
+        "validation_errors": []
+      },
+      {
+        "id": "06db6396",
+        "variant": "previous",
+        "question": "How many projects have I completed since starting painting classes?",
+        "gold": [
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0"
+        ],
+        "ranked_messages": [
+          "answer_da72b1b4_1:8",
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:5",
+          "answer_da72b1b4_2:1",
+          "answer_da72b1b4_1:7",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:3",
+          "answer_da72b1b4_1:5"
+        ],
+        "seconds": 14.53743840008974,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "The total number of projects completed by the user.",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "The start date of the user's painting classes.",
+            "kind": "event_time",
+            "depends_on": []
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "9b298070931dc747874b6d0f8597182b7fd199ea8cea9190569a20a07ebf594c",
+                "quote": "I've completed 4 projects since starting painting classes",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "6d60378e0f9fe830e7a85c43b9a225883a425868bff029f9a56d58cc126adc64",
+                "quote": "I've completed 4 projects since starting painting classes",
+                "needed_for": "N1"
+              },
+              {
+                "source_id": "3f4b9a23987ae6954c3c1944a07af358ddcadf9b4c8a7897d89839b4bd0782e9",
+                "quote": "I just finished my 5th project since starting painting classes",
+                "needed_for": "N1"
+              }
+            ],
+            "reason": "The evidence from E1 and E2 states that 4 projects were completed, while E4 states that the user has completed a 5th project, confirming a total of 5 projects."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "There is no evidence provided that indicates the start date of the user's painting classes."
+          }
+        ],
+        "queries": [
+          "How many projects have I completed since starting painting classes?",
+          "How many projects have I completed?",
+          "When did I start painting classes?"
+        ],
+        "validation_errors": [
+          [
+            "Invalid/ambiguous binding at E4: anchor must occur once in an exact unique quote; template must contain one {target}"
+          ]
+        ]
+      },
+      {
+        "id": "06db6396",
+        "variant": "combined",
+        "question": "How many projects have I completed since starting painting classes?",
+        "gold": [
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0"
+        ],
+        "ranked_messages": [
+          "answer_da72b1b4_1:8",
+          "answer_da72b1b4_1:4",
+          "answer_da72b1b4_2:0",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:5",
+          "answer_da72b1b4_2:1",
+          "answer_da72b1b4_1:7",
+          "answer_da72b1b4_1:9",
+          "answer_da72b1b4_1:3",
+          "answer_da72b1b4_1:5"
+        ],
+        "seconds": 14.98923740023747,
+        "stop": "no_grounded_new_query",
+        "fallback": false,
+        "requirements": [
+          {
+            "id": "N1",
+            "description": "Identify the number of projects completed by the user since starting painting classes",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N2",
+            "description": "Identify the start date of the user's painting classes",
+            "kind": "fact",
+            "depends_on": []
+          },
+          {
+            "id": "N3",
+            "description": "Determine the time period from the start date of painting classes to the present",
+            "kind": "event_time",
+            "depends_on": [
+              "N2"
+            ]
+          }
+        ],
+        "states": [
+          {
+            "need_id": "N1",
+            "status": "supported",
+            "supports": [
+              {
+                "source_id": "9b298070931dc747874b6d0f8597182b7fd199ea8cea9190569a20a07ebf594c",
+                "quote": "I've completed 4 projects since starting painting classes",
+                "needed_for": "Identify the number of projects completed by the user since starting painting classes"
+              },
+              {
+                "source_id": "6d60378e0f9fe830e7a85c43b9a225883a425868bff029f9a56d58cc126adc64",
+                "quote": "I've completed 4 projects since starting painting classes",
+                "needed_for": "Identify the number of projects completed by the user since starting painting classes"
+              },
+              {
+                "source_id": "3f4b9a23987ae6954c3c1944a07af358ddcadf9b4c8a7897d89839b4bd0782e9",
+                "quote": "I just finished my 5th project since starting painting classes",
+                "needed_for": "Identify the number of projects completed by the user since starting painting classes"
+              }
+            ],
+            "reason": "The subject is the user, and the evidence confirms the number of projects completed since starting painting classes."
+          },
+          {
+            "need_id": "N2",
+            "status": "missing",
+            "supports": [],
+            "reason": "The start date of the user's painting classes is not provided in the evidence."
+          },
+          {
+            "need_id": "N3",
+            "status": "missing",
+            "supports": [],
+            "reason": "The time period from the start date of painting classes to the present cannot be determined without knowing the start date."
+          }
+        ],
+        "queries": [
+          "How many projects have I completed since starting painting classes?",
+          "When did I start painting classes?"
+        ],
+        "validation_errors": [
+          [
+            "Invalid/ambiguous binding at E4: anchor must occur once in an exact unique quote; template must contain one {target}"
+          ]
+        ]
+      }
+    ]
+  }
+}
