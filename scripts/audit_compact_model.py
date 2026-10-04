@@ -71,7 +71,7 @@ def plan_fixtures():
 
 
 def run_case(case,style,planner):
-    if case['id'].startswith('plan-'):
+    if 'strategy' in case:
         raw=planner.complete(ROUTE_PROMPT+NEED_PLAN,dict(question=case['question'],options=None),RequiredRoute,20)
         return dict(structure_match=raw.strategy==case['strategy'] and len(raw.requirements)==case['count'],output=raw.model_dump())
     if style!='focused':
@@ -104,9 +104,12 @@ def run_case(case,style,planner):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--out',type=Path,required=True)
+    parser.add_argument('--case-ids',nargs='+',help='Explicit supplemental cases; never replaces earlier observations.')
     args=parser.parse_args()
     args.out.mkdir(parents=True,exist_ok=False)
     cases=plan_fixtures()+fixtures()
+    if args.case_ids:
+        cases=[c for c in cases if c['id'] in args.case_ids]
     (args.out/'fixtures.json').write_text(json.dumps(cases,ensure_ascii=False,indent=2),encoding='utf-8')
     sources=['memory/compact_prompts.py','memory/focused_multihop.py','memory/multihop.py','memory/multihop_evidence.py','scripts/audit_compact_model.py']
     (args.out/'manifest.json').write_text(json.dumps(dict(source_sha256={p:hashlib.sha256((PROJECT_ROOT/p).read_bytes()).hexdigest() for p in sources},
@@ -127,8 +130,8 @@ def main():
             results.append(row)
             print(case['id'],style,row.get('correct',row.get('structure_match',row.get('error_type'))),flush=True)
     summary={s:dict(completed=sum(r['style']==s for r in results),errors=sum('error_type' in r for r in results if r['style']==s),
-        read_correct=sum(r.get('correct',False) for r in results if r['style']==s),read_total=8,
-        plan_structure_correct=sum(r.get('structure_match',False) for r in results if r['style']==s),plan_total=4)
+        read_correct=sum(r.get('correct',False) for r in results if r['style']==s),read_total=sum('strategy' not in c for c in cases),
+        plan_structure_correct=sum(r.get('structure_match',False) for r in results if r['style']==s),plan_total=sum('strategy' in c for c in cases))
         for s in ['long','short','focused']}
     (args.out/'report.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
 
