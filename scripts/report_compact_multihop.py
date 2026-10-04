@@ -1,0 +1,144 @@
+"""Summarize frozen compact-prompt experiments with independent metric checks."""
+import json
+import hashlib
+from collections import Counter
+from pathlib import Path
+from statistics import mean
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / 'data/multihop'
+
+
+def read_cases(folder):
+    return [json.loads(s) for s in (DATA / folder / 'cases.jsonl').read_text(encoding='utf-8').split('\n') if s]
+
+
+def metrics(rows, k):
+    counts = [(len(set(r['gold']) & set(r['ranked_messages'][:k])), len(set(r['gold']))) for r in rows]
+    return dict(hit=mean(n > 0 for n, d in counts), recall=mean(n / d for n, d in counts),
+                micro_recall=sum(n for n, d in counts) / sum(d for n, d in counts),
+                all_evidence=mean(n == d for n, d in counts))
+
+
+def summarize(folder, expected, k):
+    rows = read_cases(folder)
+    assert len(rows) == expected * 4
+    assert len({(r['id'], r['variant']) for r in rows}) == len(rows)
+    original = json.loads((DATA / folder / 'report.json').read_text(encoding='utf-8'))
+    manifest = json.loads((DATA / folder / 'manifest.json').read_text(encoding='utf-8'))
+    # The only post-scenes change was fixture dispatch in the model-only harness.
+    for filename, digest in manifest['source_sha256'].items():
+        if filename == 'scripts/audit_compact_model.py' and folder == 'compact-scenes6-20261004':
+            continue
+        assert hashlib.sha256((ROOT / filename).read_bytes()).hexdigest() == digest, filename
+    arms = {v: [r for r in rows if r['variant'] == v] for v in ('baseline', 'long', 'short', 'focused')}
+    result = dict(folder=folder, n=expected, top_k=k, variants={}, paired={})
+    for v, cases in arms.items():
+        assert len(cases) == expected
+        scored = [r for r in cases if r['gold'] and not r['abstention']]
+        scores = {str(cut): metrics(scored, cut) for cut in (3, 5, 10) if cut <= k}
+        for cut, values in scores.items():
+            for name, value in values.items():
+                assert abs(original['variants'][v]['metrics'][cut][name] - value) < 1e-12
+        calls = [c for r in cases for c in r['model_calls']]
+        lengths = [sum(c[key] for key in ('instruction_chars', 'payload_chars', 'schema_chars')) for c in calls]
+        result['variants'][v] = dict(metrics=scores, mean_seconds=mean(r['seconds'] for r in cases),
+            p95_seconds=original['variants'][v]['p95_seconds'], llm_calls=len(calls),
+            search_calls=sum(r['trace'].get('search_calls', 1) for r in cases),
+            input_chars_total=sum(lengths), input_chars_per_search=sum(lengths) / expected,
+            input_chars_per_call=mean(lengths) if lengths else 0,
+            input_chars_max_call=max(lengths, default=0),
+            fallback=sum(bool(r['trace'].get('fallback')) for r in cases),
+            fallback_causes=dict(Counter(r['trace'].get('cause_type', r['trace'].get('error_type')) for r in cases if r['trace'].get('fallback'))),
+            model_call_errors=dict(Counter(c.get('cause_type', c.get('error_type')) for c in calls if c.get('error_type'))),
+            stops=dict(Counter(r['trace'].get('stop', 'off') for r in cases)))
+    for base in ('baseline', 'long'):
+        lookup = {r['id']: r for r in arms[base]}
+        for v in ('long', 'short', 'focused'):
+            if v == base:
+                continue
+            improved, regressed, lost_hit, gained_hit = [], [], [], []
+            for r in arms[v]:
+                a, b = metrics([lookup[r['id']]], k), metrics([r], k)
+                if b['recall'] > a['recall']: improved.append(r['id'])
+                if b['recall'] < a['recall']: regressed.append(r['id'])
+                if b['hit'] < a['hit']: lost_hit.append(r['id'])
+                if b['hit'] > a['hit']: gained_hit.append(r['id'])
+            result['paired'][f'{v}_vs_{base}'] = dict(improved=improved, regressed=regressed,
+                lost_hit=lost_hit, gained_hit=gained_hit, unchanged=expected-len(improved)-len(regressed))
+    common = set.intersection(*[{r['id'] for r in cases if not r['trace'].get('fallback')} for cases in arms.values()])
+    result['common_no_fallback'] = dict(n=len(common), ids=sorted(common),
+        metrics={v: metrics([r for r in cases if r['id'] in common], k) for v, cases in arms.items()} if common else {})
+    return result
+
+
+def model_summary():
+    first = read_cases('compact-model12-20261004')
+    # This fixture was misrouted by its name in the first harness. Keep all original
+    # records on disk and substitute only the explicitly rerun corrected fixture.
+    rows = [r for r in first if r['id'] != 'plan-not-completed'] + read_cases('compact-model-supplement-20261004')
+    assert len(rows) == 36
+    result = {}
+    for style in ('long', 'short', 'focused'):
+        subset = [r for r in rows if r['style'] == style]
+        readers = [r for r in subset if r['id'] not in ('plan-direct','plan-split','plan-three-links','plan-no-background')]
+        result[style] = dict(read_correct=sum(r.get('correct', False) for r in readers), read_total=8,
+            read_errors=sum('error_type' in r for r in readers),
+            plan_structure_correct=sum(r.get('structure_match', False) for r in subset), plan_total=4,
+            errors=dict(Counter(r['cause_type'] for r in subset if 'error_type' in r)))
+    return result
+
+
+def main():
+    results = dict(model=model_summary(), scenes=summarize('compact-scenes6-20261004',6,3),
+                   public=summarize('compact-range30-20261004',30,10))
+    (ROOT/'docs/compact-multihop-results-20261004.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
+    lines = ['# 短提示词与单需求多跳实验（2026-10-04）', '',
+             '本轮建议保留 long：30 题上 short/focused 相对 long 的 Recall@10 分别下降 5.67/9.00 个百分点，没有改善题。累计输入字符分别减少 40.89%/68.49%，但召回收益没有保住。两种新版本保留为实验开关，未替换默认行为。', '',
+             '模型：gpt-4o-mini；embedding：text-embedding-v4；重排：本地 MiniLM。全部调用使用根 .env，未修改生产配置。', '',
+             '实施前检查点 a47013a；候选实现 df85af3；测试脚本修复 8f3edec（不改模型或检索逻辑）。154 项单元测试通过。', '',
+             '四组：FM 直接检索、原长提示词（long）、仅缩短提示词（short）、短规划＋逐需求读取＋独立查询生成（focused）。三个多跳组均启用来源/需求校验，预算为 8 次 LLM、6 次查询、90 秒，每次 LLM 最多 20 秒。', '',
+             '固定证据专项 12 题×3；6 个合成场景×4；LongMemEval-S 六类各 5 题×4。共 144 次真实 /search，经进程内 TestClient 调用 /add 与 /search；复用同模型文档向量和已入库历史，查询向量不缓存。本次不是远端部署负载或官方评分测试。', '',
+             '公开题使用完整对话历史。选择规则固定，样本已用于开发，不是独立留出集；不使用金标指导查询。结果保留所有网络失败与回退，未择优重试。', '']
+    for section, title in [('scenes','6 个合成场景'),('public','30 题公开范围测试')]:
+        data=results[section]; k=data['top_k']
+        lines += [f'## {title}', '', f'| 方案 | Hit@{k} | Recall@{k} | Micro Recall@{k} | 全证据命中@{k} | 均时(s) | P95(s) | LLM次数 | 回退 |', '|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+        for v, r in data['variants'].items():
+            m=r['metrics'][str(k)]
+            lines.append(f"| {v} | {m['hit']:.2%} | {m['recall']:.2%} | {m['micro_recall']:.2%} | {m['all_evidence']:.2%} | {r['mean_seconds']:.2f} | {r['p95_seconds']:.2f} | {r['llm_calls']} | {r['fallback']} |")
+        lines += ['', '相对 long 的逐题 Recall 变化：', '']
+        for v in ('short','focused'):
+            p=data['paired'][f'{v}_vs_long']
+            lines.append(f"- {v}：改善 {len(p['improved'])} 题、退化 {len(p['regressed'])} 题、持平 {p['unchanged']} 题；丢失 Hit {len(p['lost_hit'])} 题、新增 Hit {len(p['gained_hit'])} 题。")
+        lines += ['', f"各组均无回退的共同子集有 {data['common_no_fallback']['n']} 题。该子集存在筛选偏差，只作为诊断，不替代含失败的主结果。", '']
+    lines += ['## 真实题退化与回退原因', '',
+              '30 题 long 有 3 次 ConnectError 回退；short 为 7 次 ConnectError＋2 次非法依赖 ValueError；focused 为 2 次非法依赖 ValueError。故不能将 short 的全部退化归因于提示词。共同无回退的 18 题 Recall@10：long 92.96%、short 91.85%、focused 86.30%；这是有筛选偏差的诊断子集。', '',
+              '| 题目 | long 命中证据 | short | focused | 已确认原因 |',
+              '|---|---:|---:|---:|---|',
+              '| YouTube 与 TikTok 最热门视频总播放量（d6062bb9） | 2/2 | 1/2 | 1/2 | short 连接回退；focused 判 YouTube 缺证据后 query=null，未追加检索 |',
+              '| 看过多少位不同医生（gpt4_f2262a51） | 2/5 | 1/5 | 1/5 | 都未找齐；focused 生成与历史重复的原问句，被程序拒绝 |',
+              '| 购买新吉他的建议（95228167） | 1/1 | 0/1 | 0/1 | short 连接回退；focused 查询锚点不在引用内，被程序拒绝 |',
+              '| 上周五开始听哪位艺术家（gpt4_fa19884d） | 1/1 | 1/1 | 0/1 | focused 判缺证据却 query=null |', '',
+              'focused 30 题仅产生 35 次检索（含 30 次原问题检索），16 题停在 unresolved。它没有直接执行规划给出的初始查询，而是先读证据，再按缺口生成查询；本轮输出过于保守，丢掉了原版追加检索带来的收益。这是流程变化的影响，不能仅归因于提示词长度。', '',
+              '## 输入规模与模型专项', '', '长度为提示词＋JSON payload＋结构化 schema 的字符估计，包含失败请求；不是 token、账单或上下文窗口占用。', '', '| 方案 | 30题总输入字符 | 每次 Search 均值 | 每次 LLM 均值 | 单次最大 |', '|---|---:|---:|---:|---:|']
+    for v,r in results['public']['variants'].items():
+        lines.append(f"| {v} | {r['input_chars_total']} | {r['input_chars_per_search']:.0f} | {r['input_chars_per_call']:.0f} | {r['input_chars_max_call']} |")
+    lines += ['', '| 方案 | 证据判读正确/8（含调用失败） | 判读调用失败 | 规划结构符合/4 | 全部调用错误 |','|---|---:|---:|---:|---|']
+    for v,r in results['model'].items():
+        lines.append(f"| {v} | {r['read_correct']} | {r['read_errors']} | {r['plan_structure_correct']} | {r['errors']} |")
+    lines += ['', '规划结构仅检查策略及需求数量，不等于完整语义正确。证据题缺证据时 missing/conflict/time_unknown 都按保守不支持处理；正例 long/short 检查引用中的期望值，focused 额外检查抽取值相等，schema 不同。专项测试提供正确前序绑定，因此不能代表端到端链条成功率。', '',
+              '首轮脚本错误地按 plan- 名称前缀将 plan-not-completed 判读题当成规划题，产生 3 个 KeyError；修复后仅补测该题，三个版本均通过。其余网络失败未重试。原始记录及补测分别保存在 compact-model12-20261004 和 compact-model-supplement-20261004。', '',
+              '## 已确认的具体错误与边界', '',
+              '1. 固定规划题“Veda 的兄弟的老师教什么乐器”：long 只生成“识别兄弟的老师→查乐器”，漏掉兄弟身份；short 同样漏掉兄弟，还返回依赖 [0]、[1]，导致两项需求都引用自身。focused 此题因连接错误无有效规划，不能宣称成功。', '',
+              '2. 合成题“Leona 的配偶在哪工作”：short 只生成“识别配偶的雇主”，第一项依赖 [0]。同类自依赖也出现在 Nadia 配偶公司的 CEO、Iris 导师公司总部城市。程序拒绝非法依赖并回退；这是模型输出结构错误，不是网络失败。', '',
+              '3. 固定证据“Nadia married Elias; Nadia works at Beacon”：long 正确判断尚缺 Elias 的雇主，但下一查询把 Elias 绑定到不包含该名字的 Beacon 原文。short 和 focused 在这一次返回了正确的 Elias 来源。说明判断缺口与生成查询是两个可独立失败的任务。', '',
+              '4. “秘鲁硬币不代表去过秘鲁”：short 判缺证据正确，却用 collect coins 作主体形成 Did collect coins visit Peru?。focused 也把整句 Did I visit Peru? 当锚点形成不自然查询。引用字面合法并不等于查询语义正确。', '',
+              'focused 的证据窗口为最多 5 条×900 字符；程序验证来源、字面值和直接前序依赖，但不能证明关系蕴含。较小窗口可能漏掉关键段落；已支持的需求在同次请求中不会因后续新证据自动重审；多一步读取/查询分离可能更快耗尽调用预算。', '',
+              '结论边界：没有证据表明原提示词超出模型上下文窗口。单次输出有随机性，连接失败较多；本次是实现与诊断对比，不是稳定效果的置信结论。保留 long 为默认，short/focused 为可切换实验。后续优先保留规划的完整结构示例，单独比较精简证据判读提示词，避免将所有阶段一起压缩。', '',
+              '## 复现与记录', '', '原始输入、输出、来源绑定、错误及逐题召回均在 data/multihop/compact-* 文件夹；源文件哈希保存在各 manifest.json。汇总 JSON 包含 @3/@5/@10、配对题目 ID、回退原因及共同无回退子集。运行 `python scripts/report_compact_multihop.py` 可复核全部主指标并重建本报告。', '']
+    (ROOT/'docs/compact-multihop-results-20261004.md').write_text('\n'.join(lines),encoding='utf-8')
+    print(json.dumps(results,ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

@@ -203,6 +203,12 @@ python scripts/smoke_aml.py --live
 
 `codex/llm-multihop` 提供可选的 gpt-4o-mini 检索规划、依赖式追加查询，以及来源绑定和证据需求检查，仍返回原文。该实验不代表服务器已启用 LLM。增强开关 `RAG_MULTIHOP_BINDINGS` 和 `RAG_MULTIHOP_NEEDS` 默认关闭：30 题五方案测试中，组合版 Recall@10 与原多跳持平、延迟增加，尚不建议默认启用。详见 [实现说明](docs/multihop-evidence-repair.md) 和 [测试结果及失败案例](docs/llm-multihop-repairs-test-20261003.md)。
 
+## 提示词简化实验（2026-10-04）
+
+`RAG_MULTIHOP_PROMPT_STYLE=long|short|focused` 可比较原提示词、仅缩短提示词、以及逐需求读取证据并独立生成下一查询的流程。缺省为 `long`；`RAG_MULTIHOP_MODE=off` 仍完全关闭 LLM 多跳。`focused` 自带需求依赖与字面来源校验，最终 `/search` 仍只返回原文。
+
+实验配置为 8 次 LLM、6 次检索、90 秒总预算，不代表根 `.env` 或部署配置已经更改。短提示词不保证理解更准确；非法依赖仍会被拒绝并回退。对照结果、输入输出错误案例和复现记录见 [提示词简化实验报告](docs/compact-multihop-results-20261004.md)，逐项数值见 [JSON 汇总](docs/compact-multihop-results-20261004.json)。
+
 ## 边界与来源
 
 当前模型及完整测试主要针对英文文本；示例或接口支持 Unicode 不代表中文检索效果已验证。元数据缺失、时间歧义、多人归属和间接证据仍可能造成漏召回。Add/Search 并发上限为配置限制，超过时返回 429，不能据此推断持续吞吐能力。
