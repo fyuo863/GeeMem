@@ -18,15 +18,21 @@ from test_multihop_live import (
 
 def samples_from(path):
     for sample in json.loads(path.read_text(encoding='utf-8')):
-        sessions, gold = [], []
+        sessions, gold, occurrences, renamed = [], [], Counter(), []
         for sid, date, messages in zip(sample['haystack_session_ids'], sample['haystack_dates'],
                                        sample['haystack_sessions'], strict=True):
+            original_sid = sid
+            occurrences[sid] += 1
+            if occurrences[sid] > 1:
+                sid = f'{sid}~occurrence-{occurrences[sid]}'
+                renamed.append(dict(original=original_sid,effective=sid,date=date))
             stamp = int(datetime.strptime(date[:10]+' '+date[-5:], '%Y/%m/%d %H:%M')
                         .replace(tzinfo=timezone.utc).timestamp()*1000)
             sessions.append((sid, [dict(role=m['role'], content=m['content'], timestamp=stamp) for m in messages]))
             gold.extend(f'{sid}:{i}' for i, m in enumerate(messages) if m.get('has_answer'))
         yield dict(id=sample['question_id'], category=sample['question_type'], question=sample['question'],
-                   sessions=sessions, gold=gold, abstention=sample['question_id'].endswith('_abs'))
+                   sessions=sessions, gold=gold, session_id_adapter=renamed,
+                   abstention=sample['question_id'].endswith('_abs'))
 
 
 class DocumentCache:
@@ -114,12 +120,15 @@ def main():
     parser.add_argument('--cache-from', type=Path, help='Read-only copy of a compatible document cache.')
     parser.add_argument('--memory-from', type=Path, help='Read-only copy of a compatible ingested memory DB.')
     parser.add_argument('--ablation', action='store_true', help='Baseline, original multihop, binding-only, needs-only, combined.')
+    parser.add_argument('--compact-prompts', action='store_true')
     parser.add_argument('--question-ids', nargs='+', help='Explicit diagnostic subset; not a held-out evaluation.')
     parser.add_argument('--prompt-baseline', type=Path, help='Frozen prompt JSON for paired previous/combined prompt-only comparison.')
     parser.add_argument('--synthetic', action='store_true', help='Four existing functional scenes plus two new dependency chains.')
     parser.add_argument('--top-k', type=int, choices=[3,5,10], default=10)
     parser.add_argument('--subquery-candidates',type=int,choices=range(1,101))
     args = parser.parse_args()
+    if args.compact_prompts and (args.ablation or args.prompt_baseline):
+        parser.error('--compact-prompts is a separate ablation')
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=args.resume)
     source = PROJECT_ROOT/'data/longmemeval/longmemeval_s_cleaned.json'
@@ -161,6 +170,12 @@ def main():
                  'bindings':('llm','on','off'), 'needs':('llm','off','on'), 'combined':('llm','on','on')}
                 if args.ablation else {'baseline':('off','off','off'),'multihop':('llm','off','off')})
     old_prompts = None
+    styles = {}
+    if args.compact_prompts:
+        variants = {'baseline':('off','off','off'),'long':('llm','on','on'),
+                    'short':('llm','on','on'),'focused':('llm','on','on')}
+        styles = {'baseline':'long','long':'long','short':'short','focused':'focused'}
+        cfg.update(RAG_MULTIHOP_LLM_CALLS='8',RAG_MULTIHOP_QUERIES='6',RAG_MULTIHOP_SECONDS='90',RAG_MULTIHOP_LLM_TIMEOUT='20')
     if args.prompt_baseline:
         if args.ablation:
             parser.error('--prompt-baseline cannot be combined with --ablation')
@@ -168,11 +183,12 @@ def main():
         variants={'baseline':('off','off','off'),'previous':('llm','on','on'),'combined':('llm','on','on')}
     manifest = dict(dataset_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
         count=len(samples), top_k=args.top_k, sample_ids=[s['id'] for s in samples], per_category=args.per_category,
-        synthetic=args.synthetic,
+        synthetic=args.synthetic, prompt_styles=styles,
+        session_id_adapter={s['id']:s.get('session_id_adapter') for s in samples if s.get('session_id_adapter')},
         variants={k:list(v) for k,v in variants.items()},
         source_sha256={p: hashlib.sha256((PROJECT_ROOT/p).read_bytes()).hexdigest()
-                       for p in ['memory/multihop.py', 'memory/multihop_evidence.py', 'memory/vanilla.py',
-                                 'scripts/test_multihop_live.py', 'scripts/test_multihop_full.py']},
+                       for p in ['memory/compact_prompts.py','memory/focused_multihop.py','memory/multihop.py', 'memory/multihop_evidence.py', 'memory/vanilla.py',
+                                 'scripts/test_multihop_live.py', 'scripts/test_multihop_full.py', 'scripts/audit_compact_model.py']},
         settings={k:v for k,v in cfg.items() if (k.startswith('RAG_') or k.startswith('LLM_'))
                   and not any(s in k for s in ('KEY', 'URL', 'PROXY'))},
         protocol='Full history for every selected question. Real in-process Add/Search. Document embedding cache only; uncached queries. No gold to retrieval/LLM. Abstention and unannotated cases excluded from evidence metrics.')
@@ -196,8 +212,16 @@ def main():
     embedding = DocumentCache(HTTPEmbedder(cfg), out/'document-cache.sqlite3')
     reranker = HTTPReranker(cfg) if cfg.get('RAG_RERANK_API_URL') else LocalReranker(cfg)
     stores = {name: TracedMemory(dict(cfg, RAG_MULTIHOP_MODE=mode, RAG_MULTIHOP_BINDINGS=binding,
-                                    RAG_MULTIHOP_NEEDS=needs), embedding, reranker=reranker)
+                                    RAG_MULTIHOP_NEEDS=needs,
+                                    RAG_MULTIHOP_PROMPT_STYLE=styles.get(name,cfg.get('RAG_MULTIHOP_PROMPT_STYLE','long'))), embedding, reranker=reranker)
               for name, (mode,binding,needs) in variants.items()}
+    audits = {}
+    if args.compact_prompts:
+        from audit_compact_model import AuditedPlanner
+        for name, store in stores.items():
+            if store.multihop.planner is not None:
+                audits[name] = AuditedPlanner(store.multihop.planner)
+                store.multihop.planner = audits[name]
     if old_prompts is not None:
         # Per-instance replacement: identical code, schemas, budgets and retrieval;
         # only the instruction strings differ. No global monkeypatch or API keys.
@@ -238,6 +262,8 @@ def main():
                         assert response.status_code == 200, response.status_code
                         assert response.json() == dict(success=True, **{k:body[k] for k in ('user_id','session_id','request_id')})
                     phase = name+'-search'
+                    if name in audits:
+                        audits[name].calls.clear()
                     before = time.perf_counter()
                     response = client.post('/search', json=dict(user_id=requests[0]['user_id'], query=sample['question'], top_k=args.top_k))
                     seconds = time.perf_counter()-before
@@ -249,7 +275,8 @@ def main():
                     case = dict(variant=name, id=sample['id'], category=sample['category'],
                         question=sample['question'], gold=sample['gold'], abstention=sample['abstention'],
                         ranked_messages=[mapping[h['id']]['message'] for h in hits], hits=hits,
-                        trace=store.last_trace, seconds=seconds, top_k=args.top_k)
+                        trace=store.last_trace, seconds=seconds, top_k=args.top_k,
+                        model_calls=list(audits[name].calls) if name in audits else [])
                     with cases_path.open('a', encoding='utf-8') as f:
                         f.write(json.dumps(case, ensure_ascii=False)+'\n')
                     cases.append(case)

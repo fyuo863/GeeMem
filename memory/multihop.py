@@ -114,6 +114,7 @@ If no grounded next query exists return queries=[]. If sufficient return queries
 class Planner:
     """Independent bounded adapter; reads only settings supplied from root .env."""
     def __init__(self, cfg):
+        self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
         self.model = cfg.get('LLM_MODEL', 'gpt-4o-mini')
         if self.model != 'gpt-4o-mini':
             raise ValueError('Multihop requires LLM_MODEL=gpt-4o-mini')
@@ -122,6 +123,8 @@ class Planner:
         self.proxy = cfg.get('LLM_PROXY') or None
 
     def complete(self, instruction, payload, schema, timeout):
+        from .compact_prompts import effective_instruction
+        instruction = effective_instruction(instruction, self.prompt_style)
         if not self.key:
             raise LLMError('Multihop LLM key is not configured')
         try:
@@ -158,6 +161,9 @@ def normalized(text):
 
 class MultiHop:
     def __init__(self, cfg, planner=None):
+        self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
+        if self.prompt_style not in ('long', 'short', 'focused'):
+            raise ValueError('Invalid multihop prompt style')
         self.mode = cfg.get('RAG_MULTIHOP_MODE','off')
         self.rounds = int(cfg.get('RAG_MULTIHOP_ROUNDS','3'))
         self.query_limit = int(cfg.get('RAG_MULTIHOP_QUERIES','6'))
@@ -181,6 +187,9 @@ class MultiHop:
             self.planner = Planner(cfg)
 
     def run(self, payload, retrieve, rerank, trace):
+        if self.prompt_style == 'focused':
+            from .focused_multihop import run_focused
+            return run_focused(self, payload, retrieve, rerank, trace)
         started=time.perf_counter()
         trace.update(mode='llm',strategy=None,rounds=[],llm_calls=0,search_calls=0,
                      rejected_queries=0,rejected_supports=0,shortened_bridges=0,fallback=False)
