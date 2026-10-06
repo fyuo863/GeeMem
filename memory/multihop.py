@@ -12,6 +12,7 @@ from pydantic import Field
 
 from .llm import LLMError, strict_json_schema
 from .models import StrictModel
+from .planning import QueryPlanner
 
 
 class Query(StrictModel):
@@ -111,7 +112,7 @@ people. Query only an unresolved relation, not an arbitrary topic in the evidenc
 If no grounded next query exists return queries=[]. If sufficient return queries=[].'''
 
 
-class Planner:
+class Planner(QueryPlanner):
     """Independent bounded adapter; reads only settings supplied from root .env."""
     def __init__(self, cfg):
         self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
