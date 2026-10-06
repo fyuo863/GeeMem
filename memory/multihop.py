@@ -175,12 +175,16 @@ class MultiHop:
         self.seconds = float(cfg.get('RAG_MULTIHOP_SECONDS','90'))
         self.bindings = cfg.get('RAG_MULTIHOP_BINDINGS','off')
         self.needs = cfg.get('RAG_MULTIHOP_NEEDS','off')
+        # ``strict`` preserves grounded validation; ``trust`` lets structured
+        # model output drive the next hop without bridge/source rejection.
+        self.validation_mode = cfg.get('RAG_MULTIHOP_VALIDATION', 'strict')
         self.llm_limit = int(cfg.get('RAG_MULTIHOP_LLM_CALLS', str(self.rounds+2)))
         if (self.mode not in ('off','llm') or not 1<=self.rounds<=4 or not 2<=self.query_limit<=10
                 or not 1<=self.candidates<=100 or not 8<=self.evidence_limit<=24
                 or not 200<=self.chars<=2400 or not math.isfinite(self.timeout)
                 or not 1<=self.timeout<=60 or not math.isfinite(self.seconds) or not 1<=self.seconds<=300
                 or self.bindings not in ('off','on') or self.needs not in ('off','on')
+                or self.validation_mode not in ('strict','trust')
                 or not 2<=self.llm_limit<=8):
             raise ValueError('Invalid multihop configuration')
         self.planner = planner
@@ -228,7 +232,7 @@ class MultiHop:
             trace.update(bindings=self.bindings,needs=self.needs,repairs=0,repair_errors=[],
                          validation_errors=[],binding_registry=[],need_states=[])
             planner=EvidencePlanner(self.planner,self.bindings=='on',self.needs=='on',
-                                    trace,repair_budget,timeout)
+                                    trace,repair_budget,timeout,self.validation_mode)
 
         def collect(query,hits):
             history.append(query)
@@ -246,6 +250,14 @@ class MultiHop:
             for proposal in proposals:
                 p=Query.model_validate(proposal)
                 key=normalized(p.query)
+                if self.validation_mode == 'trust':
+                    if key in used:
+                        continue
+                    if len(found) >= limit:
+                        break
+                    found.append(p)
+                    used.add(key)
+                    continue
                 # A model may cite "spouse of Leona" while asking "Who is
                 # Leona married to?". Shorten only to a literal proper-name
                 # substring of its already grounded bridge, never a new entity.
@@ -321,11 +333,14 @@ class MultiHop:
                 valid={}
                 invalid_support=False
                 for support in review.supports:
-                    if support.source_id not in seen_evidence or support.source_id not in sources or support.quote not in sources[support.source_id]:
+                    if (self.validation_mode == 'strict' and
+                        (support.source_id not in seen_evidence or support.source_id not in sources or
+                         support.quote not in sources[support.source_id])):
                         trace['rejected_supports']+=1
                         invalid_support=True
                         continue
-                    valid[support.source_id]=support
+                    if support.source_id in pool:
+                        valid[support.source_id]=support
                 supports=valid
                 step=dict(round=iteration+1,queries=[p.model_dump() for p in pending],
                     new_candidates=len(set(pool)-before),evidence_ids=[e['id'] for e in evidence],
@@ -334,7 +349,7 @@ class MultiHop:
                 if enhanced:
                     step['need_states']=list(planner.states)
                 # Quote validation proves provenance, not semantic entailment.
-                if review.sufficient and supports and not invalid_support:
+                if review.sufficient and (supports or self.validation_mode == 'trust') and not invalid_support:
                     trace['stop']='sufficient'
                     break
                 if trace['search_calls']>=self.query_limit:
