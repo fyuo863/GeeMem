@@ -250,3 +250,16 @@ RAG_RESULT_WINDOW=0
 单元与接口测试：`python -m pytest tests/test_write_gate.py tests/test_selector.py tests/test_vanilla.py tests/test_module_boundaries.py -q`。
 
 判断器失败重试：`JudgeConfig.max_attempts` 默认 3（首次调用加 2 次重试，允许 1–5）。请求临时失败、模型结构输出错误、标签/顺序/原文证据校验失败时重新判断，间隔 0.25、0.5 秒。缺失 Key、401/403 等不可重试客户端错误以及无效输入直接报错。默认判断器关闭底层连接重试，避免次数叠加；注入自定义 LLM 时，其内部重试策略由调用方负责。全部尝试失败时 `/add` 返回 502，不生成向量、决定记录或下一阶段队列，不自动降级为无价值。分类结果格式正确但语义判断不准不会触发重试。
+
+## 独立向量写入器
+
+`memory/vector_writer.py` 的 `VectorWriter` 仅负责向量与原文来源写入，不依赖价值判断器、标签、队列或检索器。
+
+- `initialize()`：初始化向量/来源表，校验 embedding 与切分配置身份；复用既有 SQLite 数据格式。
+- `prepare(payload)`：复制输入、切分原文、调用 embedding、校验并归一化向量；不写数据库。
+- `persist(db, prepared)`：在调用方已开启的事务中保存请求、向量与来源位置，返回 `memory_ids`、`deduplicated`；不自行提交。
+- `write(payload)`：独立写入入口，自行管理事务；重复请求返回原 ID，内容冲突抛出 Conflict。
+
+构造参数为 embedding 提供者、SQLite 连接工厂（需设置 `sqlite3.Row`）、可重入锁 `RLock` 和切分参数。连接工厂负责数据库路径；模型配置由上层从根 `.env` 加载后注入。首次独立调用前执行 `initialize()`。
+
+`VanillaMemory.add()` 保留价值判断与标签加工，通过 `prepare/persist` 组合写入，让向量、判断记录、标签和待处理队列共用事务。来源位置与已有片段 ID 保持原生成规则。此轮只分离模块，embedding 传输重试与模型 tokenizer 上限检查尚未新增。

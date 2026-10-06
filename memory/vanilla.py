@@ -1,7 +1,6 @@
 """Independent implementation of the reference v0.6 hybrid retrieval recipe."""
 from contextlib import closing
 from datetime import datetime, timezone
-import hashlib
 import json
 import math
 import sqlite3
@@ -10,7 +9,8 @@ import numpy as np
 from pathlib import Path
 from .config import PROJECT_ROOT
 from .embeddings import HTTPEmbedder, LocalEmbedder
-from .retrieval import TOKEN, bm25, chunks
+from .retrieval import bm25, chunks
+from .vector_writer import VectorWriter
 from .store import Conflict
 
 
@@ -71,22 +71,11 @@ class VanillaMemory:
             self.path = PROJECT_ROOT / self.path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = RLock()
-        identity = json.dumps([self.embedder.identity, self.size, self.overlap])
+        self.vector_writer = VectorWriter(self.embedder, self.connect, self.lock,
+                                          size=self.size, overlap=self.overlap)
+        self.vector_writer.initialize()
         with closing(self.connect()) as db, db:
-            # Never silently mix graph stores or incompatible vector stores.
-            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if tables and 'rag_meta' not in tables:
-                raise ValueError('RAG requires a separate database')
-            db.execute('PRAGMA journal_mode=WAL')
             db.executescript("""
-                CREATE TABLE IF NOT EXISTS rag_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS rag_requests(user_id TEXT, request_id TEXT, digest TEXT NOT NULL,
-                    PRIMARY KEY(user_id,request_id));
-                CREATE TABLE IF NOT EXISTS rag_memories(id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
-                    session_id TEXT NOT NULL, request_id TEXT NOT NULL, message_index INTEGER NOT NULL,
-                    chunk_index INTEGER NOT NULL, content TEXT NOT NULL, timestamp INTEGER,
-                    vector BLOB NOT NULL, dimension INTEGER NOT NULL);
-                CREATE INDEX IF NOT EXISTS rag_user ON rag_memories(user_id);
                 CREATE TABLE IF NOT EXISTS rag_tags(memory_id TEXT PRIMARY KEY, identity TEXT NOT NULL,
                     tags TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS rag_tag_vectors(memory_id TEXT PRIMARY KEY,
@@ -98,12 +87,6 @@ class VanillaMemory:
                     user_id TEXT NOT NULL, request_id TEXT NOT NULL, payload TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY(user_id,request_id));
             """)
-            from .provenance import initialize
-            initialize(db)
-            db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('identity', ?)", (identity,))
-            if db.execute("SELECT value FROM rag_meta WHERE key='identity'").fetchone()[0] != identity:
-                raise ValueError('Embedding/chunk identity changed; use a new RAG_MEMORY_DB')
-
         from .search_service import SearchService
         self.atomic_retriever = AtomicRetriever(self)
         self.search_service = SearchService(self.atomic_retriever)
@@ -113,35 +96,18 @@ class VanillaMemory:
         db.row_factory = sqlite3.Row
         return db
 
-    @staticmethod
-    def vectors(value, count):
-        arr = np.asarray(value, dtype=np.float32)
-        if arr.ndim != 2 or arr.shape[0] != count or arr.shape[1] == 0 or not np.isfinite(arr).all():
-            raise ValueError('Invalid embedding matrix')
-        norms = np.linalg.norm(arr, axis=1, keepdims=True)
-        if np.any(norms == 0):
-            raise ValueError('Zero embedding vector')
-        return arr / norms
+    vectors = staticmethod(VectorWriter.vectors)
 
     def add(self, payload):
-        from .provenance import payload_digest, store_sources
-        digest = payload_digest(payload)
-        def exists(db):
-            row = db.execute('SELECT digest FROM rag_requests WHERE user_id=? AND request_id=?',
-                             (payload.user_id, payload.request_id)).fetchone()
-            if row is not None and row[0] != digest:
-                raise Conflict('request_id already used with a different payload')
-            return row is not None
         with self.lock, closing(self.connect()) as db:
-            if exists(db):
+            if self.vector_writer.existing(db, payload):
                 return
             decision = self.write_selector.select(payload) if self.write_selector else None
             if decision is not None and decision.label not in ('valuable', 'vector_only'):
                 raise ValueError('Unknown write route')
             enrich = decision is None or decision.label == 'valuable'
-            pending = [(i, j, text, message.timestamp) for i, message in enumerate(payload.messages)
-                       for j, text in enumerate(chunks(message.content, self.size, self.overlap))]
-            matrix = self.vectors(self.embedder.documents([p[2] for p in pending]), len(pending))
+            prepared = self.vector_writer.prepare(payload)
+            pending, matrix = prepared.chunks, prepared.vectors
             tags = self.tagger.extract([p[2] for p in pending]) if enrich and self.tag_mode != 'off' else None
             if tags is not None and len(tags) != len(pending):
                 raise ValueError('Tag count mismatch')
@@ -157,25 +123,16 @@ class VanillaMemory:
                     tag_vectors = dict(zip(tagged_indices, values))
             with db:
                 db.execute('BEGIN IMMEDIATE')
-                if exists(db):
+                if self.vector_writer.existing(db, payload):
                     return
-                dim = db.execute("SELECT value FROM rag_meta WHERE key='dimension'").fetchone()
-                if dim and int(dim[0]) != matrix.shape[1]:
-                    raise ValueError('Embedding dimension changed')
-                db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('dimension', ?)", (str(matrix.shape[1]),))
-                db.execute('INSERT INTO rag_requests VALUES (?,?,?)', (payload.user_id, payload.request_id, digest))
+                written = self.vector_writer.persist(db, prepared)
                 if decision is not None:
                     db.execute('INSERT INTO rag_write_decisions VALUES (?,?,?,?)',
                                (payload.user_id, payload.request_id, decision.label, decision.model_dump_json()))
                     if decision.label == 'valuable':
                         db.execute('INSERT INTO rag_memory_queue(user_id,request_id,payload) VALUES (?,?,?)',
                                    (payload.user_id, payload.request_id, payload.model_dump_json()))
-                for index, ((i, j, text, stamp), vector) in enumerate(zip(pending, matrix)):
-                    key = json.dumps([payload.user_id, payload.request_id, i, j])
-                    mid = hashlib.sha256(key.encode()).hexdigest()
-                    db.execute('INSERT INTO rag_memories VALUES (?,?,?,?,?,?,?,?,?,?)',
-                        (mid, payload.user_id, payload.session_id, payload.request_id, i, j, text, stamp,
-                         vector.astype('<f4').tobytes(), len(vector)))
+                for index, mid in enumerate(written['memory_ids']):
                     if tags is not None:
                         from .tags import normalize_tags
                         db.execute('INSERT INTO rag_tags VALUES (?,?,?)',
@@ -184,7 +141,7 @@ class VanillaMemory:
                         tag_vector = tag_vectors[index]
                         db.execute('INSERT INTO rag_tag_vectors VALUES (?,?,?,?)',
                                    (mid, self.tag_vector_identity, tag_vector.astype('<f4').tobytes(), len(tag_vector)))
-                store_sources(db, payload, chunks, TOKEN, self.size, self.overlap)
+
 
     def retrieval_text(self, row):
         if self.metadata_mode == 'on':
