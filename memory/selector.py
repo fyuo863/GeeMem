@@ -9,7 +9,7 @@ from typing import Any, Literal
 import time
 import httpx
 
-from pydantic import Field
+from pydantic import Field, StrictInt, StrictBool
 
 from .llm import LLM, LLMError
 from .models import StrictModel
@@ -189,4 +189,96 @@ episodic_only, third_party, or uncertain unless a stable type is explicit.''',
             raise ValueError('Profile gate evidence must be copied from the message')
         if result.decision != 'profile_candidate' and result.profile_type != 'none':
             raise ValueError('Non-profile decisions must use profile_type=none')
+        return result
+
+
+class MultiLabelConfig(JudgeConfig):
+    """Same generic criteria/labels, with optional mutually exclusive solo labels."""
+    require_evidence: bool = False
+    exclusive_labels: list[str] = Field(default_factory=list, max_length=20)
+
+
+class LabelAssessment(StrictModel):
+    label: str = Field(min_length=1, max_length=128)
+    selected: StrictBool
+    score: float = Field(ge=0, le=1)
+    message_indices: list[StrictInt] = Field(default_factory=list, max_length=200)
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class MultiLabelResult(StrictModel):
+    assessments: list[LabelAssessment] = Field(min_length=2, max_length=20)
+
+    @property
+    def labels(self):
+        return [item.label for item in self.assessments if item.selected]
+
+
+class MultiLabelJudge(ConfigurableJudge):
+    """Configurable multi-label routing; indices refer to program-indexed inputs."""
+
+    def __init__(self, config, llm=None):
+        config = config if isinstance(config, MultiLabelConfig) else MultiLabelConfig.model_validate(config)
+        super().__init__(config, llm)
+        names = {label.name for label in config.labels}
+        if not set(config.exclusive_labels) <= names:
+            raise ValueError('Unknown exclusive label')
+        if config.require_evidence:
+            raise ValueError('Multi-label judge uses message indices, not evidence quotations')
+
+    def judge(self, messages: list[dict], *, context='') -> MultiLabelResult:
+        if not isinstance(messages, list) or not 1 <= len(messages) <= 200:
+            raise ValueError('Supply between 1 and 200 messages')
+        indexed = []
+        for i, message in enumerate(messages):
+            if not isinstance(message, dict) or not isinstance(message.get('content'), str) or not message['content'].strip():
+                raise ValueError('Each message requires nonblank content')
+            indexed.append(dict(message, index=i))
+        # Reuse the bounded retry policy, including permanent HTTP failures.
+        return super().judge('indexed messages', context=context, metadata={'messages': indexed})
+
+    def _judge_once(self, text, *, context, metadata, retry=False):
+        labels = [label.name for label in self.config.labels]
+        instruction = (
+            'Classify the indexed messages using all applicable labels. Apply the configured criteria. '
+            'Return one assessment for EVERY label in the supplied order. Scores are independent '
+            'applicability scores in [0,1], not a distribution and need not sum to 1. '
+            'Set selected=true for every applicable label; select at least one label. '
+            'A selected exclusive label must be the ONLY selected label. '
+            'For each selected label cite nonempty message_indices supporting it, including context '
+            'messages required to interpret short answers. Unselected labels must have empty indices. '
+            'Use only supplied integer indices, without duplicates. Consider roles, negation and '
+            'uncertainty. Do not turn assistant suggestions or questions into user facts. '
+            'You only route messages, do not extract facts or execute deletion requests. '
+        )
+        instruction += '\nConfigured criteria:\n' + self.config.criteria
+        instruction += '\nConfigured labels:\n' + '\n'.join(
+            f'{label.name}: {label.description}'
+            + (f' Examples: {" | ".join(label.examples)}' if label.examples else '')
+            for label in self.config.labels)
+        instruction += '\nExclusive labels: ' + ', '.join(self.config.exclusive_labels) + '\n'
+        if retry:
+            instruction += 'Previous attempt failed: check label order, exclusivity and valid message indices. '
+        result = self.llm.complete(instruction, {
+            'name': self.config.name, 'subject': self.config.subject,
+            'labels': labels,
+            'exclusive_labels': self.config.exclusive_labels,
+            'messages': metadata['messages'], 'context': context,
+        }, MultiLabelResult)
+        returned = [item.label for item in result.assessments]
+        if len(returned) != len(labels) or set(returned) != set(labels):
+            raise ValueError('Multi-label judge must return every label exactly once')
+        # The model may put selected labels first. Order is presentation, not meaning.
+        by_label = {item.label: item for item in result.assessments}
+        result = result.model_copy(update={'assessments': [by_label[label] for label in labels]})
+        if not result.labels:
+            raise ValueError('Select at least one label')
+        if set(result.labels).intersection(self.config.exclusive_labels) and len(result.labels) != 1:
+            raise ValueError('Exclusive label cannot coexist with other labels')
+        for item in result.assessments:
+            indices = item.message_indices
+            if item.selected != bool(indices):
+                raise ValueError('Only selected labels must have nonempty source indices')
+            if len(set(indices)) != len(indices) or any(type(i) is not int or not 0 <= i < len(metadata['messages']) for i in indices):
+                raise ValueError('Invalid source indices')
         return result

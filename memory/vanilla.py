@@ -30,8 +30,8 @@ class VanillaMemory:
             raise ValueError('Invalid write gate mode')
         self.write_selector = write_selector
         if gate_mode == 'on' and self.write_selector is None:
-            from .write_gate import MemoryValueSelector
-            self.write_selector = MemoryValueSelector()
+            from .write_gate import MemoryTypeSelector
+            self.write_selector = MemoryTypeSelector()
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
         self.mode = cfg.get('RAG_RETRIEVAL_MODE', 'hybrid')
@@ -86,7 +86,18 @@ class VanillaMemory:
                 CREATE TABLE IF NOT EXISTS rag_memory_queue(
                     user_id TEXT NOT NULL, request_id TEXT NOT NULL, payload TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY(user_id,request_id));
+                CREATE TABLE IF NOT EXISTS rag_memory_routes(
+                    user_id TEXT NOT NULL, request_id TEXT NOT NULL, memory_type TEXT NOT NULL,
+                    message_indices TEXT NOT NULL, source_ids TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    PRIMARY KEY(user_id,request_id,memory_type));
             """)
+            # Additive migration: existing route records remain readable.
+            db.execute('BEGIN IMMEDIATE')
+            columns = {row[1] for row in db.execute('PRAGMA table_info(rag_memory_routes)')}
+            for column in ('context_indices', 'context_source_ids', 'builder_messages'):
+                if column not in columns:
+                    db.execute(f"ALTER TABLE rag_memory_routes ADD COLUMN {column} TEXT NOT NULL DEFAULT '[]'")
         from .search_service import SearchService
         self.atomic_retriever = AtomicRetriever(self)
         self.search_service = SearchService(self.atomic_retriever)
@@ -132,6 +143,14 @@ class VanillaMemory:
                     if decision.label == 'valuable':
                         db.execute('INSERT INTO rag_memory_queue(user_id,request_id,payload) VALUES (?,?,?)',
                                    (payload.user_id, payload.request_id, payload.model_dump_json()))
+                        for route in getattr(decision, 'routes', []):
+                            db.execute('INSERT INTO rag_memory_routes '
+                                       '(user_id,request_id,memory_type,message_indices,source_ids,'
+                                       'context_indices,context_source_ids,builder_messages) VALUES (?,?,?,?,?,?,?,?)',
+                                       (payload.user_id, payload.request_id, route.memory_type,
+                                        json.dumps(route.message_indices), json.dumps(route.source_ids),
+                                        json.dumps(route.context_indices), json.dumps(route.context_source_ids),
+                                        json.dumps(route.builder_messages, ensure_ascii=False)))
                 for index, mid in enumerate(written['memory_ids']):
                     if tags is not None:
                         from .tags import normalize_tags
