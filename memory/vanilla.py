@@ -18,6 +18,7 @@ from .store import Conflict
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None):
         from .multihop import MultiHop
+        from .atomic_retriever import AtomicRetriever
         self.multihop = MultiHop(cfg, multihop_planner)
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
         self.fusion_qa = cfg.get('RAG_FUSION_QA', 'off')
@@ -128,8 +129,9 @@ class VanillaMemory:
                 raise ValueError('Embedding/chunk identity changed; use a new RAG_MEMORY_DB')
 
         from .search_service import SearchService
+        self.atomic_retriever = AtomicRetriever(self)
         self.search_service = SearchService(
-            self._search_direct,
+            self.atomic_retriever,
             multihop=self.multihop,
             reranker=CallbackReranker(self._rerank_for_multihop) if self.reranker is not None else None,
         )
