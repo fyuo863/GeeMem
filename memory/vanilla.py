@@ -1,145 +1,18 @@
 """Independent implementation of the reference v0.6 hybrid retrieval recipe."""
-from collections import Counter
 from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
 import math
-from pathlib import Path
-import re
 import sqlite3
 from threading import RLock
 import numpy as np
+from pathlib import Path
 from .config import PROJECT_ROOT
+from .embeddings import HTTPEmbedder, LocalEmbedder
+from .retrieval import CallbackReranker
+from .retrieval import TOKEN, bm25, chunks
 from .store import Conflict
-
-TOKEN = re.compile(r"[\u4e00-\u9fff]|[A-Za-z0-9_]+|[^\w\s]")
-
-
-def chunks(text, size=320, overlap=40):
-    if not 0 <= overlap < size:
-        raise ValueError("Require 0 <= overlap < chunk size")
-    spans = list(TOKEN.finditer(text))
-    if len(spans) <= size:
-        return [text] if text.strip() else []
-    out = []
-    for start in range(0, len(spans), size - overlap):
-        end = min(start + size, len(spans))
-        out.append(text[spans[start].start():spans[end-1].end()])
-        if end == len(spans):
-            break
-    return out
-
-
-def bm25(documents, query):
-    def tokens(text):
-        return [t.casefold() for t in TOKEN.findall(text) if any(c.isalnum() or c == '_' for c in t)]
-    docs = [Counter(tokens(d)) for d in documents]
-    terms = set(tokens(query))
-    n = len(docs)
-    average = sum(sum(d.values()) for d in docs) / max(n, 1) or 1
-    frequency = {t: sum(t in d for d in docs) for t in terms}
-    scores = np.zeros(n)
-    for i, d in enumerate(docs):
-        norm = 1.5 * (0.25 + 0.75 * sum(d.values()) / average)
-        for t in terms.intersection(d):
-            idf = math.log(1 + (n - frequency[t] + 0.5) / (frequency[t] + 0.5))
-            scores[i] += idf * d[t] * 2.5 / (d[t] + norm)
-    return scores
-
-
-class LocalEmbedder:
-    def __init__(self, cfg):
-        from sentence_transformers import SentenceTransformer
-        path = Path(cfg.get('RAG_MODEL_PATH', 'data/models/bge-small-en-v1.5'))
-        if not path.is_absolute():
-            path = PROJECT_ROOT / path
-        if not (path / 'manifest.json').is_file():
-            raise ValueError('Download the embedding model with scripts/download_rag_model.py first')
-        manifest = json.loads((path / 'manifest.json').read_text(encoding='utf-8'))
-        for name, expected in manifest['sha256'].items():
-            file = (path / name).resolve()
-            if not file.is_relative_to(path.resolve()):
-                raise ValueError('Invalid model manifest path')
-            with file.open('rb') as handle:
-                if hashlib.file_digest(handle, 'sha256').hexdigest() != expected:
-                    raise ValueError('Model snapshot checksum mismatch')
-        prefix = cfg.get('RAG_QUERY_PREFIX', 'Represent this sentence for searching relevant passages: ')
-        self.identity = json.dumps([manifest, prefix], sort_keys=True)
-        self.prefix = prefix
-        self.model = SentenceTransformer(str(path), device=cfg.get('RAG_DEVICE', 'cpu'), local_files_only=True, trust_remote_code=False)
-
-    def documents(self, texts):
-        return self.model.encode(texts, batch_size=64, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)
-
-    def queries(self, texts):
-        return self.documents([self.prefix + t for t in texts])
-
-
-class HTTPEmbedder:
-    """OpenAI-compatible embedding endpoint, configured only in .env."""
-    def __init__(self, cfg):
-        import httpx
-        self.url = cfg['RAG_EMBEDDING_API_URL'].rstrip('/')
-        self.model_name = cfg.get('RAG_EMBEDDING_API_MODEL', '')
-        self.prefix = cfg.get('RAG_QUERY_PREFIX', '')
-        self.instruction = cfg.get('RAG_QUERY_INSTRUCTION', '')
-        self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
-        self.batch_size = int(cfg.get('RAG_EMBEDDING_BATCH_SIZE', '10' if self.model_name == 'text-embedding-v4' else '64'))
-        dimension = cfg.get('RAG_EMBEDDING_DIMENSIONS', '')
-        self.dimensions = int(dimension) if dimension else None
-        key = cfg.get('RAG_EMBEDDING_API_KEY', '')
-        if self.batch_size < 1 or (self.dimensions is not None and self.dimensions < 1):
-            raise ValueError('Invalid embedding batch size or dimensions')
-        if self.model_name == 'text-embedding-v4':
-            if not key:
-                raise ValueError('Set RAG_EMBEDDING_API_KEY in root .env for text-embedding-v4')
-            if self.batch_size > 10 or self.dimensions not in (None, 64, 128, 256, 512, 768, 1024, 1536, 2048):
-                raise ValueError('Invalid text-embedding-v4 batch size or dimensions')
-        self.client = httpx.Client(timeout=self.timeout, trust_env=False,
-            proxy=cfg.get('RAG_EMBEDDING_API_PROXY') or None,
-            headers={'Authorization': 'Bearer '+key} if key else {})
-        self.identity = json.dumps(['http-embedding-v1', self.url, self.model_name, self.prefix, self.instruction], sort_keys=True)
-        if self.dimensions is not None:
-            self.identity = json.dumps([self.identity, 'dimensions', self.dimensions])
-
-    def documents(self, texts):
-        texts = list(texts)
-        if not texts:
-            raise ValueError('Embedding input must not be empty')
-        batches = []
-        for start in range(0, len(texts), self.batch_size):
-            batch = texts[start:start+self.batch_size]
-            payload = {'input': batch, 'encoding_format': 'float'}
-            if self.model_name: payload['model'] = self.model_name
-            if self.dimensions is not None: payload['dimensions'] = self.dimensions
-            response = self.client.post(self.url, json=payload); response.raise_for_status()
-            data = response.json().get('data', [])
-            if (not isinstance(data, list) or any(not isinstance(item, dict) for item in data)
-                    or any(type(item.get('index')) is not int for item in data)
-                    or sorted(item['index'] for item in data) != list(range(len(batch)))):
-                raise ValueError('Invalid embedding response indexes')
-            ordered = sorted(data, key=lambda item: item['index'])
-            vectors = self._vectors([item.get('embedding') for item in ordered], len(batch))
-            if ((self.dimensions is not None and vectors.shape[1] != self.dimensions)
-                    or (batches and vectors.shape[1] != batches[0].shape[1])):
-                raise ValueError('Embedding dimension mismatch')
-            batches.append(vectors)
-        return np.concatenate(batches, axis=0)
-
-    @staticmethod
-    def _vectors(value, count):
-        arr = np.asarray(value, dtype=np.float32)
-        if arr.ndim != 2 or arr.shape[0] != count or arr.shape[1] == 0 or not np.isfinite(arr).all():
-            raise ValueError('Invalid embedding API response')
-        norms = np.linalg.norm(arr, axis=1, keepdims=True)
-        if np.any(norms == 0): raise ValueError('Zero embedding vector')
-        return arr / norms
-
-    def queries(self, texts):
-        if self.instruction:
-            return self.documents([self.prefix + self.instruction + '\nQuery: ' + t for t in texts])
-        return self.documents([self.prefix + t for t in texts])
 
 
 class VanillaMemory:
@@ -254,6 +127,17 @@ class VanillaMemory:
             if db.execute("SELECT value FROM rag_meta WHERE key='identity'").fetchone()[0] != identity:
                 raise ValueError('Embedding/chunk identity changed; use a new RAG_MEMORY_DB')
 
+        from .search_service import SearchService
+        self.search_service = SearchService(
+            self._search_direct,
+            multihop=self.multihop,
+            reranker=CallbackReranker(self._rerank_for_multihop) if self.reranker is not None else None,
+        )
+
+    def _rerank_for_multihop(self, query, documents):
+        with self.lock:
+            return self.reranker.score(query, documents)
+
     def connect(self):
         db = sqlite3.connect(self.path, timeout=30)
         db.row_factory = sqlite3.Row
@@ -355,14 +239,8 @@ class VanillaMemory:
         return reranked
 
     def search(self, payload, *, trace=None):
-        if self.multihop.mode == 'off':
-            if trace is not None:
-                trace.update(mode='off')
-            return self._search_direct(payload)
-        def rerank(query, documents):
-            with self.lock:
-                return self.reranker.score(query, documents)
-        return self.multihop.run(payload,self._search_direct,rerank,trace if trace is not None else {})
+        # SearchService owns orchestration; this backend owns retrieval details.
+        return self.search_service.search(payload, trace=trace)
 
     def _search_direct(self, payload):
         with closing(self.connect()) as db:
