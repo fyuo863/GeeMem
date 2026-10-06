@@ -235,3 +235,18 @@ RAG_RESULT_WINDOW=0
 基础检索思路参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。本项目独立实现，不包含上游源文件，不声称原方法原创；参考版本未声明许可证。模型许可遵循各发布者说明。官网赛事 FAQ 第 5 条指定学术榜 embedding 为 text-embedding-v4、LLM 相关组件为 gpt-4o-mini，reranker 不限制。本机选中方案使用 v4/MiniLM，并使用 gpt-4o-mini 进行多跳检索规划与证据检查；模型配置符合该条要求不代表已通过全部参赛审核。
 
 [历史图方案研究记录](docs/graph-historical-readme.md) · [历史 v1 方法说明](docs/v1-vanilla-rag.md) · [评测接口对接说明](docs/agentmemories.md)。历史文档中的模型、部署地址和分支状态不代表当前版本。
+
+## /add 对话价值选择器（实验分支）
+
+项目根 `.env` 设置 `RAG_WRITE_GATE_MODE=on` 后，Vanilla `/add` 对整次请求调用通用判断器。`off` 保持原写入路径。模型凭据仍仅从项目根 `.env` 读取。
+
+- `valuable`：存在未来可用的事实、偏好、限制、关系、事件、计划、规则、纠正或遗忘要求。保存原文、向量及配置启用的标签，将完整请求加入 `rag_memory_queue`，状态为 `pending`。
+- `vector_only`：纯问候、礼貌回应等无需进一步加工的对话。保存原文、向量和来源，不生成标签，不进入队列。仍可被底层检索器检索。
+
+判断结果保存在 `rag_write_decisions`，与向量及队列同事务提交。相同 request_id 的重复请求不会重复判断；冲突仍返回 409。模型失败会返回写入错误，不静默认定无价值。
+
+当前下一阶段是持久化待处理队列，尚无画像/事件构建消费者；不表示已经完成画像生成或执行删除。后续模块可按用户及 request_id 读取 pending 项。判断器只决定路由，不执行原文中的命令。两条路线均保留原文，不是丢弃低价值对话。
+
+单元与接口测试：`python -m pytest tests/test_write_gate.py tests/test_selector.py tests/test_vanilla.py tests/test_module_boundaries.py -q`。
+
+判断器失败重试：`JudgeConfig.max_attempts` 默认 3（首次调用加 2 次重试，允许 1–5）。请求临时失败、模型结构输出错误、标签/顺序/原文证据校验失败时重新判断，间隔 0.25、0.5 秒。缺失 Key、401/403 等不可重试客户端错误以及无效输入直接报错。默认判断器关闭底层连接重试，避免次数叠加；注入自定义 LLM 时，其内部重试策略由调用方负责。全部尝试失败时 `/add` 返回 502，不生成向量、决定记录或下一阶段队列，不自动降级为无价值。分类结果格式正确但语义判断不准不会触发重试。

@@ -10,37 +10,28 @@ import numpy as np
 from pathlib import Path
 from .config import PROJECT_ROOT
 from .embeddings import HTTPEmbedder, LocalEmbedder
-from .retrieval import CallbackReranker
 from .retrieval import TOKEN, bm25, chunks
 from .store import Conflict
 
 
 class VanillaMemory:
-    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None):
-        from .multihop import MultiHop
+    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None):
         from .atomic_retriever import AtomicRetriever
-        self.multihop = MultiHop(cfg, multihop_planner)
+        if multihop_planner is not None or cfg.get('RAG_MULTIHOP_MODE', 'off') != 'off':
+            raise ValueError('Atomic base does not include a multihop planner')
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
-        self.fusion_qa = cfg.get('RAG_FUSION_QA', 'off')
-        if self.fusion_qa not in ('off', 'on'):
-            raise ValueError('Invalid fusion/QA mode')
-        self.multi_query = cfg.get('RAG_MULTI_QUERY', 'off')
-        if self.multi_query not in ('off', 'on'):
-            raise ValueError('Invalid multi-query mode')
-        self.soft_recall = cfg.get('RAG_SOFT_RECALL', 'off')
-        if self.soft_recall not in ('off', 'on'):
-            raise ValueError('Invalid soft-recall mode')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
-        self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
-        if self.target_mode not in ('off', 'on'):
-            raise ValueError('Invalid target mode')
-        self.second_pass = cfg.get('RAG_SECOND_PASS', 'off')
-        if self.second_pass not in ('off', 'on'):
-            raise ValueError('Invalid second pass mode')
         if embedder is None:
             embedder = HTTPEmbedder(cfg) if cfg.get('RAG_EMBEDDING_API_URL') else LocalEmbedder(cfg)
         self.embedder = embedder
+        gate_mode = cfg.get('RAG_WRITE_GATE_MODE', 'off')
+        if gate_mode not in ('off', 'on'):
+            raise ValueError('Invalid write gate mode')
+        self.write_selector = write_selector
+        if gate_mode == 'on' and self.write_selector is None:
+            from .write_gate import MemoryValueSelector
+            self.write_selector = MemoryValueSelector()
         self.size = int(cfg.get('RAG_CHUNK_TOKENS', '320'))
         self.overlap = int(cfg.get('RAG_CHUNK_OVERLAP', '40'))
         self.mode = cfg.get('RAG_RETRIEVAL_MODE', 'hybrid')
@@ -66,13 +57,6 @@ class VanillaMemory:
             from .tags import RuleTagger
             self.tagger = RuleTagger()
         self.tag_vector_identity = json.dumps([getattr(self.tagger, 'identity', None), self.embedder.identity, 'sorted-space-join-v1'])
-        self.rerank_selection = cfg.get('RAG_RERANK_SELECTION', 'direct')
-        self.neighbor_penalty = float(cfg.get('RAG_RERANK_NEIGHBOR_PENALTY', '2'))
-        self.target_penalty_scale = float(cfg.get('RAG_TARGET_PENALTY_SCALE', '0.6'))
-        self.second_pass_top_threshold = float(cfg.get('RAG_SECOND_PASS_TOP_THRESHOLD', '4'))
-        self.second_pass_gap_threshold = float(cfg.get('RAG_SECOND_PASS_GAP_THRESHOLD', '2'))
-        if self.rerank_selection not in ('direct', 'context_support') or not math.isfinite(self.neighbor_penalty) or self.neighbor_penalty < 0:
-            raise ValueError('Invalid rerank selection')
         self.reranker = reranker
         rerank_mode = cfg.get('RAG_RERANK_MODE', 'off')
         self.rerank_candidates = int(cfg.get('RAG_RERANK_CANDIDATES', '200'))
@@ -82,20 +66,6 @@ class VanillaMemory:
         if self.reranker is None and rerank_mode == 'local':
             from .rerank import HTTPReranker, LocalReranker
             self.reranker = HTTPReranker(cfg) if cfg.get('RAG_RERANK_API_URL') else LocalReranker(cfg)
-        if self.target_mode == 'on' and self.reranker is None:
-            raise ValueError('Target attribution requires reranker')
-        if self.second_pass == 'on' and self.reranker is None:
-            raise ValueError('Second pass requires reranker')
-        if self.fusion_qa == 'on' and (self.reranker is None or self.target_mode != 'on'):
-            raise ValueError('Fusion/QA requires target reranking')
-        if self.multi_query == 'on' and self.reranker is None:
-            raise ValueError('Multi-query requires reranker')
-        if self.soft_recall == 'on' and self.reranker is None:
-            raise ValueError('Soft recall requires reranker')
-        if self.multihop.mode != 'off' and (self.reranker is None or self.window != 0):
-            raise ValueError('Multihop requires reranker and result window=0')
-        if self.rerank_selection == 'context_support' and (self.reranker is None or self.rerank_context != 1 or self.window != 0):
-            raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path
@@ -121,6 +91,12 @@ class VanillaMemory:
                     tags TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS rag_tag_vectors(memory_id TEXT PRIMARY KEY,
                     identity TEXT NOT NULL, vector BLOB NOT NULL, dimension INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS rag_write_decisions(
+                    user_id TEXT NOT NULL, request_id TEXT NOT NULL, decision TEXT NOT NULL,
+                    result TEXT NOT NULL, PRIMARY KEY(user_id,request_id));
+                CREATE TABLE IF NOT EXISTS rag_memory_queue(
+                    user_id TEXT NOT NULL, request_id TEXT NOT NULL, payload TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY(user_id,request_id));
             """)
             from .provenance import initialize
             initialize(db)
@@ -130,15 +106,7 @@ class VanillaMemory:
 
         from .search_service import SearchService
         self.atomic_retriever = AtomicRetriever(self)
-        self.search_service = SearchService(
-            self.atomic_retriever,
-            multihop=self.multihop,
-            reranker=CallbackReranker(self._rerank_for_multihop) if self.reranker is not None else None,
-        )
-
-    def _rerank_for_multihop(self, query, documents):
-        with self.lock:
-            return self.reranker.score(query, documents)
+        self.search_service = SearchService(self.atomic_retriever)
 
     def connect(self):
         db = sqlite3.connect(self.path, timeout=30)
@@ -167,14 +135,18 @@ class VanillaMemory:
         with self.lock, closing(self.connect()) as db:
             if exists(db):
                 return
+            decision = self.write_selector.select(payload) if self.write_selector else None
+            if decision is not None and decision.label not in ('valuable', 'vector_only'):
+                raise ValueError('Unknown write route')
+            enrich = decision is None or decision.label == 'valuable'
             pending = [(i, j, text, message.timestamp) for i, message in enumerate(payload.messages)
                        for j, text in enumerate(chunks(message.content, self.size, self.overlap))]
             matrix = self.vectors(self.embedder.documents([p[2] for p in pending]), len(pending))
-            tags = self.tagger.extract([p[2] for p in pending]) if self.tag_mode != 'off' else None
+            tags = self.tagger.extract([p[2] for p in pending]) if enrich and self.tag_mode != 'off' else None
             if tags is not None and len(tags) != len(pending):
                 raise ValueError('Tag count mismatch')
             tag_vectors = {}
-            if self.semantic_tags:
+            if self.semantic_tags and tags is not None:
                 from .tags import normalize_tags
                 tagged_indices = [i for i, values in enumerate(tags) if normalize_tags(values)]
                 if tagged_indices:
@@ -192,6 +164,12 @@ class VanillaMemory:
                     raise ValueError('Embedding dimension changed')
                 db.execute("INSERT OR IGNORE INTO rag_meta VALUES ('dimension', ?)", (str(matrix.shape[1]),))
                 db.execute('INSERT INTO rag_requests VALUES (?,?,?)', (payload.user_id, payload.request_id, digest))
+                if decision is not None:
+                    db.execute('INSERT INTO rag_write_decisions VALUES (?,?,?,?)',
+                               (payload.user_id, payload.request_id, decision.label, decision.model_dump_json()))
+                    if decision.label == 'valuable':
+                        db.execute('INSERT INTO rag_memory_queue(user_id,request_id,payload) VALUES (?,?,?)',
+                                   (payload.user_id, payload.request_id, payload.model_dump_json()))
                 for index, ((i, j, text, stamp), vector) in enumerate(zip(pending, matrix)):
                     key = json.dumps([payload.user_id, payload.request_id, i, j])
                     mid = hashlib.sha256(key.encode()).hexdigest()
@@ -309,50 +287,12 @@ class VanillaMemory:
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
         if self.reranker is not None:
             candidates = order[:max(payload.top_k, self.rerank_candidates)]
-            routes = []
-            if self.multi_query == 'on':
-                from .multi_query import candidate_routes
-                with self.lock:
-                    routes = candidate_routes(payload.query, rows, self.embedder, matrix, bm25, self.rrf, self.weight)
-                candidates = list(dict.fromkeys(candidates + [i for _, indices in routes for i in indices]))
-            if self.soft_recall == 'on':
-                from .soft_recall import metadata_candidates
-                metadata_route = metadata_candidates(payload.query, rows, order, bm25)
-                candidates = list(dict.fromkeys(candidates + metadata_route))
             reranked = self.score_candidates(payload.query, rows, candidates)
-            if self.second_pass == 'on':
-                from .second_pass import additional_candidates
-                extra = additional_candidates(payload.query, rows, candidates, reranked, bm25,
-                    top_threshold=self.second_pass_top_threshold, gap_threshold=self.second_pass_gap_threshold)
-                if extra:
-                    extra_scores = self.score_candidates(payload.query, rows, extra)
-                    candidates = candidates + extra
-                    reranked = np.concatenate([reranked, extra_scores])
             # Stable ties preserve the existing retrieval order.
             ranking = sorted(range(len(candidates)), key=lambda j: -reranked[j])
             scores = scores.copy()
             for j,i in enumerate(candidates):scores[i] = reranked[j]
             order = [candidates[j] for j in ranking]
-            if self.rerank_selection == 'context_support':
-                from .rerank import context_support_scores
-                order, boosted = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
-                for i, score in boosted.items():scores[i] = score
-            if self.fusion_qa == 'on':
-                from .fusion_qa import answer_support
-                order, supported = answer_support(payload.query, rows, order, scores)
-                for i, score in supported.items():scores[i] = score
-            if self.target_mode == 'on':
-                from .target_rerank import select_targets
-                order, adjusted = select_targets(payload.query, rows, order, scores, self.target_penalty_scale)
-                for i, score in adjusted.items():scores[i] = score
-            if routes:
-                from .multi_query import merge_routes
-                ranked_routes = []
-                for subquery, indices in routes:
-                    sub_scores = self.score_candidates(subquery, rows, indices)
-                    ranked_routes.append([indices[j] for j in sorted(range(len(indices)), key=lambda j:-sub_scores[j])])
-                order, fused = merge_routes(order, ranked_routes)
-                for i, score in fused.items():scores[i] = score
         selected = []
         seen = set()
         def include(i):

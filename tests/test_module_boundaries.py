@@ -15,18 +15,10 @@ def test_retrieval_contracts_are_small_and_composable():
     assert chunks('alpha beta', size=10, overlap=0) == ['alpha beta']
 
 
-def test_search_service_switches_between_direct_and_multihop():
+def test_search_service_dispatches_only_atomic_retrieval():
     payload = SimpleNamespace(query='q')
     direct = lambda value: {'data': [{'content': 'direct'}]}
-    assert SearchService(direct).search(payload)['data'][0]['content'] == 'direct'
-
-    class Planner:
-        mode = 'llm'
-
-        def run(self, value, retrieve, rerank, trace):
-            assert retrieve(value)['data'][0]['content'] == 'direct'
-            assert rerank('q', ['doc']) == [3]
-            return {'data': [{'content': 'planned'}]}
-
-    service = SearchService(direct, Planner(), lambda query, docs: [3])
-    assert service.search(payload)['data'][0]['content'] == 'planned'
+    trace = {}
+    service = SearchService(direct)
+    assert service.search(payload, trace=trace)['data'][0]['content'] == 'direct'
+    assert trace == {'mode': 'atomic'}
