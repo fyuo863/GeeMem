@@ -301,6 +301,28 @@ RAG_RESULT_WINDOW=0
 
 ## 独立人物画像模块
 
+## 独立规则记忆模块（实验）
+
+`memory/rule.py` 提供 `RuleBuilder` 和 `RuleRetriever`。`extract(builder_messages)`
+使用根 `.env` 的 LLM 配置，抽取可复用指令、顺序流程和明确经验，保留条件、动作、例外、
+适用范围、确定性及置信度。`write(user_id, extraction, builder_messages)` 由程序生成 ID，
+绑定消息索引与 source_id，写入独立 `rule_records/rule_evidence` 表。
+上下文不能独立生成规则；模块仅存储规则，不执行指令。
+
+完全相同的结构重复写入复用 ID 并追加证据。显式 `supersedes=旧规则ID` 可创建新版本，
+旧版本保留为 superseded；不按语义相似度自动覆盖，不自动裁决互相冲突的规则。
+第三方规则适用范围依赖抽取质量，未实现权限推断。当前不自动消费 `/add` pending 路由，
+调用方需将 rule 路由的 builder_messages 交给构建器。
+
+`find(user_id, scope=..., status=...)` 查询结构和原文；
+`find_applicable(user_id, query, scope=..., limit=...)` 在用户的全部有效规则中执行 BM25
+候选检索，返回分数、完整条件/例外和原文。命中仅代表候选，不等于条件已经满足；
+本版没有规则向量索引、条件推理或自动执行。未知范围不应自动应用全局规则。
+
+测试：`python -m pytest tests/test_rule.py -q`。
+读写基准及真实抽取小测：`python -m scripts.benchmark_rule --live`，
+结果保存到 `data/rule-tests/results.json`。合成关键词 Hit@1 不代表真实语义召回率。
+
 `memory/profile.py` 的 `ProfileBuilder` 与 `ProfileRetriever` 不复用旧图结构，但和关系模块共享 `relationship_entities` 表及 `entity_key`/实体 ID 规则。因此同一用户的“我的朋友小王”和“小王是医生”会引用同一个实体。
 
 画像抽取保存主体、属性、值、确定性（`confirmed/uncertain/planned/denied`）、置信度和原文来源；`ProfileRetriever` 支持主体、属性和值查询，返回带 source_id 的证据。重复事实追加证据并提高置信度，不把不确定计划写成当前确定值。画像事实使用独立的 `profile_facts`、`profile_evidence` 表。
