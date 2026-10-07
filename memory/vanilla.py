@@ -17,8 +17,8 @@ from .store import Conflict
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None):
         from .atomic_retriever import AtomicRetriever
-        if multihop_planner is not None or cfg.get('RAG_MULTIHOP_MODE', 'off') != 'off':
-            raise ValueError('Atomic base does not include a multihop planner')
+        from .multihop import MultiHop
+        self.multihop = MultiHop(cfg, multihop_planner)
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
@@ -58,6 +58,14 @@ class VanillaMemory:
             self.tagger = RuleTagger()
         self.tag_vector_identity = json.dumps([getattr(self.tagger, 'identity', None), self.embedder.identity, 'sorted-space-join-v1'])
         self.reranker = reranker
+        self.target_mode = cfg.get('RAG_TARGET_MODE', 'off')
+        self.fusion_qa = cfg.get('RAG_FUSION_QA', 'off')
+        self.rerank_selection = cfg.get('RAG_RERANK_SELECTION', 'direct')
+        self.neighbor_penalty = float(cfg.get('RAG_RERANK_NEIGHBOR_PENALTY', '2'))
+        if self.target_mode not in ('off', 'on') or self.fusion_qa not in ('off', 'on'):
+            raise ValueError('Invalid target/fusion mode')
+        if self.rerank_selection not in ('direct', 'context_support'):
+            raise ValueError('Invalid rerank selection')
         rerank_mode = cfg.get('RAG_RERANK_MODE', 'off')
         self.rerank_candidates = int(cfg.get('RAG_RERANK_CANDIDATES', '200'))
         self.rerank_context = int(cfg.get('RAG_RERANK_CONTEXT', '0'))
@@ -66,6 +74,8 @@ class VanillaMemory:
         if self.reranker is None and rerank_mode == 'local':
             from .rerank import HTTPReranker, LocalReranker
             self.reranker = HTTPReranker(cfg) if cfg.get('RAG_RERANK_API_URL') else LocalReranker(cfg)
+        if self.rerank_selection == 'context_support' and (self.rerank_context != 1 or self.window != 0):
+            raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
         if not self.path.is_absolute():
             self.path = PROJECT_ROOT / self.path
@@ -100,7 +110,15 @@ class VanillaMemory:
                     db.execute(f"ALTER TABLE rag_memory_routes ADD COLUMN {column} TEXT NOT NULL DEFAULT '[]'")
         from .search_service import SearchService
         self.atomic_retriever = AtomicRetriever(self)
-        self.search_service = SearchService(self.atomic_retriever)
+        from .retrieval import CallbackReranker
+        self.search_service = SearchService(
+            self.atomic_retriever,
+            multihop=self.multihop,
+            reranker=CallbackReranker(self._rerank_for_multihop) if self.reranker is not None else None)
+
+    def _rerank_for_multihop(self, query, documents):
+        with self.lock:
+            return self.reranker.score(query, documents)
 
     def connect(self):
         db = sqlite3.connect(self.path, timeout=30)
@@ -192,6 +210,10 @@ class VanillaMemory:
                 reranked = fuse_scores(rows, candidates, reranked, target)
             else:
                 reranked = combine_target_scores(reranked, target)
+        if self.rerank_selection == 'context_support':
+            from .rerank import context_support_scores
+            _, supported = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
+            reranked = np.asarray([supported[i] for i in candidates], dtype=float)
         return reranked
 
     def search(self, payload, *, trace=None):
