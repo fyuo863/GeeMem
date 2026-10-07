@@ -57,7 +57,7 @@ def entity_key(kind: str, name: str) -> str:
 
 _RELATION_ALIASES = {
     '朋友': 'friend', 'friend': 'friend', '好友': 'friend',
-    '同事': 'colleague', 'colleague': 'colleague',
+    '同事': 'colleague', 'colleague': 'colleague', 'colleague_of': 'colleague',
     '导师': 'mentor_of', 'mentor': 'mentor_of', 'mentor_of': 'mentor_of',
     '姐姐': 'sibling_of', '妹妹': 'sibling_of', '兄弟': 'sibling_of',
     '姐妹': 'sibling_of', 'sibling_of': 'sibling_of', 'sister_of': 'sibling_of',

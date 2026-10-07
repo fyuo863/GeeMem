@@ -297,3 +297,10 @@ RAG_RESULT_WINDOW=0
 `RelationshipRetriever.find()` 支持按用户、主体、关系、客体和状态查询，并返回带证据的断言；`expand()` 在限定跳数内按实体 ID 扩展无向邻域，但每条结果仍保留 subject/object 的语义方向。共同事件不会自动生成关系，问句也不生成关系。
 
 本模块不负责画像属性、事件抽取、实体消歧的最终决策或多跳答案生成；这些由上层构建器和规划器负责。真实 gpt-4o-mini 小测覆盖朋友、导师、亲属、同事、共同事件和问句，关系集合准确率为 7/7；测试记录位于 `data/relationship-builder-20261007/results-v2.json`。
+
+
+## 独立人物画像模块
+
+`memory/profile.py` 的 `ProfileBuilder` 与 `ProfileRetriever` 不复用旧图结构，但和关系模块共享 `relationship_entities` 表及 `entity_key`/实体 ID 规则。因此同一用户的“我的朋友小王”和“小王是医生”会引用同一个实体。
+
+画像抽取保存主体、属性、值、确定性（`confirmed/uncertain/planned/denied`）、置信度和原文来源；`ProfileRetriever` 支持主体、属性和值查询，返回带 source_id 的证据。重复事实追加证据并提高置信度，不把不确定计划写成当前确定值。画像事实使用独立的 `profile_facts`、`profile_evidence` 表。
