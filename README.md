@@ -287,3 +287,13 @@ RAG_RESULT_WINDOW=0
 路由新字段与向量、判断结果和完整对话队列同事务保存。旧数据库自动添加字段；旧路由默认空上下文字段，不回填历史记录。旧记录如需交给新构建器，应使用原完整对话及原选中索引重新执行 bind_route。此功能不增加 LLM 调用。
 
 当前分类配置版本为 `memory-types-v3`：已移除 governance。更正按具体内容分类，无法归入具体类型的撤回/遗忘请求归入 other_memory，仅保存请求。历史治理路由保留，新请求不再生成 governance 路由。
+
+## 独立关系记忆模块
+
+`memory/relationship.py` 不依赖旧 `Graph`、`Store` 或旧 `edges` 表。`RelationshipBuilder.extract()` 接收分类器提供的直接依据与上下文，调用 LLM 只抽取明确关系；模型返回名称、类型、关系和程序消息索引，不生成数据库 ID。程序规范化常见关系（如朋友、同事、导师、兄弟姐妹），绑定用户作用域实体 ID，并将对称关系按当前用户到对方的方向存储。
+
+`write()` 使用独立的 `relationship_entities`、`relationship_assertions`、`relationship_evidence` 表。重复的用户/主体/关系/客体会合并并追加证据，实体按用户隔离；证据保存 source_id、消息索引、原文和 evidence/context 标记。关系断言保留语义方向、置信度和 active 状态。
+
+`RelationshipRetriever.find()` 支持按用户、主体、关系、客体和状态查询，并返回带证据的断言；`expand()` 在限定跳数内按实体 ID 扩展无向邻域，但每条结果仍保留 subject/object 的语义方向。共同事件不会自动生成关系，问句也不生成关系。
+
+本模块不负责画像属性、事件抽取、实体消歧的最终决策或多跳答案生成；这些由上层构建器和规划器负责。真实 gpt-4o-mini 小测覆盖朋友、导师、亲属、同事、共同事件和问句，关系集合准确率为 7/7；测试记录位于 `data/relationship-builder-20261007/results-v2.json`。
