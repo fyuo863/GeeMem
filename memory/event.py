@@ -2,6 +2,7 @@
 from contextlib import closing
 from datetime import datetime, timezone
 import hashlib, json, sqlite3, uuid
+import re
 from typing import Literal
 from pydantic import Field
 from .llm import LLM
@@ -15,6 +16,8 @@ class EventCandidate(StrictModel):
     certainty: Literal['confirmed','uncertain'] = 'confirmed'
     event_time_start: str | None = Field(default=None, max_length=64)
     event_time_end: str | None = Field(default=None, max_length=64)
+    time_expression: str | None = Field(default=None, max_length=128)
+    reference_timestamp: int | None = Field(default=None, ge=0)
     time_precision: Literal['exact','day','month','year','relative','unknown'] = 'unknown'
     location: str | None = Field(default=None, max_length=256)
     participants: list[str] = Field(default_factory=list, max_length=50)
@@ -33,6 +36,40 @@ Separate event time from source/message time. Use only explicit event dates or c
 otherwise use null and unknown. Preserve previous_state/current_state and source message_index.
 Context resolves pronouns but cannot create unsupported events. Do not invent IDs or dates.'''
 
+
+def resolve_event_time(start, end, precision, expression=None, reference_timestamp=None):
+    """Normalize safe relative expressions without inventing day precision."""
+    if start or end or not expression or reference_timestamp is None:
+        return start, end, precision
+    from datetime import datetime, timedelta, timezone
+    ref=datetime.fromtimestamp(reference_timestamp/1000, timezone.utc)
+    text=expression.strip().lower()
+    if text in {'今年','this year'}:
+        return str(ref.year), str(ref.year), 'year'
+    if text in {'去年','last year'}:
+        return str(ref.year-1), str(ref.year-1), 'year'
+    if text in {'明年','next year'}:
+        return str(ref.year+1), str(ref.year+1), 'year'
+    if text in {'本月','this month'}:
+        value=f'{ref.year:04d}-{ref.month:02d}'; return value,value,'month'
+    if text in {'上个月','last month'}:
+        month=ref.month-1; year=ref.year
+        if month==0: month=12; year-=1
+        value=f'{year:04d}-{month:02d}'; return value,value,'month'
+    if text in {'下个月','next month'}:
+        month=ref.month+1; year=ref.year
+        if month==13: month=1; year+=1
+        value=f'{year:04d}-{month:02d}'; return value,value,'month'
+    if text in {'昨天','yesterday'}:
+        value=(ref-timedelta(days=1)).date().isoformat(); return value,value,'day'
+    if text in {'今天','today'}:
+        value=ref.date().isoformat(); return value,value,'day'
+    if text in {'明天','tomorrow'}:
+        value=(ref+timedelta(days=1)).date().isoformat(); return value,value,'day'
+    if re.fullmatch(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', text):
+        value=text.replace('/','-'); return value,value,'exact'
+    return start,end,precision
+
 class EventBuilder:
     def __init__(self, db_path, llm=None):
         self.db_path=str(db_path); self.llm=llm
@@ -49,6 +86,9 @@ class EventBuilder:
                 event_id TEXT NOT NULL REFERENCES event_records(id),source_id TEXT NOT NULL,
                 message_index INTEGER NOT NULL,content TEXT NOT NULL,source_kind TEXT NOT NULL,
                 source_timestamp INTEGER,PRIMARY KEY(event_id,source_id));''')
+            cols={r[1] for r in db.execute('PRAGMA table_info(event_records)')}
+            for name, definition in [('time_expression','TEXT'),('reference_timestamp','INTEGER')]:
+                if name not in cols: db.execute(f'ALTER TABLE event_records ADD COLUMN {name} {definition}')
     def connect(self):
         db=sqlite3.connect(self.db_path,timeout=30); db.row_factory=sqlite3.Row; db.execute('PRAGMA foreign_keys=ON'); return db
     @staticmethod
@@ -69,13 +109,16 @@ class EventBuilder:
             db.execute('BEGIN IMMEDIATE')
             for e in extraction.events:
                 data=e.model_dump(exclude={'message_indices','confidence'}); fp=hashlib.sha256(json.dumps(data,sort_keys=True,ensure_ascii=False).encode()).hexdigest(); old=None
+                start,end,precision = resolve_event_time(e.event_time_start,e.event_time_end,e.time_precision,e.time_expression,e.reference_timestamp)
                 if supersedes:
                     old=db.execute('SELECT * FROM event_records WHERE id=? AND user_id=?',(supersedes,user_id)).fetchone()
                     if old is None or old['status']=='superseded': raise ValueError('Invalid replacement target')
                 row=None if supersedes else db.execute("SELECT * FROM event_records WHERE user_id=? AND fingerprint=? AND status!='superseded'",(user_id,fp)).fetchone()
                 if row: eid=row['id']
                 else:
-                    eid=str(uuid.uuid4()); db.execute('INSERT INTO event_records VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(eid,user_id,fp,e.subject_name,e.event_type,e.description,e.status,e.certainty,e.event_time_start,e.event_time_end,e.time_precision,e.location,json.dumps(e.participants,ensure_ascii=False),e.previous_state,e.current_state,e.confidence,old['version']+1 if old else 1,supersedes,now,now))
+                    eid=str(uuid.uuid4()); db.execute('''INSERT INTO event_records
+                      (id,user_id,fingerprint,subject_name,event_type,description,status,certainty,event_time_start,event_time_end,time_precision,location,participants,previous_state,current_state,confidence,version,supersedes,created_at,updated_at,time_expression,reference_timestamp)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',(eid,user_id,fp,e.subject_name,e.event_type,e.description,e.status,e.certainty,start,end,precision,e.location,json.dumps(e.participants,ensure_ascii=False),e.previous_state,e.current_state,e.confidence,old['version']+1 if old else 1,supersedes,now,now,e.time_expression,e.reference_timestamp))
                     if old: db.execute("UPDATE event_records SET status='superseded',updated_at=? WHERE id=?",(now,old['id']))
                 for i in set(e.message_indices):
                     m=messages[i]; db.execute('INSERT OR IGNORE INTO event_evidence VALUES (?,?,?,?,?,?)',(eid,m['source_id'],i,m['content'],m.get('source_kind','evidence'),m.get('timestamp')))
