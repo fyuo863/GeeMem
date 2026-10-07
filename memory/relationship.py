@@ -16,6 +16,7 @@ from pydantic import Field
 
 from .llm import LLM
 from .models import StrictModel
+from .entity_resolver import EntityResolver
 
 
 class RelationshipCandidate(StrictModel):
@@ -26,6 +27,8 @@ class RelationshipCandidate(StrictModel):
     object_kind: str = Field(default='person', min_length=1, max_length=64)
     message_indices: list[int] = Field(min_length=1, max_length=50)
     confidence: float = Field(ge=0, le=1)
+    aliases: list[str] = Field(default_factory=list, max_length=20)
+    object_aliases: list[str] = Field(default_factory=list, max_length=20)
 
 
 class RelationshipExtraction(StrictModel):
@@ -82,9 +85,11 @@ def _id(prefix: str, *parts: str) -> str:
 class RelationshipBuilder:
     db_path: str
     llm: Any = None
+    resolver: EntityResolver = None
 
     def __post_init__(self):
         self.llm = self.llm or LLM()
+        self.resolver = self.resolver or EntityResolver()
         self.initialize()
 
     def connect(self):
@@ -126,7 +131,9 @@ class RelationshipBuilder:
             indexed.append(dict(message, route_index=i))
         instruction = (
             'Extract only explicit interpersonal or entity relationships from the supplied messages. '
-            'Return names and kinds, never database IDs. Do not infer a relationship from co-occurrence '
+            'Return names and kinds, never database IDs. If a message explicitly says a person is also called '
+            'another name (for example “王伟，大家叫他老王”), put that nickname in aliases for the canonical '
+            'person; otherwise return an empty aliases list. Do not infer a relationship from co-occurrence '
             'or a joint event: “I watched a film with Wang” does not prove friendship. '
             'A joint activity such as “I and Wang watched a film” is an event, not a relationship. '
             'For “Wang is my mentor/parent/sibling”, Wang is the subject and I/me is the object; '
@@ -148,6 +155,8 @@ class RelationshipBuilder:
             # Store symmetric friendship in one deterministic orientation.
             if values['relation'] in {'friend', 'colleague'} and values['object_name'] == '我' and values['subject_name'] != '我':
                 values['subject_name'], values['object_name'] = values['object_name'], values['subject_name']
+                values['object_aliases'] = list(item.aliases) + list(item.object_aliases)
+                values['aliases'] = list(item.object_aliases)
             normalized.append(item.model_copy(update=values))
         result = result.model_copy(update={'relationships': normalized})
         for item in result.relationships:
@@ -163,8 +172,10 @@ class RelationshipBuilder:
             db.execute('BEGIN IMMEDIATE')
             records = []
             for item in extraction.relationships:
-                subject = self._entity(db, user_id, item.subject_kind, item.subject_name)
-                target = self._entity(db, user_id, item.object_kind, item.object_name)
+                subject = self._entity(db, user_id, item.subject_kind, item.subject_name, item.aliases,
+                                       source_id=messages[item.message_indices[0]]['source_id'])
+                target = self._entity(db, user_id, item.object_kind, item.object_name, item.object_aliases,
+                                      source_id=messages[item.message_indices[0]]['source_id'])
                 relation_key = normalize(item.relation)
                 row = db.execute('SELECT * FROM relationship_assertions WHERE user_id=? AND '
                                  'subject_entity_id=? AND relation_key=? AND object_entity_id=?',
@@ -185,19 +196,8 @@ class RelationshipBuilder:
                 records.append(assertion_id)
             return records
 
-    def _entity(self, db, user_id, kind, name):
-        key = entity_key(kind, name)
-        row = db.execute('SELECT * FROM relationship_entities WHERE user_id=? AND entity_key=?',
-                         (user_id, key)).fetchone()
-        if row:
-            aliases = set(json.loads(row['aliases'])) | {name}
-            db.execute('UPDATE relationship_entities SET aliases=? WHERE id=?',
-                       (json.dumps(sorted(aliases), ensure_ascii=False), row['id']))
-            return row
-        identifier = _id('ent', user_id, key)
-        db.execute('INSERT INTO relationship_entities VALUES (?,?,?,?,?,?)',
-                   (identifier, user_id, key, name, kind, json.dumps([name], ensure_ascii=False)))
-        return db.execute('SELECT * FROM relationship_entities WHERE id=?', (identifier,)).fetchone()
+    def _entity(self, db, user_id, kind, name, aliases=(), source_id=None):
+        return self.resolver.resolve(db, user_id, name, kind, aliases=aliases, source_id=source_id)
 
 
 class RelationshipRetriever:
@@ -222,13 +222,17 @@ class RelationshipRetriever:
                      WHERE '''
             real_clauses = ['r.user_id=?', 'r.status=?']; real_args = [user_id, status]
             if subject:
-                real_clauses.append('(s.entity_key=? OR lower(s.name)=lower(?))')
-                real_args.extend([entity_key('person', subject), subject])
+                real_clauses.append('(s.entity_key=? OR lower(s.name)=lower(?) OR EXISTS '
+                                    '(SELECT 1 FROM entity_aliases a WHERE a.entity_id=s.id AND a.user_id=s.user_id '
+                                    'AND a.normalized_alias=? AND a.status=\'active\'))')
+                real_args.extend([entity_key('person', subject), subject, normalize(subject)])
             if relation:
                 real_clauses.append('r.relation_key=?'); real_args.append(normalize(relation))
             if object:
-                real_clauses.append('(o.entity_key=? OR lower(o.name)=lower(?))')
-                real_args.extend([entity_key('person', object), object])
+                real_clauses.append('(o.entity_key=? OR lower(o.name)=lower(?) OR EXISTS '
+                                    '(SELECT 1 FROM entity_aliases a WHERE a.entity_id=o.id AND a.user_id=o.user_id '
+                                    'AND a.normalized_alias=? AND a.status=\'active\'))')
+                real_args.extend([entity_key('person', object), object, normalize(object)])
             rows = db.execute(sql + ' AND '.join(real_clauses) +
                               ' ORDER BY r.confidence DESC LIMIT ?', [*real_args, limit]).fetchall()
             out = []

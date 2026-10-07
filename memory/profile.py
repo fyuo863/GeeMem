@@ -9,6 +9,7 @@ from pydantic import Field
 from .llm import LLM
 from .models import StrictModel
 from .relationship import canonical_name, entity_key, normalize, _id
+from .entity_resolver import EntityResolver
 
 _ATTRIBUTE_ALIASES = {
     '职业': 'occupation', '工作': 'occupation', 'occupation': 'occupation',
@@ -31,6 +32,7 @@ class ProfileCandidate(StrictModel):
     certainty: str = Field(default='confirmed', pattern=r'^(confirmed|uncertain|planned|denied)$')
     message_indices: list[int] = Field(min_length=1, max_length=50)
     confidence: float = Field(ge=0, le=1)
+    aliases: list[str] = Field(default_factory=list, max_length=20)
 
 
 class ProfileExtraction(StrictModel):
@@ -55,9 +57,11 @@ class ProfileFact(StrictModel):
 class ProfileBuilder:
     db_path: str
     llm: Any = None
+    resolver: EntityResolver = None
 
     def __post_init__(self):
         self.llm = self.llm or LLM()
+        self.resolver = self.resolver or EntityResolver()
         self.initialize()
 
     def connect(self):
@@ -96,6 +100,8 @@ class ProfileBuilder:
             indexed.append(message)
         instruction = (
             'Extract explicit person attributes from the supplied messages. Return names, not database IDs. '
+            'If a message explicitly maps a nickname to a canonical person, put the nickname in aliases; '
+            'otherwise return an empty aliases list. '
             'Use “我” for the current speaker when no canonical name is given. Do not assign a friend’s '
             'attribute to the current user. Do not extract relationships or events. Never extract an activity, '
             'shared outing, or event as a profile fact. Preserve uncertainty, '
@@ -121,7 +127,8 @@ class ProfileBuilder:
             db.execute('BEGIN IMMEDIATE')
             ids = []
             for item in extraction.facts:
-                entity = self._entity(db, user_id, item.subject_kind, item.subject_name)
+                entity = self._entity(db, user_id, item.subject_kind, item.subject_name, item.aliases,
+                                      source_id=messages[item.message_indices[0]]['source_id'])
                 attribute = normalize(item.attribute)
                 value_key = normalize(item.value)
                 fact_id = _id('fact', user_id, entity['id'], attribute, value_key, item.certainty)
@@ -141,19 +148,8 @@ class ProfileBuilder:
                 ids.append(fact_id)
             return ids
 
-    def _entity(self, db, user_id, kind, name):
-        key = entity_key(kind, name)
-        row = db.execute('SELECT * FROM relationship_entities WHERE user_id=? AND entity_key=?',
-                         (user_id, key)).fetchone()
-        if row:
-            aliases = set(json.loads(row['aliases'])) | {name}
-            db.execute('UPDATE relationship_entities SET aliases=? WHERE id=?',
-                       (json.dumps(sorted(aliases), ensure_ascii=False), row['id']))
-            return row
-        identifier = _id('ent', user_id, key)
-        db.execute('INSERT INTO relationship_entities VALUES (?,?,?,?,?,?)',
-                   (identifier, user_id, key, name, kind, json.dumps([name], ensure_ascii=False)))
-        return db.execute('SELECT * FROM relationship_entities WHERE id=?', (identifier,)).fetchone()
+    def _entity(self, db, user_id, kind, name, aliases=(), source_id=None):
+        return self.resolver.resolve(db, user_id, name, kind, aliases=aliases, source_id=source_id)
 
 
 class ProfileRetriever:
@@ -164,8 +160,10 @@ class ProfileRetriever:
         if not 1 <= limit <= 100: raise ValueError('limit must be between 1 and 100')
         clauses=['f.user_id=?','f.status=?']; args=[user_id,status]
         if subject:
-            clauses.append('(e.entity_key=? OR lower(e.name)=lower(?))')
-            args.extend([entity_key('person', subject), subject])
+            clauses.append('(e.entity_key=? OR lower(e.name)=lower(?) OR EXISTS '
+                           '(SELECT 1 FROM entity_aliases a WHERE a.entity_id=e.id AND a.user_id=e.user_id '
+                           'AND a.normalized_alias=? AND a.status=\'active\'))')
+            args.extend([entity_key('person', subject), subject, normalize(subject)])
         if attribute: clauses.append('f.attribute=?'); args.append(normalize(attribute))
         if value: clauses.append('f.normalized_value=?'); args.append(normalize(value))
         with closing(sqlite3.connect(self.db_path)) as db:
