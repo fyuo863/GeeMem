@@ -268,7 +268,7 @@ RAG_RESULT_WINDOW=0
 
 `RAG_WRITE_GATE_MODE=on` 现在启用 `MemoryTypeSelector`，取代前述二分类入口；旧 `MemoryValueSelector` 和单标签 `ConfigurableJudge` 保留供显式调用。
 
-一次 LLM 调用评估所有类型：`profile`（画像属性）、`relationship`（人物关系）、`event`（事件/计划）、`rule`（可复用规则/经验）、`governance`（更正/遗忘要求）、`other_memory`（其他有价值信息）、`vector_only`（仅向量存储）。前六类可同时命中；`vector_only` 必须单独出现。纯人物关系不额外计为画像。分类治理请求只负责路由，不会执行删除。
+一次 LLM 调用评估所有类型：`profile`（画像属性）、`relationship`（人物关系）、`event`（事件/计划）、`rule`（可复用规则/经验）、`other_memory`（其他有价值信息）、`vector_only`（仅向量存储）。前五类可同时命中；`vector_only` 必须单独出现。纯人物关系不额外计为画像。分类治理请求只负责路由，不会执行删除。
 
 通用 `MultiLabelJudge` 通过 `MultiLabelConfig` 配置类别、说明、判定标准及互斥类别，可用于其他业务。返回每类的 `selected`、独立适用度 `score`、`message_indices` 和理由；分数不要求总和为 1。程序按配置排列输出，检查类别齐全且无重复、互斥、索引类型与范围；不把合法的类别输出顺序变化当作失败。失败重试沿用原 3 次尝试策略。
 
@@ -285,3 +285,5 @@ RAG_RESULT_WINDOW=0
 `builder_messages` 为两组消息的合并结果，按原文顺序排列，包含原文、角色、时间、speaker、message_index、source_id 和 source_kind（evidence/context）。后续构建器从对应类型路由读取此字段即可取得直接依据与解释上下文；context 不等于已确认事实，不可忽略否定、角色与不确定性。
 
 路由新字段与向量、判断结果和完整对话队列同事务保存。旧数据库自动添加字段；旧路由默认空上下文字段，不回填历史记录。旧记录如需交给新构建器，应使用原完整对话及原选中索引重新执行 bind_route。此功能不增加 LLM 调用。
+
+当前分类配置版本为 `memory-types-v3`：已移除 governance。更正按具体内容分类，无法归入具体类型的撤回/遗忘请求归入 other_memory，仅保存请求。历史治理路由保留，新请求不再生成 governance 路由。

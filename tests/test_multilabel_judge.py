@@ -74,7 +74,7 @@ def test_multilabel_api_routes_transactionally(tmp_path,labels):
         assert {r['memory_type'] for r in routes}==set(labels)-{'vector_only'}
         assert all(json.loads(r['message_indices'])==[0] for r in routes)
         decision=json.loads(db.execute('SELECT result FROM rag_write_decisions').fetchone()[0])
-        assert decision['version']=='memory-types-v2'
+        assert decision['version']=='memory-types-v3'
         assert db.execute('SELECT count(*) FROM rag_memory_queue').fetchone()[0]==int('vector_only' not in labels)
 
 def test_enabled_gate_uses_multilabel_default(tmp_path):
@@ -167,3 +167,8 @@ def test_old_route_schema_migrates_without_erasing_rows(tmp_path):
         row=db.execute('SELECT * FROM rag_memory_routes').fetchone()
         assert row['request_id']=='old' and row['source_ids']=='["old-id"]'
         assert row['builder_messages']=='[]' and row['context_indices']=='[]'
+
+
+def test_memory_types_exclude_removed_governance():
+    assert [item['name'] for item in MEMORY_TYPE_CONFIG['labels']] == [
+        'profile', 'relationship', 'event', 'rule', 'other_memory', 'vector_only']

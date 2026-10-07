@@ -52,8 +52,7 @@ MEMORY_TYPE_CONFIG = {
         '只有同时包含独立的人物属性时才选择 profile。'
         '计划保留为计划，也属于 event。rule 是可复用的指令或经验，'
         '不能将一次性请求或普通偏好自动扩展为 rule。'
-        'governance 需要明确更正、撤回、遗忘或冲突处理诉求，不因信息是新的就选择。'
-        '更正同时明确新属性时可选 governance 和 profile。'
+        '更正信息按更正后的具体内容分类；没有对应具体类型的撤回或遗忘请求归入 other_memory，仅记录请求，不执行删除。'
         'other_memory 仅用于有用但上述类型确实无法覆盖的信息，不重复标记已覆盖内容。'
         '只有整段对话没有以上任何信息时才选 vector_only，例如纯问候、礼貌回复、'
         '通用建议、孤立泛知识问题。混合对话中有有用内容时不选 vector_only。'
@@ -64,7 +63,6 @@ MEMORY_TYPE_CONFIG = {
         {'name': 'relationship', 'description': '明确的人物关系，例如亲属、同事、师生、合作关系'},
         {'name': 'event', 'description': '具体事件、未来计划、任务进展、决策，保留时间及不确定性'},
         {'name': 'rule', 'description': '可复用的指令、流程、例外条件或经验教训'},
-        {'name': 'governance', 'description': '明确的信息更正、撤回、遗忘或记忆冲突处理要求'},
         {'name': 'other_memory', 'description': '其他类别未覆盖、但明确有未来使用价值的具体信息。排除泛知识问句、空泛建议和礼貌用语'},
         {'name': 'vector_only', 'description': '整段对话无需进一步构建，仅保存原文与向量'},
     ],
@@ -105,7 +103,7 @@ class MemoryTypeDecision(StrictModel):
     label: Literal['valuable', 'vector_only']
     classification: MultiLabelResult
     routes: list[MemoryTypeRoute] = Field(default_factory=list)
-    version: Literal['memory-types-v2'] = 'memory-types-v2'
+    version: Literal['memory-types-v3'] = 'memory-types-v3'
 
 
 class MemoryTypeSelector:
