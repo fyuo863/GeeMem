@@ -6,7 +6,7 @@ backend, and returns only original memory evidence. Planning and multi-hop
 controllers can call it repeatedly.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from math import isfinite
 from types import SimpleNamespace
 from typing import Any
@@ -19,6 +19,20 @@ class AtomicQuery:
     top_k: int = 10
     session_id: str | None = None
     options: tuple[str, ...] = ()
+    memory_types: tuple[str, ...] = ()
+    fallback: bool = True
+    include_evidence: bool = False
+
+    def __post_init__(self):
+        from .typed_sources import TYPES
+        if not self.user_id.strip() or not self.query.strip():
+            raise ValueError('User and query must be nonempty')
+        if type(self.top_k) is not int or not 1 <= self.top_k <= 100:
+            raise ValueError('top_k must be 1..100')
+        if isinstance(self.memory_types, str) or any(t not in TYPES for t in self.memory_types):
+            raise ValueError('Unsupported memory type')
+        if type(self.fallback) is not bool or type(self.include_evidence) is not bool:
+            raise ValueError('Expected boolean retrieval options')
 
 
 class AtomicRetriever:
@@ -36,9 +50,7 @@ class AtomicRetriever:
 
     def query(self, request: AtomicQuery) -> dict:
         """Convenience entry point for callers outside the HTTP layer."""
-        payload = SimpleNamespace(user_id=request.user_id, query=request.query,
-                                  top_k=request.top_k, session_id=request.session_id,
-                                  options=list(request.options))
+        payload = SimpleNamespace(**asdict(request))
         return self.retrieve(payload)
 
     @staticmethod

@@ -2,10 +2,7 @@
 from contextlib import closing
 import json
 import sqlite3
-import numpy as np
 from .provenance import source_id
-from .retrieval import bm25
-from .vector_writer import VectorWriter
 
 
 TYPES = frozenset({"profile", "relationship", "rule", "event"})
@@ -50,59 +47,16 @@ class SourceBuilder:
 
 
 class SourceRetriever:
-    def __init__(self, db_path, memory_type, embedder=None):
-        if memory_type not in TYPES: raise ValueError("Unsupported memory type")
+    """Type selection adapter; all ranking belongs to AtomicRetriever."""
+    def __init__(self, atomic_retriever, memory_type):
+        if memory_type not in TYPES: raise ValueError('Unsupported memory type')
+        if not hasattr(atomic_retriever, 'query'):
+            raise TypeError('SourceRetriever requires an AtomicRetriever, not a database path')
+        self.atomic_retriever = atomic_retriever
         self.memory_type = memory_type
-        self.table = memory_type + "_sources"
-        self.db_path=str(db_path)
-        self.embedder=embedder
 
     def search(self, user_id, query, *, limit=10, session_id=None, fallback=True):
-        """Hybrid rank original chunks, adding a soft memory-type vote.
-
-        fallback=False restricts to classified evidence. With fallback=True,
-        all user sources compete so a classifier omission is not permanent loss.
-        Timestamps are message timestamps, never claimed to be event dates.
-        """
-        if not query.strip() or not 1 <= limit <= 100:
-            raise ValueError('Nonempty query and limit 1..100 required')
-        with closing(sqlite3.connect(self.db_path)) as db:
-            db.row_factory=sqlite3.Row
-            sql=f'''SELECT m.*,s.source_id,s.speaker,s.role,e.context_source_ids,e.classification_score,
-                e.source_id AS typed_source FROM rag_memories m JOIN rag_sources s ON s.memory_id=m.id
-                LEFT JOIN {self.table} e ON e.user_id=m.user_id AND e.source_id=s.source_id WHERE m.user_id=?'''
-            args=[user_id]
-            if session_id is not None:
-                sql+=' AND m.session_id=?';args.append(session_id)
-            if not fallback:sql+=' AND e.source_id IS NOT NULL'
-            rows=db.execute(sql+' ORDER BY m.rowid',args).fetchall()
-            if not rows:return []
-            lexical=bm25([r['content'] for r in rows],query)
-            scores=np.zeros(len(rows))
-            pool=set()
-            for rank,i in enumerate(sorted((i for i in range(len(rows)) if lexical[i]>0),key=lambda i:-lexical[i]),1):
-                scores[i]+=1/(60+rank);pool.add(i)
-            if self.embedder is not None:
-                vector=VectorWriter.vectors(self.embedder.queries([query]),1)[0]
-                if any(r['dimension']!=len(vector) for r in rows):raise ValueError('Embedding dimension mismatch')
-                dense=np.stack([np.frombuffer(r['vector'],dtype='<f4') for r in rows])@vector
-                for rank,i in enumerate(sorted(range(len(rows)),key=lambda i:-dense[i]),1):
-                    scores[i]+=1/(60+rank);pool.add(i)
-            ranked=sorted(pool,key=lambda i:-scores[i])
-            type_rank=0
-            for i in ranked:
-                if rows[i]['typed_source']:
-                    type_rank+=1;scores[i]+=.25/(60+type_rank)
-            out=[]
-            for i in sorted(pool,key=lambda i:(-scores[i],i))[:limit]:
-                r=rows[i]
-                context=[]
-                for sid in json.loads(r['context_source_ids'] or '[]'):
-                    context.extend(dict(x) for x in db.execute('''SELECT m.id,m.content,s.source_id,s.speaker,m.timestamp
-                        FROM rag_memories m JOIN rag_sources s ON s.memory_id=m.id
-                        WHERE m.user_id=? AND s.source_id=? ORDER BY m.chunk_index''',(user_id,sid)))
-                out.append(dict(id=r['id'],source_id=r['source_id'],content=r['content'],score=float(scores[i]),
-                    speaker=r['speaker'],role=r['role'],message_timestamp=r['timestamp'],
-                    session_id=r['session_id'],memory_type=self.memory_type if r['typed_source'] else 'fallback',
-                    classification_score=r['classification_score'],context=context))
-            return out
+        from .atomic_retriever import AtomicQuery
+        return self.atomic_retriever.query(AtomicQuery(
+            user_id=user_id, query=query, top_k=limit, session_id=session_id,
+            memory_types=(self.memory_type,), fallback=fallback, include_evidence=True))['data']

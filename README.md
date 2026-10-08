@@ -361,6 +361,13 @@ EventRetriever(db_path, embedder).search(user_id, query, limit=10, session_id=No
 
 ## 当前默认：四类原文索引
 
+检索实现已统一：四类 SourceRetriever 只传递类型条件，统一调用 AtomicRetriever，
+复用全库检索的向量、BM25、标签加工及配置的 reranker。内部 AtomicQuery 支持
+memory_types（多选并集）、session_id、fallback 和 include_evidence。
+SourceRetriever 的构造参数改为 `(atomic_retriever, memory_type)`；EventRetriever
+改为 `(atomic_retriever)`。早期独立检索器的数据库/embedding 构造方式已停用。
+详见 [检索模块与专类问题方案](docs/search-module-design.md)。
+
 profile、relationship、rule、event 统一使用 `memory/typed_sources.py` 的
 `SourceBuilder` 和 `SourceRetriever`。上文结构化抽取属于历史实验，不再由默认 `/add` 调用。
 

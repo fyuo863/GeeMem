@@ -8,5 +8,5 @@ class EventBuilder(SourceBuilder):
 
 
 class EventRetriever(SourceRetriever):
-    def __init__(self, db_path, embedder=None):
-        super().__init__(db_path, 'event', embedder)
+    def __init__(self, atomic_retriever):
+        super().__init__(atomic_retriever, 'event')

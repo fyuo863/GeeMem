@@ -119,10 +119,10 @@ class VanillaMemory:
         self.atomic_retriever = AtomicRetriever(self)
         if self.route_writer is not None:
             from .event import EventRetriever
-            self.event_retriever = EventRetriever(self.path, self.embedder)
+            self.event_retriever = EventRetriever(self.atomic_retriever)
             from .typed_sources import SourceRetriever
             for memory_type in ('profile', 'relationship', 'rule'):
-                setattr(self, memory_type + '_retriever', SourceRetriever(self.path, memory_type, self.embedder))
+                setattr(self, memory_type + '_retriever', SourceRetriever(self.atomic_retriever, memory_type))
         from .retrieval import CallbackReranker
         self.search_service = SearchService(
             self.atomic_retriever,
@@ -242,11 +242,15 @@ class VanillaMemory:
         return self.search_service.search(payload, trace=trace)
 
     def _search_direct(self, payload):
+        from .retrieval_scope import RetrievalScope
+        scope = RetrievalScope(self, payload)
         with closing(self.connect()) as db:
             rows = db.execute('SELECT m.*, s.role, s.speaker, s.session_timestamp, s.source_id, s.source_index, s.char_start, s.char_end, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
                               'LEFT JOIN rag_sources s ON s.memory_id=m.id LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
                               (payload.user_id,)).fetchall()
-        if not rows:
+        rows = scope.session_rows(rows)
+        eligible = scope.eligible(rows)
+        if not eligible:
             return {'data': []}
         query = payload.query
         if payload.options:
@@ -267,6 +271,7 @@ class VanillaMemory:
             for rank, i in enumerate(sorted((i for i in range(len(rows)) if lexical[i] > 0), key=lambda i: (-lexical[i], i)), 1):
                 scores[i] += self.weight / (self.rrf + rank)
             order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
+        order = scope.rank_candidates(rows, order, scores, eligible, self.rrf)
         if self.tag_mode == 'filter':
             from .tags import normalize_tags
             # Candidate options affect original retrieval only, not tag gating.
@@ -315,7 +320,7 @@ class VanillaMemory:
         selected = []
         seen = set()
         def include(i):
-            if i not in seen and len(selected) < payload.top_k:
+            if i in eligible and i not in seen and len(selected) < payload.top_k:
                 selected.append(i)
                 seen.add(i)
         if self.window:
@@ -333,5 +338,6 @@ class VanillaMemory:
             hit = dict(id=row['id'], content=row['content'], score=float(scores[i]))
             if row['timestamp'] is not None:
                 hit['created_at'] = datetime.fromtimestamp(row['timestamp']/1000, timezone.utc).isoformat().replace('+00:00', 'Z')
+            scope.enrich(hit, row)
             hits.append(hit)
         return {'data': hits}
