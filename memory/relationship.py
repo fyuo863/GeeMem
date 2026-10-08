@@ -144,6 +144,9 @@ class RelationshipBuilder:
             'Do not extract occupations, preferences or events as relationships. '
             'Use a stable concise relation such as friend, colleague, parent_of, mentor_of. '
             'Return an empty list when no explicit relationship is stated.')
+        instruction += (' Use speaker names to resolve I. Never infer friendship from questions or '
+                        'politeness. An unnamed partner is unknown, not a named person. '
+                        'A nickname mentioned without explicit identity mapping must not create an alias merge.')
         payload = {'messages': indexed, 'context': context}
         result = self.llm.complete(instruction, payload, RelationshipExtraction)
         valid_indices = {m['message_index'] for m in indexed if isinstance(m.get('message_index'), int)}

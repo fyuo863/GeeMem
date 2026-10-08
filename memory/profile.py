@@ -108,6 +108,14 @@ class ProfileBuilder:
             'plans and negation in certainty. Use the original message_index values as evidence; do not '
             'invent indices. A context message can resolve a pronoun but cannot add an unsupported fact. '
             'Return an empty list when no explicit attribute is present.')
+        instruction += (' Extract stable identity, current attributes, preferences and constraints only. '
+            'Exclude greetings, compliments, transient emotions, goals, future plans, event histories, '
+            'relationship assertions and descriptions of objects. A favorite subtype is more informative '
+            'than a general interest: keep both when explicit. Travel memories never prove residence. '
+            'Losing a job does not prove current employment. Use confirmed for explicit assertions; '
+            'uncertain only if the source itself hedges. Do not infer occupation from an activity. '
+            'Resolve I using speaker; never combine different speakers into one I. '
+            'Avoid unknown people as profile subjects; leave unresolved identities for later resolution.')
         result = self.llm.complete(instruction, {'messages': indexed, 'context': context}, ProfileExtraction)
         valid = {m.get('message_index') for m in indexed}
         normalized = []

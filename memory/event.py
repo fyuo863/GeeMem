@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import hashlib, json, sqlite3, uuid
 import re
 from typing import Literal
-from pydantic import Field
+from pydantic import Field, field_validator
 from .llm import LLM
 from .models import StrictModel
 
@@ -18,6 +18,7 @@ class EventCandidate(StrictModel):
     event_time_end: str | None = Field(default=None, max_length=64)
     time_expression: str | None = Field(default=None, max_length=128)
     reference_timestamp: int | None = Field(default=None, ge=0)
+    time_message_index: int | None = Field(default=None, ge=0, strict=True)
     time_precision: Literal['exact','day','month','year','relative','unknown'] = 'unknown'
     location: str | None = Field(default=None, max_length=256)
     participants: list[str] = Field(default_factory=list, max_length=50)
@@ -25,6 +26,12 @@ class EventCandidate(StrictModel):
     current_state: str | None = Field(default=None, max_length=1000)
     message_indices: list[int] = Field(min_length=1, max_length=50)
     confidence: float = Field(ge=0, le=1)
+
+    @field_validator('event_time_start','event_time_end','time_expression','reference_timestamp',
+                     'time_message_index','location','previous_state','current_state',mode='before')
+    @classmethod
+    def clean_null(cls, value):
+        return None if isinstance(value,str) and value.strip().lower() in ('null','none','unknown','') else value
 
 class EventExtraction(StrictModel):
     events: list[EventCandidate] = Field(max_length=100)
@@ -35,40 +42,20 @@ Keep subject and participants. A plan is planned, cancellation is cancelled, com
 Separate event time from source/message time. Use only explicit event dates or clear relative times;
 otherwise use null and unknown. Preserve previous_state/current_state and source message_index.
 Context resolves pronouns but cannot create unsupported events. Do not invent IDs or dates.'''
+PROMPT += '''
+For event_time_start, event_time_end and reference_timestamp return null: the program resolves dates.
+Copy the exact time_expression from a cited message, and identify its time_message_index (or null).
+Attach time to the correct action: a walk two weeks ago and a later design are separate events.
+Include completed leisure activities as well as future plans. Do not omit a later activity
+because earlier messages describe another task. Preserve uncertainty in perhaps/maybe.
+Use JSON null, never the string "null". Resolve subjects from speaker names.'''
 
 
 def resolve_event_time(start, end, precision, expression=None, reference_timestamp=None):
     """Normalize safe relative expressions without inventing day precision."""
-    if start or end or not expression or reference_timestamp is None:
-        return start, end, precision
-    from datetime import datetime, timedelta, timezone
-    ref=datetime.fromtimestamp(reference_timestamp/1000, timezone.utc)
-    text=expression.strip().lower()
-    if text in {'今年','this year'}:
-        return str(ref.year), str(ref.year), 'year'
-    if text in {'去年','last year'}:
-        return str(ref.year-1), str(ref.year-1), 'year'
-    if text in {'明年','next year'}:
-        return str(ref.year+1), str(ref.year+1), 'year'
-    if text in {'本月','this month'}:
-        value=f'{ref.year:04d}-{ref.month:02d}'; return value,value,'month'
-    if text in {'上个月','last month'}:
-        month=ref.month-1; year=ref.year
-        if month==0: month=12; year-=1
-        value=f'{year:04d}-{month:02d}'; return value,value,'month'
-    if text in {'下个月','next month'}:
-        month=ref.month+1; year=ref.year
-        if month==13: month=1; year+=1
-        value=f'{year:04d}-{month:02d}'; return value,value,'month'
-    if text in {'昨天','yesterday'}:
-        value=(ref-timedelta(days=1)).date().isoformat(); return value,value,'day'
-    if text in {'今天','today'}:
-        value=ref.date().isoformat(); return value,value,'day'
-    if text in {'明天','tomorrow'}:
-        value=(ref+timedelta(days=1)).date().isoformat(); return value,value,'day'
-    if re.fullmatch(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', text):
-        value=text.replace('/','-'); return value,value,'exact'
-    return start,end,precision
+    from .event_time import parse_time
+    return parse_time(expression, reference_timestamp)
+
 
 class EventBuilder:
     def __init__(self, db_path, llm=None):
@@ -108,8 +95,16 @@ class EventBuilder:
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             for e in extraction.events:
+                cited = [messages[i] for i in e.message_indices]
+                matches = [m for m in cited if e.time_expression and e.time_expression.casefold() in m['content'].casefold()]
+                if e.time_message_index is not None:
+                    matches = [m for m in matches if m['message_index']==e.time_message_index]
+                # Do not trust the model's reference timestamp. Ambiguous anchors stay unresolved.
+                stamps = {m.get('timestamp') for m in matches}
+                anchor = next(iter(stamps)) if len(stamps)==1 else None
+                e = e.model_copy(update={'reference_timestamp':anchor})
                 data=e.model_dump(exclude={'message_indices','confidence'}); fp=hashlib.sha256(json.dumps(data,sort_keys=True,ensure_ascii=False).encode()).hexdigest(); old=None
-                start,end,precision = resolve_event_time(e.event_time_start,e.event_time_end,e.time_precision,e.time_expression,e.reference_timestamp)
+                start,end,precision = resolve_event_time(None,None,e.time_precision,e.time_expression if matches else None,e.reference_timestamp)
                 if supersedes:
                     old=db.execute('SELECT * FROM event_records WHERE id=? AND user_id=?',(supersedes,user_id)).fetchone()
                     if old is None or old['status']=='superseded': raise ValueError('Invalid replacement target')

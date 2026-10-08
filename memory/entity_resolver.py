@@ -59,6 +59,15 @@ class EntityResolver:
         self.initialize(db)
         display = canonical_name(name)
         norm = normalize(display)
+        if norm in {'unknown','unknown person','未知','陌生人','family','friends'}:
+            if not source_id:
+                raise ValueError('Unresolved entity requires a source scope')
+            # A generic mention is not a reusable person identity.
+            key = norm + ':' + source_id
+            identifier = _id('ent',user_id,key)
+            db.execute('INSERT OR IGNORE INTO relationship_entities VALUES (?,?,?,?,?,?)',
+                       (identifier,user_id,key,display,kind,json.dumps([display])))
+            return db.execute('SELECT * FROM relationship_entities WHERE id=?',(identifier,)).fetchone()
         alias_row = db.execute(
             "SELECT e.* FROM entity_aliases a JOIN relationship_entities e ON e.id=a.entity_id "
             "WHERE a.user_id=? AND a.normalized_alias=? AND a.status='active'",

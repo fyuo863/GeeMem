@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import json
 import time
+import argparse
 from fastapi.testclient import TestClient
 from memory.config import load_settings
 from memory.vanilla import VanillaMemory
@@ -12,6 +13,11 @@ from memory.aml_api import create_app
 OUT=Path('data/add-dataset-audit-20261008')
 
 def main():
+    global OUT
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--output',default=str(OUT))
+    args=parser.parse_args()
+    OUT=Path(args.output)
     OUT.mkdir(parents=True,exist_ok=True)
     public=Path('data/locomo-refined/data/public')
     conversations={c['sample_id']:c for c in map(json.loads,(public/'conversations.jsonl').read_text(encoding='utf8').splitlines())}

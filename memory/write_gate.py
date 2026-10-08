@@ -112,6 +112,13 @@ class MemoryTypeSelector:
 
     def select(self, payload):
         result = self.judge.judge([message.model_dump() for message in payload.messages])
+        if set(result.labels) == {'other_memory'}:
+            # One conservative second look; retain the original if still residual.
+            config = dict(MEMORY_TYPE_CONFIG)
+            config['criteria'] += (' 这是 other_memory 路由复查。明确喜欢某本书、某种舞蹈等具体偏好属于 profile；'
+                                   '读完一本书属于 event；只有专门类别都无法覆盖才保留 other_memory。'
+                                   '不要因 assistant 角色忽略有 speaker 的真实对话参与者事实。')
+            result = MultiLabelJudge(config, self.judge.llm).judge([m.model_dump() for m in payload.messages])
         routes = [bind_route(payload, item.label, item.message_indices)
                   for item in result.assessments if item.selected and item.label != 'vector_only']
         return MemoryTypeDecision(label='valuable' if routes else 'vector_only',
