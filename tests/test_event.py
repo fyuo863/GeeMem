@@ -1,5 +1,5 @@
 import tempfile
-from memory.event import *
+from memory.event_structured import *
 def test_relative_time_and_evidence():
  p=tempfile.mktemp(); m=[dict(message_index=0,source_id='s',source_kind='evidence',content='小林去年参加杭州马拉松',timestamp=1704067200000)]
  e=EventCandidate(subject_name='小林',event_type='比赛',description='杭州马拉松',time_expression='去年',reference_timestamp=1704067200000,time_precision='relative',message_indices=[0],confidence=.9)

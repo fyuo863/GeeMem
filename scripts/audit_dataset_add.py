@@ -54,10 +54,16 @@ def main():
                 requests.append(dict(source=source,payload=payload,status=response.status_code,seconds=seconds))
             with closing(store.connect()) as db:
                 routes=[dict(r) for r in db.execute('SELECT * FROM rag_memory_routes WHERE user_id=?',(uid,))]
-                records={t:[dict(r) for r in db.execute(f'SELECT * FROM {t} WHERE user_id=?',(uid,))] for t in tables}
+                existing={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                records={t:[dict(r) for r in db.execute(f'SELECT * FROM {t} WHERE user_id=?',(uid,))] if t in existing else [] for t in tables}
+                if 'event_sources' in existing:
+                    records['event_sources']=[dict(r) for r in db.execute('SELECT * FROM event_sources WHERE user_id=?',(uid,))]
                 entities=[dict(r) for r in db.execute('SELECT * FROM relationship_entities WHERE user_id=?',(uid,))]
                 links={}
                 for table,owner,parent in [('profile_evidence','fact_id','profile_facts'),('relationship_evidence','relationship_id','relationship_assertions'),('rule_evidence','rule_id','rule_records'),('event_evidence','event_id','event_records')]:
+                    if table not in existing:
+                        links[table]=[]
+                        continue
                     links[table]=[dict(r) for r in db.execute(f'SELECT e.* FROM {table} e JOIN {parent} p ON p.id=e.{owner} WHERE p.user_id=?',(uid,))]
             result=dict(number=number,question=q,requests=requests,elapsed_s=elapsed,routes=routes,records=records,entities=entities,evidence=links)
             target.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf8')

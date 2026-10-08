@@ -346,3 +346,15 @@ RAG_RESULT_WINDOW=0
 事件参考时间在写入时从引用消息绑定，模型 reference_timestamp 不被信任。时间表达式须在引用原文出现；多锚点歧义保留未知。支持常用年/月/日、日历周及若干 days/weeks ago；没有可靠表达式时不采纳模型绝对日期。适配器仍按 UTC 解释数据集未声明时区的时间，这不代表真实时区。旧数据库已存错误不自动回填。
 
 路由额外保存 failure_stage、索引/覆盖校验错误与候选审计。其他异常只保存类型，避免暴露凭据。整个修复版以新的隔离数据库复跑，不覆盖初始实验。
+
+## 事件原文索引（当前默认，2026-10-08）
+
+事件路由现在只关联原文。/add 分类选中 event 后，EventBuilder.write(payload, selected_indices, score) 将 source_id、用户、请求、会话、消息索引、前两条上下文 ID 和分类分数写入 event_sources。文本、speaker、消息时间和向量全部复用 rag_memories/rag_sources；不调用事件抽取模型，不生成事件描述、状态、参与者或发生时间。record_ids 对该路由现在是 source_id，audit 标记 source_only。其他类型仍使用各自构建器；多标签请求可能继续调用画像/关系/规则模型。
+
+EventRetriever(db_path, embedder).search(user_id, query, limit=10, session_id=None, fallback=True) 使用现有向量与 BM25 排序，对事件原文增加软排序权重。fallback=True 允许未分类原文参与召回，False 只查事件。返回原文片段、source_id、speaker、message_timestamp、上下文及分类分数；消息时间不是事件时间。未提供 embedder 时仅执行 BM25。上下文单列返回，不拼接改写直接证据。
+
+应用内部通过 backend.event_retriever.search(...) 调用专用事件检索器。外部 /search 仍走已有全库原文检索，保持比赛接口，无自动事件意图识别或新路由参数。
+
+旧结构化事件代码移至 memory/event_structured.py，仅用于历史对照。旧 event_records 数据不删除，已完成历史路由不自动回填 event_sources；普通全库检索仍可召回原文。此版不提供事件状态过滤、事件发生时间线或自动事件合并。分类漏选仍可能存在，由全库补充检索缓解。
+
+验证：python -m pytest tests/test_event_sources.py -q；真实写入小测 python -m scripts.test_event_source_live，结果位于 data/event-source-live-20261008/results.json。

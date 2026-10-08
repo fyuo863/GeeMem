@@ -1,6 +1,6 @@
 from memory.build_audit import AuditedLLM
 from memory.rule import RuleExtraction
-from memory.event import EventBuilder, EventCandidate, EventExtraction, EventRetriever
+from memory.event_structured import EventBuilder, EventCandidate, EventExtraction, EventRetriever
 from memory.event_time import parse_time
 from memory.entity_resolver import EntityResolver
 

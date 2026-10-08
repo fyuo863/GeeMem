@@ -14,16 +14,17 @@ from .llm import LLMError
 class RouteWriter:
     def __init__(self, backend, builders=None):
         self.backend = backend
+        from .event import EventBuilder
+        self.event_builder = EventBuilder(backend.path)
         if builders is None:
             from .build_audit import AuditedLLM
             from .profile import ProfileBuilder, ProfileExtraction
             from .relationship import RelationshipBuilder, RelationshipExtraction
             from .rule import RuleBuilder, RuleExtraction
-            from .event import EventBuilder, EventExtraction
             builders = {name: (builder(str(backend.path), llm=AuditedLLM()), schema) for name,builder,schema in [
                 ('profile',ProfileBuilder,ProfileExtraction),
                 ('relationship',RelationshipBuilder,RelationshipExtraction),
-                ('rule',RuleBuilder,RuleExtraction),('event',EventBuilder,EventExtraction)]}
+                ('rule',RuleBuilder,RuleExtraction)]}
         self.builders = builders
         with closing(backend.connect()) as db, db:
             cols = {r[1] for r in db.execute('PRAGMA table_info(rag_memory_routes)')}
@@ -49,7 +50,22 @@ class RouteWriter:
             with closing(self.backend.connect()) as db, db:
                 db.execute("UPDATE rag_memory_routes SET status='processing',attempts=attempts+1,error=NULL WHERE user_id=? AND request_id=? AND memory_type=?",key)
             try:
-                if route['memory_type'] == 'other_memory':
+                if route['memory_type'] == 'event':
+                    from .aml_api import AMLAdd
+                    if not queued: raise ValueError('Event route requires original request')
+                    payload=AMLAdd.model_validate_json(queued['payload'])
+                    with closing(self.backend.connect()) as db:
+                        decision=db.execute('SELECT result FROM rag_write_decisions WHERE user_id=? AND request_id=?',
+                                            (user_id,request_id)).fetchone()
+                    assessments=json.loads(decision[0]).get('classification',{}).get('assessments',[]) if decision else []
+                    score=next((a['score'] for a in assessments if a['label']=='event'),None)
+                    stage='index_sources'
+                    ids=self.event_builder.write(payload,json.loads(route['message_indices']),score)
+                    status='completed'
+                    with closing(self.backend.connect()) as db,db:
+                        db.execute('UPDATE rag_memory_routes SET extraction=NULL WHERE user_id=? AND request_id=? AND memory_type=?',key)
+                    audit=[{'mode':'source_only','model_calls':0}]
+                elif route['memory_type'] == 'other_memory':
                     status, ids = 'stored_only', []
                 else:
                     builder,schema = self.builders[route['memory_type']]

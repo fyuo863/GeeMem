@@ -117,6 +117,9 @@ class VanillaMemory:
             from .route_writer import RouteWriter
             self.route_writer = RouteWriter(self, builders)
         self.atomic_retriever = AtomicRetriever(self)
+        if self.route_writer is not None:
+            from .event import EventRetriever
+            self.event_retriever = EventRetriever(self.path, self.embedder)
         from .retrieval import CallbackReranker
         self.search_service = SearchService(
             self.atomic_retriever,
