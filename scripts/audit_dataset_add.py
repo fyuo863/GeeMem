@@ -58,7 +58,7 @@ def main():
                 records={t:[dict(r) for r in db.execute(f'SELECT * FROM {t} WHERE user_id=?',(uid,))] if t in existing else [] for t in tables}
                 if 'event_sources' in existing:
                     records['event_sources']=[dict(r) for r in db.execute('SELECT * FROM event_sources WHERE user_id=?',(uid,))]
-                entities=[dict(r) for r in db.execute('SELECT * FROM relationship_entities WHERE user_id=?',(uid,))]
+                entities=[dict(r) for r in db.execute('SELECT * FROM relationship_entities WHERE user_id=?',(uid,))] if db.execute("SELECT 1 FROM sqlite_master WHERE name='relationship_entities'").fetchone() else []
                 links={}
                 for table,owner,parent in [('profile_evidence','fact_id','profile_facts'),('relationship_evidence','relationship_id','relationship_assertions'),('rule_evidence','rule_id','rule_records'),('event_evidence','event_id','event_records')]:
                     if table not in existing:

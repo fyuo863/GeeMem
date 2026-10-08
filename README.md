@@ -327,7 +327,7 @@ RAG_RESULT_WINDOW=0
 
 画像抽取保存主体、属性、值、确定性（`confirmed/uncertain/planned/denied`）、置信度和原文来源；`ProfileRetriever` 支持主体、属性和值查询，返回带 source_id 的证据。重复事实追加证据并提高置信度，不把不确定计划写成当前确定值。画像事实使用独立的 `profile_facts`、`profile_evidence` 表。
 
-## /add 构建器接入（当前版本）
+## /add 构建器接入（历史结构化实验）
 
 开启 RAG_WRITE_GATE_MODE=on 时，默认同步执行 profile、relationship、rule、event 路由构建；RAG_BUILD_MODE=off 可显式保留仅分类排队模式。other_memory 标记 stored_only，只保留原文与路由。
 
@@ -347,7 +347,7 @@ RAG_RESULT_WINDOW=0
 
 路由额外保存 failure_stage、索引/覆盖校验错误与候选审计。其他异常只保存类型，避免暴露凭据。整个修复版以新的隔离数据库复跑，不覆盖初始实验。
 
-## 事件原文索引（当前默认，2026-10-08）
+## 事件原文索引（第一阶段，现已扩展到全部四类）
 
 事件路由现在只关联原文。/add 分类选中 event 后，EventBuilder.write(payload, selected_indices, score) 将 source_id、用户、请求、会话、消息索引、前两条上下文 ID 和分类分数写入 event_sources。文本、speaker、消息时间和向量全部复用 rag_memories/rag_sources；不调用事件抽取模型，不生成事件描述、状态、参与者或发生时间。record_ids 对该路由现在是 source_id，audit 标记 source_only。其他类型仍使用各自构建器；多标签请求可能继续调用画像/关系/规则模型。
 
@@ -358,3 +358,29 @@ EventRetriever(db_path, embedder).search(user_id, query, limit=10, session_id=No
 旧结构化事件代码移至 memory/event_structured.py，仅用于历史对照。旧 event_records 数据不删除，已完成历史路由不自动回填 event_sources；普通全库检索仍可召回原文。此版不提供事件状态过滤、事件发生时间线或自动事件合并。分类漏选仍可能存在，由全库补充检索缓解。
 
 验证：python -m pytest tests/test_event_sources.py -q；真实写入小测 python -m scripts.test_event_source_live，结果位于 data/event-source-live-20261008/results.json。
+
+## 当前默认：四类原文索引
+
+profile、relationship、rule、event 统一使用 `memory/typed_sources.py` 的
+`SourceBuilder` 和 `SourceRetriever`。上文结构化抽取属于历史实验，不再由默认 `/add` 调用。
+
+流程：分类器选择类型及消息 → 保存原文和向量 → 程序绑定 source_id → 各类型索引关联选中消息及前两条上下文。
+四张 `<type>_sources` 表只保存用户、请求、会话、消息索引、来源 ID、上下文 ID 和分类分数。
+多标签共享原文和向量；构建阶段不调用 LLM，不生成画像属性、关系三元组、规则条件或事件描述。
+分类器仍可能重试或复查，也仍可能误分类；原文保真不代表分类正确。
+
+内部调用 `backend.profile_retriever.search(...)`、`relationship_retriever`、`rule_retriever`
+或 `event_retriever`，参数为用户、问题及可选 limit/session_id/fallback。
+默认 BM25 与现有向量融合，并对匹配类型软加权；`fallback=False` 只查该类，
+默认 `True` 允许全库补充。返回原文片段及独立上下文、来源 ID、说话者、消息时间和分类分数。
+外部 `/search` 保持现有全库接口，不自动识别意图。消息时间不是事件发生时间。
+
+路由完成后 record_ids 为 source_id，extraction 为空，audit 标记 source_only/model_calls=0。
+失败请求可用相同 request_id 恢复，不重复分类和向量化。旧结构化数据不删除，
+已完成历史路由不自动回填类型索引；原文仍可通过全库召回。
+本版不再自动创建实体、合并昵称、形成结构化事实或裁决新旧值，相关理解交给后续上层模块。
+`other_memory` 仍只保留原文与路由，`vector_only` 只进入基础存储。
+
+测试：`python -m pytest -q -p no:cacheprovider`；真实四类小测
+`python -m scripts.test_typed_source_live`，结果保存于 `data/typed-source-live-20261008/results.json`。
+真实小测使用独立数据库；重复运行相同目录会复用请求，不能用于重新测量写入耗时。

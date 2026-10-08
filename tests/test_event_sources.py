@@ -61,3 +61,38 @@ def test_missing_source_rolls_back_index(tmp_path):
         b.route_writer.event_builder.write(p,[0])
     with closing(b.connect()) as db:
         assert db.execute('SELECT count(*) FROM event_sources').fetchone()[0]==0
+
+
+@pytest.mark.parametrize("kind", ['profile', 'relationship', 'rule', 'event'])
+def test_all_types_share_original_vectors(tmp_path, monkeypatch, kind):
+    def forbid(*args, **kwargs): raise AssertionError('No generation after classification')
+    monkeypatch.setattr('memory.llm.LLM.complete', forbid)
+    fake=Fake(output({k:[2] for k in ['profile','relationship','rule','event']}))
+    embedder=Embedder()
+    b=VanillaMemory(dict(RAG_MEMORY_DB=str(tmp_path/'db'), RAG_BUILD_MODE='on'),embedder,
+                    write_selector=MemoryTypeSelector(fake))
+    p=AMLAdd(user_id='u',request_id='r',session_id='s',messages=[
+        dict(role='user',content='context one'),dict(role='assistant',content='context two'),
+        dict(role='user',content='My friend likes football.',speaker='Alice')])
+    b.add(p);b.add(p)
+    assert fake.calls==1 and embedder.calls==1
+    with closing(b.connect()) as db:
+        assert db.execute('SELECT count(*) FROM rag_memories').fetchone()[0]==3
+        assert db.execute(f'SELECT count(*) FROM {kind}_sources').fetchone()[0]==1
+        assert all(r['extraction'] is None for r in db.execute('SELECT * FROM rag_memory_routes'))
+        assert not db.execute("SELECT name FROM sqlite_master WHERE name IN ('profile_facts','rule_records','relationship_assertions')").fetchall()
+    retriever=getattr(b,kind+'_retriever')
+    hit=retriever.search('u','football',fallback=False)[0]
+    assert hit['content']==p.messages[2].content and hit['memory_type']==kind
+    assert len(hit['context'])==2 and hit['speaker']=='Alice'
+    assert retriever.search('other','football')==[]
+    assert retriever.search('u','football',session_id='other')==[]
+
+
+@pytest.mark.parametrize("kind", ['profile', 'relationship', 'rule'])
+def test_typed_fallback(tmp_path,kind):
+    b=VanillaMemory(dict(RAG_MEMORY_DB=str(tmp_path/'db'),RAG_BUILD_MODE='on'),Embedder())
+    b.add(AMLAdd(user_id='u',request_id='r',session_id='s',messages=[dict(role='user',content='football')]))
+    r=getattr(b,kind+'_retriever')
+    assert r.search('u','football',fallback=False)==[]
+    assert r.search('u','football')[0]['memory_type']=='fallback'

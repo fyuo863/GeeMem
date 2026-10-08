@@ -1,6 +1,6 @@
 """Synchronous durable route processing after source persistence.
 
-Extraction is checkpointed before writing, so retries reuse identical candidates.
+Selected source references are indexed without model-generated facts.
 Builder writes are idempotent; completed routes never call the model again.
 The backend lock serializes requests in this single-process deployment.
 """
@@ -16,16 +16,11 @@ class RouteWriter:
         self.backend = backend
         from .event import EventBuilder
         self.event_builder = EventBuilder(backend.path)
-        if builders is None:
-            from .build_audit import AuditedLLM
-            from .profile import ProfileBuilder, ProfileExtraction
-            from .relationship import RelationshipBuilder, RelationshipExtraction
-            from .rule import RuleBuilder, RuleExtraction
-            builders = {name: (builder(str(backend.path), llm=AuditedLLM()), schema) for name,builder,schema in [
-                ('profile',ProfileBuilder,ProfileExtraction),
-                ('relationship',RelationshipBuilder,RelationshipExtraction),
-                ('rule',RuleBuilder,RuleExtraction)]}
-        self.builders = builders
+        from .typed_sources import SourceBuilder, TYPES
+        self.builders = {name: SourceBuilder(backend.path, name) for name in TYPES}
+        self.builders['event'] = self.event_builder
+        if builders is not None:
+            self.builders.update(builders)
         with closing(backend.connect()) as db, db:
             cols = {r[1] for r in db.execute('PRAGMA table_info(rag_memory_routes)')}
             for name,typ in [('extraction','TEXT'),('record_ids',"TEXT NOT NULL DEFAULT '[]'"),
@@ -50,17 +45,17 @@ class RouteWriter:
             with closing(self.backend.connect()) as db, db:
                 db.execute("UPDATE rag_memory_routes SET status='processing',attempts=attempts+1,error=NULL WHERE user_id=? AND request_id=? AND memory_type=?",key)
             try:
-                if route['memory_type'] == 'event':
+                if route['memory_type'] in self.builders:
                     from .aml_api import AMLAdd
-                    if not queued: raise ValueError('Event route requires original request')
+                    if not queued: raise ValueError('Typed route requires original request')
                     payload=AMLAdd.model_validate_json(queued['payload'])
                     with closing(self.backend.connect()) as db:
                         decision=db.execute('SELECT result FROM rag_write_decisions WHERE user_id=? AND request_id=?',
                                             (user_id,request_id)).fetchone()
                     assessments=json.loads(decision[0]).get('classification',{}).get('assessments',[]) if decision else []
-                    score=next((a['score'] for a in assessments if a['label']=='event'),None)
+                    score=next((a['score'] for a in assessments if a['label']==route['memory_type']),None)
                     stage='index_sources'
-                    ids=self.event_builder.write(payload,json.loads(route['message_indices']),score)
+                    ids=self.builders[route['memory_type']].write(payload,json.loads(route['message_indices']),score)
                     status='completed'
                     with closing(self.backend.connect()) as db,db:
                         db.execute('UPDATE rag_memory_routes SET extraction=NULL WHERE user_id=? AND request_id=? AND memory_type=?',key)
@@ -68,41 +63,11 @@ class RouteWriter:
                 elif route['memory_type'] == 'other_memory':
                     status, ids = 'stored_only', []
                 else:
-                    builder,schema = self.builders[route['memory_type']]
-                    messages = json.loads(route['builder_messages'])
-                    if queued:
-                        from .provenance import source_id
-                        payload = json.loads(queued['payload'])
-                        messages = [dict(m, message_index=i, source_id=source_id(user_id,request_id,i),
-                                         source_kind='evidence') for i,m in enumerate(payload['messages'])]
-                    if not messages:
-                        raise ValueError('Route has no source messages')
-                    if route['extraction']:
-                        extraction = schema.model_validate_json(route['extraction'])
-                    else:
-                        stage = 'extract'
-                        field = next(iter(schema.model_fields))
-                        items = []
-                        if hasattr(builder.llm, 'audit'): builder.llm.audit = []
-                        for start in range(0,len(messages),20):
-                            window = [dict(m,source_kind='context' if m['message_index']<start else 'evidence')
-                                      for m in messages[max(0,start-2):start+20]]
-                            part = builder.extract(window)
-                            items.extend(x for x in getattr(part,field) if any(i>=start for i in x.message_indices))
-                        extraction = schema.model_validate({field:items})
-                        audit = getattr(builder.llm,'audit',[])
-                        with closing(self.backend.connect()) as db, db:
-                            db.execute('UPDATE rag_memory_routes SET extraction=? WHERE user_id=? AND request_id=? AND memory_type=?',
-                                       (extraction.model_dump_json(),*key))
-                    stage = 'write'
-                    ids = builder.write(user_id,extraction,messages)
-                    status = 'completed'
+                    raise ValueError('Unsupported memory route')
                 with closing(self.backend.connect()) as db, db:
                     db.execute('UPDATE rag_memory_routes SET status=?,record_ids=?,elapsed_ms=?,audit=?,failure_stage=NULL WHERE user_id=? AND request_id=? AND memory_type=?',
                                (status,json.dumps(ids),(time.perf_counter()-started)*1000,json.dumps(audit),*key))
             except Exception as exc:
-                if route['memory_type'] in self.builders:
-                    audit = getattr(self.builders[route['memory_type']][0].llm,'audit',audit)
                 failures.append(type(exc).__name__)
                 with closing(self.backend.connect()) as db, db:
                     # Do not retain arbitrary exception strings that may contain credentials.

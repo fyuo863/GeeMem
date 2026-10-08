@@ -120,6 +120,9 @@ class VanillaMemory:
         if self.route_writer is not None:
             from .event import EventRetriever
             self.event_retriever = EventRetriever(self.path, self.embedder)
+            from .typed_sources import SourceRetriever
+            for memory_type in ('profile', 'relationship', 'rule'):
+                setattr(self, memory_type + '_retriever', SourceRetriever(self.path, memory_type, self.embedder))
         from .retrieval import CallbackReranker
         self.search_service = SearchService(
             self.atomic_retriever,
