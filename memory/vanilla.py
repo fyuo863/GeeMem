@@ -15,7 +15,7 @@ from .store import Conflict
 
 
 class VanillaMemory:
-    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None):
+    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None, builders=None):
         from .atomic_retriever import AtomicRetriever
         from .multihop import MultiHop
         self.multihop = MultiHop(cfg, multihop_planner)
@@ -109,6 +109,13 @@ class VanillaMemory:
                 if column not in columns:
                     db.execute(f"ALTER TABLE rag_memory_routes ADD COLUMN {column} TEXT NOT NULL DEFAULT '[]'")
         from .search_service import SearchService
+        self.route_writer = None
+        build_mode = cfg.get('RAG_BUILD_MODE', 'on' if gate_mode == 'on' else 'off')
+        if build_mode not in ('on', 'off'):
+            raise ValueError('Invalid build mode')
+        if build_mode == 'on' or builders is not None:
+            from .route_writer import RouteWriter
+            self.route_writer = RouteWriter(self, builders)
         self.atomic_retriever = AtomicRetriever(self)
         from .retrieval import CallbackReranker
         self.search_service = SearchService(
@@ -128,6 +135,14 @@ class VanillaMemory:
     vectors = staticmethod(VectorWriter.vectors)
 
     def add(self, payload):
+        # Retry committed requests too: failed routes must not be skipped by
+        # the vector writer's request deduplication.
+        with self.lock:
+            self._add_sources(payload)
+            if self.route_writer is not None:
+                self.route_writer.process(payload.user_id, payload.request_id)
+
+    def _add_sources(self, payload):
         with self.lock, closing(self.connect()) as db:
             if self.vector_writer.existing(db, payload):
                 return

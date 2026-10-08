@@ -326,3 +326,13 @@ RAG_RESULT_WINDOW=0
 `memory/profile.py` 的 `ProfileBuilder` 与 `ProfileRetriever` 不复用旧图结构，但和关系模块共享 `relationship_entities` 表及 `entity_key`/实体 ID 规则。因此同一用户的“我的朋友小王”和“小王是医生”会引用同一个实体。
 
 画像抽取保存主体、属性、值、确定性（`confirmed/uncertain/planned/denied`）、置信度和原文来源；`ProfileRetriever` 支持主体、属性和值查询，返回带 source_id 的证据。重复事实追加证据并提高置信度，不把不确定计划写成当前确定值。画像事实使用独立的 `profile_facts`、`profile_evidence` 表。
+
+## /add 构建器接入（当前版本）
+
+开启 RAG_WRITE_GATE_MODE=on 时，默认同步执行 profile、relationship、rule、event 路由构建；RAG_BUILD_MODE=off 可显式保留仅分类排队模式。other_memory 标记 stored_only，只保留原文与路由。
+
+原文向量及路由先提交，随后各构建器各自事务写入。路由记录 processing/completed/failed、attempts、extraction、record_ids、elapsed_ms 和错误类型。构建失败返回 502，但原文及成功路由已持久化；相同请求重试恢复未完成路由，复用抽取快照，不重复分类或向量化。成功响应表示选中的已支持路由完成处理；空抽取也可能完成，不能据此认定语义质量正确。
+
+当前消费者同步运行并由单进程后端锁串行保护，不支持多进程消费者竞争；没有后台自动重试。旧路由缺少 builder_messages 时会失败，需要先补全来源。事件更正仍需显式 supersedes，不自动识别跨请求事件合并。
+
+全链路小测：python -m scripts.benchmark_add_builders，使用根 .env 的真实分类/抽取模型与 embedding，独立临时数据库；为隔离写入成本，测试关闭标签加工与检索重排。结果保存在 data/add-builders/results.json。
