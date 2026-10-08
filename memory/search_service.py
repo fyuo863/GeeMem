@@ -14,7 +14,8 @@ class SearchService:
     def search(self, payload, trace=None):
         if self.multihop is not None and self.multihop.mode != 'off':
             result = self.multihop.run(payload, self.direct_retriever.retrieve,
-                                       self.reranker.score if self.reranker else None, trace or {})
+                                       self.reranker.score if self.reranker else None,
+                                       trace if trace is not None else {})
             return result
         if self.partition_search is not None and self.partition_search.mode != 'off':
             return self.partition_search.search(payload, self.direct_retriever, trace)
