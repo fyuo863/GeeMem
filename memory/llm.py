@@ -22,7 +22,10 @@ class LLMError(Exception):
 
 class LLM:
     """OpenAI-compatible JSON completion adapter; no silent heuristic fallback."""
-    def __init__(self):
+    def __init__(self, *, max_attempts=3):
+        if not 1 <= max_attempts <= 5:
+            raise ValueError('Invalid LLM attempt count')
+        self.max_attempts = max_attempts
         settings = load_settings()
         self.base_url = settings.get("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         self.key = settings.get("LLM_API_KEY", "")
@@ -34,7 +37,7 @@ class LLM:
             raise LLMError("LLM_API_KEY is not configured")
         try:
             with httpx.Client(timeout=60, trust_env=False, proxy=self.proxy) as client:
-                for attempt in range(3):
+                for attempt in range(self.max_attempts):
                     try:
                         response = client.post(
                             self.base_url + "/chat/completions",
@@ -52,7 +55,7 @@ class LLM:
                         )
                         break
                     except (httpx.ConnectError, httpx.ConnectTimeout):
-                        if attempt == 2:
+                        if attempt == self.max_attempts - 1:
                             raise
                 response.raise_for_status()
                 return schema.model_validate_json(response.json()["choices"][0]["message"]["content"])

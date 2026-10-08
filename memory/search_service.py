@@ -1,26 +1,24 @@
-"""Application-level search orchestration.
+"""Application-level orchestration for the atomic retrieval backend."""
 
-This layer decides whether a request uses direct retrieval or the multihop
-executor. It deliberately knows nothing about SQLite, embeddings, or HTTP.
-"""
-
-from .retrieval import CallbackRetriever, CallbackReranker
+from .retrieval import CallbackRetriever
 
 
 class SearchService:
-    def __init__(self, direct_retriever, multihop=None, reranker=None):
+    def __init__(self, direct_retriever, multihop=None, reranker=None, partition_search=None):
         self.direct_retriever = (direct_retriever if hasattr(direct_retriever, 'retrieve')
                                  else CallbackRetriever(direct_retriever))
         self.multihop = multihop
-        self.reranker = (reranker if hasattr(reranker, 'score') else
-                         (CallbackReranker(reranker) if reranker is not None else None))
+        self.reranker = reranker
+        self.partition_search = partition_search
 
     def search(self, payload, trace=None):
-        if self.multihop is None or self.multihop.mode == 'off':
-            if trace is not None:
-                trace.update(mode='off')
-            return self.direct_retriever.retrieve(payload)
-        if self.reranker is None:
-            raise ValueError('Multihop search requires a reranker')
-        return self.multihop.run(payload, self.direct_retriever.retrieve,
-                                 self.reranker.score, trace if trace is not None else {})
+        if self.multihop is not None and self.multihop.mode != 'off':
+            result = self.multihop.run(payload, self.direct_retriever.retrieve,
+                                       self.reranker.score if self.reranker else None,
+                                       trace if trace is not None else {})
+            return result
+        if self.partition_search is not None and self.partition_search.mode != 'off':
+            return self.partition_search.search(payload, self.direct_retriever, trace)
+        if trace is not None:
+            trace.update(mode='atomic')
+        return self.direct_retriever.retrieve(payload)

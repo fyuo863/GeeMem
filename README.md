@@ -235,3 +235,192 @@ RAG_RESULT_WINDOW=0
 基础检索思路参考 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory)，参考提交 `31ab7bf9cfa3ee3c4f986e82f6e7a00b134ba8ca`。本项目独立实现，不包含上游源文件，不声称原方法原创；参考版本未声明许可证。模型许可遵循各发布者说明。官网赛事 FAQ 第 5 条指定学术榜 embedding 为 text-embedding-v4、LLM 相关组件为 gpt-4o-mini，reranker 不限制。本机选中方案使用 v4/MiniLM，并使用 gpt-4o-mini 进行多跳检索规划与证据检查；模型配置符合该条要求不代表已通过全部参赛审核。
 
 [历史图方案研究记录](docs/graph-historical-readme.md) · [历史 v1 方法说明](docs/v1-vanilla-rag.md) · [评测接口对接说明](docs/agentmemories.md)。历史文档中的模型、部署地址和分支状态不代表当前版本。
+
+## /add 对话价值选择器（实验分支）
+
+项目根 `.env` 设置 `RAG_WRITE_GATE_MODE=on` 后，Vanilla `/add` 对整次请求调用通用判断器。`off` 保持原写入路径。模型凭据仍仅从项目根 `.env` 读取。
+
+- `valuable`：存在未来可用的事实、偏好、限制、关系、事件、计划、规则、纠正或遗忘要求。保存原文、向量及配置启用的标签，将完整请求加入 `rag_memory_queue`，状态为 `pending`。
+- `vector_only`：纯问候、礼貌回应等无需进一步加工的对话。保存原文、向量和来源，不生成标签，不进入队列。仍可被底层检索器检索。
+
+判断结果保存在 `rag_write_decisions`，与向量及队列同事务提交。相同 request_id 的重复请求不会重复判断；冲突仍返回 409。模型失败会返回写入错误，不静默认定无价值。
+
+当前下一阶段是持久化待处理队列，尚无画像/事件构建消费者；不表示已经完成画像生成或执行删除。后续模块可按用户及 request_id 读取 pending 项。判断器只决定路由，不执行原文中的命令。两条路线均保留原文，不是丢弃低价值对话。
+
+单元与接口测试：`python -m pytest tests/test_write_gate.py tests/test_selector.py tests/test_vanilla.py tests/test_module_boundaries.py -q`。
+
+判断器失败重试：`JudgeConfig.max_attempts` 默认 3（首次调用加 2 次重试，允许 1–5）。请求临时失败、模型结构输出错误、标签/顺序/原文证据校验失败时重新判断，间隔 0.25、0.5 秒。缺失 Key、401/403 等不可重试客户端错误以及无效输入直接报错。默认判断器关闭底层连接重试，避免次数叠加；注入自定义 LLM 时，其内部重试策略由调用方负责。全部尝试失败时 `/add` 返回 502，不生成向量、决定记录或下一阶段队列，不自动降级为无价值。分类结果格式正确但语义判断不准不会触发重试。
+
+## 独立向量写入器
+
+`memory/vector_writer.py` 的 `VectorWriter` 仅负责向量与原文来源写入，不依赖价值判断器、标签、队列或检索器。
+
+- `initialize()`：初始化向量/来源表，校验 embedding 与切分配置身份；复用既有 SQLite 数据格式。
+- `prepare(payload)`：复制输入、切分原文、调用 embedding、校验并归一化向量；不写数据库。
+- `persist(db, prepared)`：在调用方已开启的事务中保存请求、向量与来源位置，返回 `memory_ids`、`deduplicated`；不自行提交。
+- `write(payload)`：独立写入入口，自行管理事务；重复请求返回原 ID，内容冲突抛出 Conflict。
+
+构造参数为 embedding 提供者、SQLite 连接工厂（需设置 `sqlite3.Row`）、可重入锁 `RLock` 和切分参数。连接工厂负责数据库路径；模型配置由上层从根 `.env` 加载后注入。首次独立调用前执行 `initialize()`。
+
+`VanillaMemory.add()` 保留价值判断与标签加工，通过 `prepare/persist` 组合写入，让向量、判断记录、标签和待处理队列共用事务。来源位置与已有片段 ID 保持原生成规则。此轮只分离模块，embedding 传输重试与模型 tokenizer 上限检查尚未新增。
+
+## 多标签记忆类型分类（当前 /add 入口）
+
+`RAG_WRITE_GATE_MODE=on` 现在启用 `MemoryTypeSelector`，取代前述二分类入口；旧 `MemoryValueSelector` 和单标签 `ConfigurableJudge` 保留供显式调用。
+
+一次 LLM 调用评估所有类型：`profile`（画像属性）、`relationship`（人物关系）、`event`（事件/计划）、`rule`（可复用规则/经验）、`other_memory`（其他有价值信息）、`vector_only`（仅向量存储）。前五类可同时命中；`vector_only` 必须单独出现。纯人物关系不额外计为画像。分类治理请求只负责路由，不会执行删除。
+
+通用 `MultiLabelJudge` 通过 `MultiLabelConfig` 配置类别、说明、判定标准及互斥类别，可用于其他业务。返回每类的 `selected`、独立适用度 `score`、`message_indices` 和理由；分数不要求总和为 1。程序按配置排列输出，检查类别齐全且无重复、互斥、索引类型与范围；不把合法的类别输出顺序变化当作失败。失败重试沿用原 3 次尝试策略。
+
+消息索引由程序从 0 编号；模型只选择索引，不生成原文 ID。`MemoryTypeSelector` 将有效索引绑定为稳定 `source_ids`，与向量来源一致。涉及简短确认时应同时引用上下文和回答；索引合法不等于语义支持已被验证。
+
+`rag_write_decisions.result` 保存带 `memory-types-v1` 版本的完整分类结果。`rag_memory_routes` 按用户、请求、类型保存待处理路由、消息索引和来源 ID。`rag_memory_queue` 仍保留一份完整对话，供后续构建器读取上下文。以上内容和原文向量在同一事务写入；只有 `vector_only` 时不创建队列或类型路由。旧数据库新增路由表，旧记录不会自动重新分类。
+
+外部 `/add` 成功响应格式不变。后续画像、事件等消费者仍待实现。本模块只完成分类与队列准备。
+
+### 路由自动补充上下文（memory-types-v2）
+
+分类器选中消息后，程序绑定直接依据的来源 ID，并为每条依据补充本次请求内前两条消息。`message_indices/source_ids` 保留直接依据，`context_indices/context_source_ids` 保存补充上下文；两组互斥，分别去重。不会递归向前扩展，也不跨请求读取历史。模型原始选中索引仍在 classification 中保留。
+
+`builder_messages` 为两组消息的合并结果，按原文顺序排列，包含原文、角色、时间、speaker、message_index、source_id 和 source_kind（evidence/context）。后续构建器从对应类型路由读取此字段即可取得直接依据与解释上下文；context 不等于已确认事实，不可忽略否定、角色与不确定性。
+
+路由新字段与向量、判断结果和完整对话队列同事务保存。旧数据库自动添加字段；旧路由默认空上下文字段，不回填历史记录。旧记录如需交给新构建器，应使用原完整对话及原选中索引重新执行 bind_route。此功能不增加 LLM 调用。
+
+当前分类配置版本为 `memory-types-v3`：已移除 governance。更正按具体内容分类，无法归入具体类型的撤回/遗忘请求归入 other_memory，仅保存请求。历史治理路由保留，新请求不再生成 governance 路由。
+
+## 独立关系记忆模块
+
+`memory/relationship.py` 不依赖旧 `Graph`、`Store` 或旧 `edges` 表。`RelationshipBuilder.extract()` 接收分类器提供的直接依据与上下文，调用 LLM 只抽取明确关系；模型返回名称、类型、关系和程序消息索引，不生成数据库 ID。程序规范化常见关系（如朋友、同事、导师、兄弟姐妹），绑定用户作用域实体 ID，并将对称关系按当前用户到对方的方向存储。
+
+`write()` 使用独立的 `relationship_entities`、`relationship_assertions`、`relationship_evidence` 表。重复的用户/主体/关系/客体会合并并追加证据，实体按用户隔离；证据保存 source_id、消息索引、原文和 evidence/context 标记。关系断言保留语义方向、置信度和 active 状态。
+
+`RelationshipRetriever.find()` 支持按用户、主体、关系、客体和状态查询，并返回带证据的断言；`expand()` 在限定跳数内按实体 ID 扩展无向邻域，但每条结果仍保留 subject/object 的语义方向。共同事件不会自动生成关系，问句也不生成关系。
+
+本模块不负责画像属性、事件抽取、实体消歧的最终决策或多跳答案生成；这些由上层构建器和规划器负责。真实 gpt-4o-mini 小测覆盖朋友、导师、亲属、同事、共同事件和问句，关系集合准确率为 7/7；测试记录位于 `data/relationship-builder-20261007/results-v2.json`。
+
+
+## 独立人物画像模块
+
+## 独立规则记忆模块（实验）
+
+`memory/rule.py` 提供 `RuleBuilder` 和 `RuleRetriever`。`extract(builder_messages)`
+使用根 `.env` 的 LLM 配置，抽取可复用指令、顺序流程和明确经验，保留条件、动作、例外、
+适用范围、确定性及置信度。`write(user_id, extraction, builder_messages)` 由程序生成 ID，
+绑定消息索引与 source_id，写入独立 `rule_records/rule_evidence` 表。
+上下文不能独立生成规则；模块仅存储规则，不执行指令。
+
+完全相同的结构重复写入复用 ID 并追加证据。显式 `supersedes=旧规则ID` 可创建新版本，
+旧版本保留为 superseded；不按语义相似度自动覆盖，不自动裁决互相冲突的规则。
+第三方规则适用范围依赖抽取质量，未实现权限推断。当前不自动消费 `/add` pending 路由，
+调用方需将 rule 路由的 builder_messages 交给构建器。
+
+`find(user_id, scope=..., status=...)` 查询结构和原文；
+`find_applicable(user_id, query, scope=..., limit=...)` 在用户的全部有效规则中执行 BM25
+候选检索，返回分数、完整条件/例外和原文。命中仅代表候选，不等于条件已经满足；
+本版没有规则向量索引、条件推理或自动执行。未知范围不应自动应用全局规则。
+
+测试：`python -m pytest tests/test_rule.py -q`。
+读写基准及真实抽取小测：`python -m scripts.benchmark_rule --live`，
+结果保存到 `data/rule-tests/results.json`。合成关键词 Hit@1 不代表真实语义召回率。
+
+`memory/profile.py` 的 `ProfileBuilder` 与 `ProfileRetriever` 不复用旧图结构，但和关系模块共享 `relationship_entities` 表及 `entity_key`/实体 ID 规则。因此同一用户的“我的朋友小王”和“小王是医生”会引用同一个实体。
+
+画像抽取保存主体、属性、值、确定性（`confirmed/uncertain/planned/denied`）、置信度和原文来源；`ProfileRetriever` 支持主体、属性和值查询，返回带 source_id 的证据。重复事实追加证据并提高置信度，不把不确定计划写成当前确定值。画像事实使用独立的 `profile_facts`、`profile_evidence` 表。
+
+## /add 构建器接入（历史结构化实验）
+
+开启 RAG_WRITE_GATE_MODE=on 时，默认同步执行 profile、relationship、rule、event 路由构建；RAG_BUILD_MODE=off 可显式保留仅分类排队模式。other_memory 标记 stored_only，只保留原文与路由。
+
+原文向量及路由先提交，随后各构建器各自事务写入。路由记录 processing/completed/failed、attempts、extraction、record_ids、elapsed_ms 和错误类型。构建失败返回 502，但原文及成功路由已持久化；相同请求重试恢复未完成路由，复用抽取快照，不重复分类或向量化。成功响应表示选中的已支持路由完成处理；空抽取也可能完成，不能据此认定语义质量正确。
+
+当前消费者同步运行并由单进程后端锁串行保护，不支持多进程消费者竞争；没有后台自动重试。旧路由缺少 builder_messages 时会失败，需要先补全来源。事件更正仍需显式 supersedes，不自动识别跨请求事件合并。
+
+全链路小测：python -m scripts.benchmark_add_builders，使用根 .env 的真实分类/抽取模型与 embedding，独立临时数据库；为隔离写入成本，测试关闭标签加工与检索重排。结果保存在 data/add-builders/results.json。
+
+## 写入审计修复实验（2026-10-08）
+
+构建器从持久化请求读取完整对话，分类消息索引仅供路由记录；每个窗口最多 20 条新消息及前两条上下文，原始索引不重编号。上下文不单独产生记录。生产构建调用同时返回逐消息 coverage（extracted/not_applicable/unresolved），程序检查索引完整性和 extracted 是否有候选引用；最多一次结构复查。coverage 是模型自述，不证明语义正确，保存在路由 audit 字段中。completed 仍表示处理完成，不表示所有信息得到确认。
+
+仅 other_memory 的分类进行一次专门复查，不能保证发现所有漏选类型。画像提示词区分明确属性与模型置信度，禁止从旅行推断住所、从活动推断职业。泛称 unknown/family/friends 按来源隔离，避免跨来源误合并；跨消息同一未知人物的合并与独立昵称线索库仍未实现。
+
+事件参考时间在写入时从引用消息绑定，模型 reference_timestamp 不被信任。时间表达式须在引用原文出现；多锚点歧义保留未知。支持常用年/月/日、日历周及若干 days/weeks ago；没有可靠表达式时不采纳模型绝对日期。适配器仍按 UTC 解释数据集未声明时区的时间，这不代表真实时区。旧数据库已存错误不自动回填。
+
+路由额外保存 failure_stage、索引/覆盖校验错误与候选审计。其他异常只保存类型，避免暴露凭据。整个修复版以新的隔离数据库复跑，不覆盖初始实验。
+
+## 事件原文索引（第一阶段，现已扩展到全部四类）
+
+事件路由现在只关联原文。/add 分类选中 event 后，EventBuilder.write(payload, selected_indices, score) 将 source_id、用户、请求、会话、消息索引、前两条上下文 ID 和分类分数写入 event_sources。文本、speaker、消息时间和向量全部复用 rag_memories/rag_sources；不调用事件抽取模型，不生成事件描述、状态、参与者或发生时间。record_ids 对该路由现在是 source_id，audit 标记 source_only。其他类型仍使用各自构建器；多标签请求可能继续调用画像/关系/规则模型。
+
+EventRetriever(db_path, embedder).search(user_id, query, limit=10, session_id=None, fallback=True) 使用现有向量与 BM25 排序，对事件原文增加软排序权重。fallback=True 允许未分类原文参与召回，False 只查事件。返回原文片段、source_id、speaker、message_timestamp、上下文及分类分数；消息时间不是事件时间。未提供 embedder 时仅执行 BM25。上下文单列返回，不拼接改写直接证据。
+
+应用内部通过 backend.event_retriever.search(...) 调用专用事件检索器。外部 /search 仍走已有全库原文检索，保持比赛接口，无自动事件意图识别或新路由参数。
+
+旧结构化事件代码移至 memory/event_structured.py，仅用于历史对照。旧 event_records 数据不删除，已完成历史路由不自动回填 event_sources；普通全库检索仍可召回原文。此版不提供事件状态过滤、事件发生时间线或自动事件合并。分类漏选仍可能存在，由全库补充检索缓解。
+
+验证：python -m pytest tests/test_event_sources.py -q；真实写入小测 python -m scripts.test_event_source_live，结果位于 data/event-source-live-20261008/results.json。
+
+## 当前默认：四类原文索引
+
+本机 BGE 双语 ONNX 重排已适配，可用 `RAG_RERANK_MODE=onnx` 启用。
+需安装 `[rag,onnx]` 依赖并配置模型目录及 SHA-256 清单。本机根 `.env` 已切换为
+BGE ONNX、仅目标原文（context=0）、batch=8、threads=4，分区模式保持 dual。
+运行中的服务需重启才能读取新配置。纯英文切回 MiniLM 时使用：
+
+```dotenv
+RAG_RERANK_MODE=local
+RAG_RERANK_PATH=data/models/ms-marco-MiniLM-L-6-v2
+RAG_RERANK_CONTEXT=1
+RAG_RERANK_BATCH_SIZE=32
+RAG_RERANK_SELECTION=direct
+```
+
+切回 local 后 ONNX 的 manifest/threads 参数不参与加载。若自行配置过
+RAG_RERANK_API_URL，应清空它，确保 local 使用本地 MiniLM。
+中英文固定候选对照及完整配置见 [BGE 实验报告](docs/bge-onnx-20261008.md)。
+
+多跳首跳恢复实验见 [多跳恢复](docs/multihop-recovery-20261008.md)。
+`RAG_MULTIHOP_RECOVERY=on` 会并行执行原始首跳、带原问题上下文的变体，
+以及后续已检索证据上下文变体；原问题基线始终保留。
+真实英文场景记录见 [多跳恢复真实测试](docs/multihop-recovery-live-20261008.md)。
+
+搜索分区实验现已接入：根 `.env` 配置 `RAG_PARTITION_MODE=dual` 且
+`RAG_MULTIHOP_MODE=off` 时，通用多标签判断器选择问题的证据分区，保留原问题。
+在 `max(top_k, RAG_RERANK_CANDIDATES)` 的总预算内，为选中分区并集预留一半候选，
+全库填充其余名额；合并去重后统一重排。复用一次问题向量和基础召回评分。
+`strict` 仅检索选中分区，`off` 保留全库基线。general 或路由失败回退全库，
+复用判断器的有界重试。多跳开启时优先多跳，不叠加分区路由。
+`backend.search(payload, trace={})` 可记录路由判断及重排候选 ID。
+本机 `.env` 已按要求开启 dual（多跳为 off）；代码缺省和示例配置仍为 off。
+该开关增加一次模型路由调用，小测尚未证明相对全库的质量提升。
+测试报告见 [分区对照](docs/partition-test-20261008.md)。
+
+检索实现已统一：四类 SourceRetriever 只传递类型条件，统一调用 AtomicRetriever，
+复用全库检索的向量、BM25、标签加工及配置的 reranker。内部 AtomicQuery 支持
+memory_types（多选并集）、session_id、fallback 和 include_evidence。
+SourceRetriever 的构造参数改为 `(atomic_retriever, memory_type)`；EventRetriever
+改为 `(atomic_retriever)`。早期独立检索器的数据库/embedding 构造方式已停用。
+详见 [检索模块与专类问题方案](docs/search-module-design.md)。
+
+profile、relationship、rule、event 统一使用 `memory/typed_sources.py` 的
+`SourceBuilder` 和 `SourceRetriever`。上文结构化抽取属于历史实验，不再由默认 `/add` 调用。
+
+流程：分类器选择类型及消息 → 保存原文和向量 → 程序绑定 source_id → 各类型索引关联选中消息及前两条上下文。
+四张 `<type>_sources` 表只保存用户、请求、会话、消息索引、来源 ID、上下文 ID 和分类分数。
+多标签共享原文和向量；构建阶段不调用 LLM，不生成画像属性、关系三元组、规则条件或事件描述。
+分类器仍可能重试或复查，也仍可能误分类；原文保真不代表分类正确。
+
+内部调用 `backend.profile_retriever.search(...)`、`relationship_retriever`、`rule_retriever`
+或 `event_retriever`，参数为用户、问题及可选 limit/session_id/fallback。
+默认 BM25 与现有向量融合，并对匹配类型软加权；`fallback=False` 只查该类，
+默认 `True` 允许全库补充。返回原文片段及独立上下文、来源 ID、说话者、消息时间和分类分数。
+外部 `/search` 保持现有全库接口，不自动识别意图。消息时间不是事件发生时间。
+
+路由完成后 record_ids 为 source_id，extraction 为空，audit 标记 source_only/model_calls=0。
+失败请求可用相同 request_id 恢复，不重复分类和向量化。旧结构化数据不删除，
+已完成历史路由不自动回填类型索引；原文仍可通过全库召回。
+本版不再自动创建实体、合并昵称、形成结构化事实或裁决新旧值，相关理解交给后续上层模块。
+`other_memory` 仍只保留原文与路由，`vector_only` 只进入基础存储。
+
+测试：`python -m pytest -q -p no:cacheprovider`；真实四类小测
+`python -m scripts.test_typed_source_live`，结果保存于 `data/typed-source-live-20261008/results.json`。
+真实小测使用独立数据库；重复运行相同目录会复用请求，不能用于重新测量写入耗时。

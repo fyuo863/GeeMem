@@ -29,6 +29,62 @@ class LocalReranker:
                           show_progress_bar=False,convert_to_numpy=True),dtype=float).reshape(-1)
 
 
+class ONNXReranker:
+    """Local single-logit cross encoder, using the existing ONNX snapshot."""
+    def __init__(self, cfg):
+        import onnxruntime as ort
+        from transformers import AutoTokenizer
+        path = Path(cfg['RAG_RERANK_PATH'])
+        if not path.is_absolute(): path = PROJECT_ROOT / path
+        manifest_path = Path(cfg.get('RAG_RERANK_MANIFEST', str(path/'manifest.json')))
+        if not manifest_path.is_absolute(): manifest_path = PROJECT_ROOT / manifest_path
+        manifest = json.loads(manifest_path.read_text(encoding='utf8'))
+        required = {'onnx/model.onnx', 'config.json', 'tokenizer.json', 'tokenizer_config.json'}
+        if not required <= set(manifest['sha256']):
+            raise ValueError('Incomplete ONNX reranker manifest')
+        for name, digest in manifest['sha256'].items():
+            source = (path/name).resolve()
+            if not source.is_relative_to(path.resolve()): raise ValueError('Invalid reranker manifest')
+            with source.open('rb') as handle:
+                if hashlib.file_digest(handle,'sha256').hexdigest()!=digest:
+                    raise ValueError('Reranker checksum mismatch')
+        self.identity = manifest
+        self.batch = int(cfg.get('RAG_RERANK_BATCH_SIZE','8'))
+        self.max_length = int(cfg.get('RAG_RERANK_MAX_LENGTH','512'))
+        threads = int(cfg.get('RAG_RERANK_THREADS','4'))
+        if self.batch < 1 or not 32 <= self.max_length <= 512 or threads < 1:
+            raise ValueError('Invalid ONNX reranker limits')
+        self.tokenizer = AutoTokenizer.from_pretrained(str(path),local_files_only=True,trust_remote_code=False)
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = threads
+        self.session = ort.InferenceSession(str(path/'onnx/model.onnx'),sess_options=options,
+                                           providers=['CPUExecutionProvider'])
+        self.inputs = self.session.get_inputs()
+        self.output = self.session.get_outputs()[0].name
+
+    def score(self, query, documents):
+        if not documents: return np.empty(0,dtype=float)
+        scores = []
+        for start in range(0,len(documents),self.batch):
+            docs = documents[start:start+self.batch]
+            encoded = self.tokenizer([query]*len(docs),list(docs),padding=True,
+                                     truncation=True,max_length=self.max_length,return_tensors='np')
+            feed = {}
+            for spec in self.inputs:
+                value = encoded.get(spec.name)
+                if value is None and spec.name=='token_type_ids':
+                    value = np.zeros_like(encoded['input_ids'])
+                if value is None: raise ValueError('Unsupported ONNX model input')
+                dtype = {'tensor(int64)':np.int64, 'tensor(int32)':np.int32}.get(spec.type)
+                if dtype is None: raise ValueError('Unsupported ONNX input dtype')
+                feed[spec.name] = np.asarray(value,dtype=dtype)
+            logits = np.asarray(self.session.run([self.output],feed)[0],dtype=float)
+            if logits.shape not in ((len(docs),),(len(docs),1)) or not np.isfinite(logits).all():
+                raise ValueError('Invalid ONNX reranker scores')
+            scores.extend(logits.reshape(-1))
+        return np.asarray(scores,dtype=float)
+
+
 class HTTPReranker:
     """vLLM /v1/rerank endpoint, configured only in .env."""
     def __init__(self, cfg):

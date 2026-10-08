@@ -183,14 +183,17 @@ question; a newly discovered entity must cite the memory where it appeared.'''
 
 
 class EvidencePlanner:
-    def __init__(self, planner, bindings, needs, trace, repair_budget, timeout):
+    def __init__(self, planner, bindings, needs, trace, repair_budget, timeout,
+                 validation_mode='strict'):
         self.planner, self.bindings, self.needs = planner, bindings, needs
         self.trace, self.repair_budget, self.timeout = trace, repair_budget, timeout
+        self.validation_mode = validation_mode
         self.refs = {}
         self.requirements = []
         self.states = []
         self.progress_token = ()
         self.registry = {}
+        self.query_needs = {}
         self.repaired = False
 
     def route(self, question, options, timeout):
@@ -200,7 +203,8 @@ class EvidencePlanner:
             ROUTE_PROMPT+NEED_PLAN, dict(question=question, options=options), RequiredRoute, timeout))
         self.trace['route_candidate'] = result.model_dump()
         for i, need in enumerate(result.requirements):
-            if any(type(d) is not int or d < 0 or d >= i for d in need.depends_on):
+            if (self.validation_mode == 'strict' and
+                any(type(d) is not int or d < 0 or d >= i for d in need.depends_on)):
                 raise ValueError('Requirement dependencies must refer to earlier requirements')
             self.requirements.append(dict(id=f'N{i+1}', description=need.description, kind=need.kind,
                 depends_on=[f'N{d+1}' for d in need.depends_on]))
@@ -226,6 +230,8 @@ class EvidencePlanner:
         prompt = REVIEW_BASE + (BINDING_RULES if self.bindings else LEGACY_QUERY_RULES)
         prompt += NEED_RULES if self.needs else '\nReturn sufficient=true only if ALL necessary facts and links are explicitly supported.'
         raw = schema.model_validate(self.planner.complete(prompt, payload, schema, timeout))
+        if self.validation_mode == 'trust':
+            return self._trust_review(raw, sources, history, strategy)
         result, errors, state = self._validate(raw, sources, history, strategy, commit=False)
         attempt=dict(source_map={ref:e['id'] for ref,e in sources.items()},candidate=raw.model_dump(),errors=errors)
         self.trace.setdefault('review_attempts',[]).append(attempt)
@@ -246,6 +252,48 @@ class EvidencePlanner:
         self.trace['validation_errors'].append(errors)
         self.trace['need_states'] = state
         return result
+
+    def _trust_review(self, raw, sources, history, strategy):
+        """Use structured model output without source/bridge verdicts."""
+        supports = []
+        for support in getattr(raw, 'supports', []):
+            source = sources.get(support.source_id)
+            source_id = source['id'] if source is not None else support.source_id
+            supports.append(support.model_copy(update={'source_id': source_id}))
+
+        queries = []
+        used = {normalized(q) for q in history}
+        for item in raw.queries:
+            if self.bindings:
+                source = sources.get(item.source_ref)
+                source_id = source['id'] if source is not None else item.source_ref
+                query = item.template.replace('{target}', item.anchor)
+                bridge = item.anchor
+            else:
+                source_id = item.source_id
+                query = item.query
+                bridge = item.bridge
+            if normalized(query) in used:
+                continue
+            used.add(normalized(query))
+            queries.append(Query(query=query, source_id=source_id, bridge=bridge))
+            if self.needs:
+                self.query_needs[normalized(query)] = q.need_id
+            if len(queries) >= (1 if strategy == 'chain' else 3):
+                break
+
+        if self.needs:
+            self.states = [state.model_dump() for state in raw.states]
+            self.progress_token = tuple((s['need_id'], s['status']) for s in self.states)
+            sufficient = all(s['status'] == 'supported' for s in self.states)
+            missing = '; '.join(s['need_id'] + ': ' + s['reason']
+                                for s in self.states if s['status'] != 'supported')[:500]
+        else:
+            sufficient = raw.sufficient
+            missing = raw.missing
+        self.trace.setdefault('trust_reviews', []).append(raw.model_dump())
+        return Review(sufficient=sufficient, supports=supports[:8], missing=missing,
+                      queries=queries)
 
     def _validate(self, raw, sources, history, strategy, commit):
         errors, states, valid_supports = [], [], {}
@@ -333,6 +381,8 @@ class EvidencePlanner:
                     continue
                 used.add(normalized(candidate.query))
                 queries.append(candidate)
+                if commit and self.needs:
+                    self.query_needs[normalized(candidate.query)] = q.need_id
                 if len(queries) >= (1 if strategy=='chain' else 3):
                     break
         if commit:
