@@ -378,6 +378,10 @@ RAG_RERANK_SELECTION=direct
 RAG_RERANK_API_URL，应清空它，确保 local 使用本地 MiniLM。
 中英文固定候选对照及完整配置见 [BGE 实验报告](docs/bge-onnx-20261008.md)。
 
+多跳首跳恢复实验见 [多跳恢复](docs/multihop-recovery-20261008.md)。
+`RAG_MULTIHOP_RECOVERY=on` 会并行执行原始首跳、带原问题上下文的变体，
+以及后续已检索证据上下文变体；原问题基线始终保留。
+
 搜索分区实验现已接入：根 `.env` 配置 `RAG_PARTITION_MODE=dual` 且
 `RAG_MULTIHOP_MODE=off` 时，通用多标签判断器选择问题的证据分区，保留原问题。
 在 `max(top_k, RAG_RERANK_CANDIDATES)` 的总预算内，为选中分区并集预留一半候选，
