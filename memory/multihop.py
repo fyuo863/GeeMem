@@ -180,6 +180,8 @@ class MultiHop:
         self.validation_mode = cfg.get('RAG_MULTIHOP_VALIDATION', 'strict')
         self.recovery = cfg.get('RAG_MULTIHOP_RECOVERY', 'off')
         self.recovery_width = int(cfg.get('RAG_MULTIHOP_RECOVERY_WIDTH', '3'))
+        self.recovery_budget = int(cfg.get('RAG_MULTIHOP_RECOVERY_BUDGET', '2'))
+        self.recovery_per_hop = int(cfg.get('RAG_MULTIHOP_RECOVERY_PER_HOP', '1'))
         self.llm_limit = int(cfg.get('RAG_MULTIHOP_LLM_CALLS', str(self.rounds+2)))
         if (self.mode not in ('off','llm') or not 1<=self.rounds<=4 or not 2<=self.query_limit<=10
                 or not 1<=self.candidates<=100 or not 8<=self.evidence_limit<=24
@@ -188,6 +190,7 @@ class MultiHop:
                 or self.bindings not in ('off','on') or self.needs not in ('off','on')
                 or self.validation_mode not in ('strict','trust')
                 or self.recovery not in ('off','on') or not 2 <= self.recovery_width <= 4
+                or not 0 <= self.recovery_budget <= 8 or not 1 <= self.recovery_per_hop <= 2
                 or not 2<=self.llm_limit<=8):
             raise ValueError('Invalid multihop configuration')
         self.planner = planner
@@ -200,7 +203,7 @@ class MultiHop:
             return run_focused(self, payload, retrieve, rerank, trace)
         started=time.perf_counter()
         trace.update(mode='llm',strategy=None,rounds=[],llm_calls=0,search_calls=0,
-                     recovery=self.recovery, recovery_queries=0, recovery_sources=0,
+                     recovery=self.recovery, recovery_queries=0, recovery_sources=0, recovery_budget=self.recovery_budget,
                      rejected_queries=0,rejected_supports=0,shortened_bridges=0,fallback=False)
         baseline=None
         history=[]
@@ -283,31 +286,49 @@ class MultiHop:
                 used.add(key)
             return found
 
-        def recovery_queries(proposals, context, initial=False):
-            """Create bounded lexical/context variants without inventing entities."""
-            if self.recovery != 'on' or not proposals:
-                return proposals
-            expanded=[]; seen=set()
-            context = [str(x).strip() for x in context if str(x).strip()]
-            for proposal in proposals:
-                variants=[proposal.query]
-                # The original question remains an independent baseline. These
-                # variants only add already supplied text and preserve the bridge.
-                if initial:
-                    variants.append(f"{proposal.query} Context question: {payload.query}")
-                elif context:
-                    excerpt=' '.join(context[:2])[:260]
-                    variants.append(f"{proposal.query} Evidence: {excerpt}")
-                    variants.append(f"{payload.query} Evidence: {excerpt}")
-                for text in variants[:self.recovery_width]:
-                    text=' '.join(text.split())[:500]
-                    key=normalized(text)
-                    if key in seen or key in {normalized(q) for q in history}:
+        jobs = {}
+        recovery_keys = {}
+
+        def recover(sources):
+            """Only retry executed, unresolved jobs; never expand a fresh hop."""
+            capacity = min(self.recovery_budget-trace['recovery_queries'],
+                           self.query_limit-trace['search_calls'], self.recovery_width)
+            if self.recovery != 'on' or capacity <= 0:
+                return []
+            statuses = {s['need_id']: s['status'] for s in getattr(planner, 'states', [])}
+            proposals = []
+            used = {normalized(q) for q in history}
+            for key, job in jobs.items():
+                if job['retries'] >= self.recovery_per_hop:
+                    continue
+                # Need states are model judgments, not proven semantic truth.
+                # Without a mapped need, only recover if no support was found.
+                if job['need']:
+                    if statuses.get(job['need']) not in ('missing', 'conflict', 'time_unknown'):
                         continue
-                    seen.add(key)
-                    expanded.append(proposal.model_copy(update={'query':text}))
-            trace['recovery_queries'] += max(0,len(expanded)-len(proposals))
-            return expanded
+                elif any(i in supports for i in job.get('hit_ids', ())):
+                    continue
+                p = job['query']
+                if p.source_id == '__question__':
+                    context = 'Context question: ' + payload.query
+                elif p.source_id in sources:
+                    # Use the bound source, never arbitrary top-ranked distractors.
+                    context = 'Evidence: ' + sources[p.source_id][:260]
+                else:
+                    continue
+                text = (p.query + ' ' + context)[:500]
+                candidate = p.model_copy(update={'query': text})
+                if normalized(text) in used:
+                    continue
+                validated = accepted([candidate], sources, 1)
+                if not validated:
+                    continue
+                proposals.extend(validated)
+                used.add(normalized(text))
+                recovery_keys[normalized(text)] = key
+                if len(proposals) >= capacity:
+                    break
+            return proposals
 
         def packet():
             # Reserve prior links, then round-robin ranked sources so one route
@@ -332,8 +353,10 @@ class MultiHop:
             collect(payload.query,baseline)
             sources={'__question__':payload.query}
             pending=accepted(plan.queries,sources,1 if plan.strategy=='chain' else 3) if plan.strategy!='direct' else []
-            pending=recovery_queries(pending, [payload.query], initial=True) if plan.strategy=='chain' else pending
-            for iteration in range(self.rounds):
+            initial_pending = pending
+            if self.recovery == 'on':
+                pending = []
+            for iteration in range(-1 if self.recovery == 'on' else 0, self.rounds):
                 if remaining()<=0:
                     trace['stop']='time_budget'
                     break
@@ -344,14 +367,31 @@ class MultiHop:
                 before=set(pool)
                 if pending:
                     phase='subquery_retrieval'
-                    trace['recovery_sources'] += sum(1 for p in pending if 'Evidence:' in p.query or 'Context question:' in p.query)
+                    for p in pending:
+                        key = normalized(p.query)
+                        base_key = recovery_keys.get(key, key)
+                        if key in recovery_keys:
+                            jobs[base_key]['retries'] += 1
+                            trace['recovery_queries'] += 1
+                            trace['recovery_sources'] += 1
+                        else:
+                            jobs[key] = dict(query=p, retries=0,
+                                need=getattr(planner, 'query_needs', {}).get(key), hit_ids=set())
+                            base_key = key
+                        jobs[base_key].setdefault('hit_ids', set())
                     # Retrieval workers share only the existing inference locks;
                     # storage/lexical work can overlap. Results retain query order.
                     with ThreadPoolExecutor(max_workers=min(3,len(pending))) as executor:
                         futures=[executor.submit(search,p.query,self.candidates) for p in pending]
                         trace['search_calls']+=len(futures)
                         for p,future in zip(pending,futures,strict=True):
-                            collect(p.query,future.result())
+                            hits = future.result()
+                            collect(p.query,hits)
+                            key = normalized(p.query)
+                            jobs.setdefault(key, dict(query=p, retries=0,
+                                need=getattr(planner, 'query_needs', {}).get(key), hit_ids=set()))
+                            jobs[key].setdefault('hit_ids', set())
+                            jobs[key]['hit_ids'].update(h['id'] for h in hits)
                 evidence=packet()
                 sources={'__question__':payload.query,**{e['id']:e['content'] for e in evidence}}
                 seen_evidence.update(e['id'] for e in evidence)
@@ -374,7 +414,7 @@ class MultiHop:
                     if support.source_id in pool:
                         valid[support.source_id]=support
                 supports=valid
-                step=dict(round=iteration+1,queries=[p.model_dump() for p in pending],
+                step=dict(round=iteration+1,stage='baseline_review' if iteration==-1 else 'retrieval_review',queries=[p.model_dump() for p in pending],
                     new_candidates=len(set(pool)-before),evidence_ids=[e['id'] for e in evidence],
                     review=review.model_dump(),valid_support_ids=list(supports))
                 trace['rounds'].append(step)
@@ -387,14 +427,20 @@ class MultiHop:
                 if trace['search_calls']>=self.query_limit:
                     trace['stop']='query_budget'
                     break
+                pending=accepted(review.queries,sources,1 if plan.strategy=='chain' else 3)
+                if iteration == -1:
+                    # Prefer the review's missing-need queries; the validated route
+                    # is a fallback when the reviewer cannot suggest a next step.
+                    pending = pending or initial_pending
+                if not pending:
+                    pending = recover(sources)
                 if enhanced:
                     progress=(tuple(sorted(supports)),planner.progress_token)
-                    if iteration>0 and len(set(pool)-before)==0 and progress==previous_progress:
+                    if (iteration>0 and len(set(pool)-before)==0 and progress==previous_progress
+                            and (self.recovery != 'on' or not pending)):
                         trace['stop']='no_progress'
                         break
                     previous_progress=progress
-                pending=accepted(review.queries,sources,1 if plan.strategy=='chain' else 3)
-                pending=recovery_queries(pending, [value for key,value in sources.items() if key != '__question__'], initial=False)
                 if not pending:
                     trace['stop']='no_grounded_new_query'
                     break

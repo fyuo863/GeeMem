@@ -193,6 +193,7 @@ class EvidencePlanner:
         self.states = []
         self.progress_token = ()
         self.registry = {}
+        self.query_needs = {}
         self.repaired = False
 
     def route(self, question, options, timeout):
@@ -276,6 +277,8 @@ class EvidencePlanner:
                 continue
             used.add(normalized(query))
             queries.append(Query(query=query, source_id=source_id, bridge=bridge))
+            if self.needs:
+                self.query_needs[normalized(query)] = q.need_id
             if len(queries) >= (1 if strategy == 'chain' else 3):
                 break
 
@@ -378,6 +381,8 @@ class EvidencePlanner:
                     continue
                 used.add(normalized(candidate.query))
                 queries.append(candidate)
+                if commit and self.needs:
+                    self.query_needs[normalized(candidate.query)] = q.need_id
                 if len(queries) >= (1 if strategy=='chain' else 3):
                     break
         if commit:
