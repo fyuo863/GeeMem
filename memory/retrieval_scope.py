@@ -13,6 +13,7 @@ class RetrievalScope:
         self.types = tuple(dict.fromkeys(getattr(payload, 'memory_types', ())))
         if any(t not in TYPES for t in self.types):
             raise ValueError('Unsupported memory type')
+        self.dual_channel = getattr(payload, 'dual_channel', False)
         self.fallback = getattr(payload, 'fallback', True)
         self.include_evidence = getattr(payload, 'include_evidence', False)
         self.sources = {}
@@ -33,7 +34,7 @@ class RetrievalScope:
 
     def rank_candidates(self, rows, order, scores, eligible, rrf):
         order = [i for i in order if i in eligible]
-        if self.types and self.fallback:
+        if self.types and self.fallback and not self.dual_channel:
             # A single type vote, even if several requested labels match.
             rank = 0
             for i in order:

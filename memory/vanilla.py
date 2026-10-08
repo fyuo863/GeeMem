@@ -15,7 +15,7 @@ from .store import Conflict
 
 
 class VanillaMemory:
-    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None, builders=None):
+    def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None, builders=None, partition_selector=None):
         from .atomic_retriever import AtomicRetriever
         from .multihop import MultiHop
         self.multihop = MultiHop(cfg, multihop_planner)
@@ -69,11 +69,14 @@ class VanillaMemory:
         rerank_mode = cfg.get('RAG_RERANK_MODE', 'off')
         self.rerank_candidates = int(cfg.get('RAG_RERANK_CANDIDATES', '200'))
         self.rerank_context = int(cfg.get('RAG_RERANK_CONTEXT', '0'))
-        if rerank_mode not in ('off', 'local') or self.rerank_candidates < 1 or not 0 <= self.rerank_context <= 2:
+        if rerank_mode not in ('off', 'local', 'onnx') or self.rerank_candidates < 1 or not 0 <= self.rerank_context <= 2:
             raise ValueError('Invalid reranking configuration')
         if self.reranker is None and rerank_mode == 'local':
             from .rerank import HTTPReranker, LocalReranker
             self.reranker = HTTPReranker(cfg) if cfg.get('RAG_RERANK_API_URL') else LocalReranker(cfg)
+        if self.reranker is None and rerank_mode == 'onnx':
+            from .rerank import ONNXReranker
+            self.reranker = ONNXReranker(cfg)
         if self.rerank_selection == 'context_support' and (self.rerank_context != 1 or self.window != 0):
             raise ValueError('Context support requires reranker, context=1 and result window=0')
         self.path = Path(cfg.get('RAG_MEMORY_DB', 'data/aml/vanilla.sqlite3'))
@@ -124,8 +127,11 @@ class VanillaMemory:
             for memory_type in ('profile', 'relationship', 'rule'):
                 setattr(self, memory_type + '_retriever', SourceRetriever(self.atomic_retriever, memory_type))
         from .retrieval import CallbackReranker
+        from .partition_search import PartitionSearch
+        self.partition_search = PartitionSearch(cfg, partition_selector)
         self.search_service = SearchService(
             self.atomic_retriever,
+            partition_search=self.partition_search,
             multihop=self.multihop,
             reranker=CallbackReranker(self._rerank_for_multihop) if self.reranker is not None else None)
 
@@ -309,8 +315,23 @@ class VanillaMemory:
                     for rank, i in enumerate(sorted(known, key=lambda i: (-float(similarity[i]), i)), 1):
                         scores[i] += self.tag_weight / (self.rrf + rank)
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
+        budget = max(payload.top_k, self.rerank_candidates)
+        if getattr(payload, 'dual_channel', False):
+            from .partition_search import merge_candidates
+            matched = {i for i in order if rows[i]['source_id'] in scope.sources}
+            retrieval_trace = getattr(payload, 'retrieval_trace', None)
+            if retrieval_trace is not None:
+                typed = [i for i in order if i in matched][:budget//2]
+                retrieval_trace['partition_channel_ids'] = [rows[i]['id'] for i in typed]
+                retrieval_trace['global_channel_ids'] = [rows[i]['id'] for i in order if i not in set(typed)][:budget-len(typed)]
+            order = merge_candidates(order, matched, budget)
+        candidates = order[:budget]
+        retrieval_trace = getattr(payload, 'retrieval_trace', None)
+        if retrieval_trace is not None:
+            retrieval_trace['candidate_ids'] = [rows[i]['id'] for i in candidates]
+            retrieval_trace['candidate_count'] = len(candidates)
+            retrieval_trace['typed_candidate_count'] = sum(rows[i]['source_id'] in scope.sources for i in candidates)
         if self.reranker is not None:
-            candidates = order[:max(payload.top_k, self.rerank_candidates)]
             reranked = self.score_candidates(payload.query, rows, candidates)
             # Stable ties preserve the existing retrieval order.
             ranking = sorted(range(len(candidates)), key=lambda j: -reranked[j])

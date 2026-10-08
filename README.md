@@ -361,6 +361,34 @@ EventRetriever(db_path, embedder).search(user_id, query, limit=10, session_id=No
 
 ## 当前默认：四类原文索引
 
+本机 BGE 双语 ONNX 重排已适配，可用 `RAG_RERANK_MODE=onnx` 启用。
+需安装 `[rag,onnx]` 依赖并配置模型目录及 SHA-256 清单。本机根 `.env` 已切换为
+BGE ONNX、仅目标原文（context=0）、batch=8、threads=4，分区模式保持 dual。
+运行中的服务需重启才能读取新配置。纯英文切回 MiniLM 时使用：
+
+```dotenv
+RAG_RERANK_MODE=local
+RAG_RERANK_PATH=data/models/ms-marco-MiniLM-L-6-v2
+RAG_RERANK_CONTEXT=1
+RAG_RERANK_BATCH_SIZE=32
+RAG_RERANK_SELECTION=direct
+```
+
+切回 local 后 ONNX 的 manifest/threads 参数不参与加载。若自行配置过
+RAG_RERANK_API_URL，应清空它，确保 local 使用本地 MiniLM。
+中英文固定候选对照及完整配置见 [BGE 实验报告](docs/bge-onnx-20261008.md)。
+
+搜索分区实验现已接入：根 `.env` 配置 `RAG_PARTITION_MODE=dual` 且
+`RAG_MULTIHOP_MODE=off` 时，通用多标签判断器选择问题的证据分区，保留原问题。
+在 `max(top_k, RAG_RERANK_CANDIDATES)` 的总预算内，为选中分区并集预留一半候选，
+全库填充其余名额；合并去重后统一重排。复用一次问题向量和基础召回评分。
+`strict` 仅检索选中分区，`off` 保留全库基线。general 或路由失败回退全库，
+复用判断器的有界重试。多跳开启时优先多跳，不叠加分区路由。
+`backend.search(payload, trace={})` 可记录路由判断及重排候选 ID。
+本机 `.env` 已按要求开启 dual（多跳为 off）；代码缺省和示例配置仍为 off。
+该开关增加一次模型路由调用，小测尚未证明相对全库的质量提升。
+测试报告见 [分区对照](docs/partition-test-20261008.md)。
+
 检索实现已统一：四类 SourceRetriever 只传递类型条件，统一调用 AtomicRetriever，
 复用全库检索的向量、BM25、标签加工及配置的 reranker。内部 AtomicQuery 支持
 memory_types（多选并集）、session_id、fallback 和 include_evidence。
