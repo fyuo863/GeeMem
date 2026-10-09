@@ -39,6 +39,9 @@ class VanillaMemory:
         self.weight = float(cfg.get('RAG_LEXICAL_WEIGHT', '0.5'))
         self.window = int(cfg.get('RAG_RESULT_WINDOW', '1'))
         self.temporal_mode = cfg.get('RAG_TEMPORAL_MODE', 'off')
+        self.temporal_experiment = cfg.get('RAG_TEMPORAL_EXPERIMENT','off')
+        if self.temporal_experiment not in ('off','absolute_query'):
+            raise ValueError('Invalid temporal experiment')
         if self.temporal_mode not in ('off', 'on'):
             raise ValueError('Invalid temporal mode')
         self.seeds = int(cfg.get('RAG_RESULT_WINDOW_SEED_K', '20'))
@@ -265,6 +268,14 @@ class VanillaMemory:
         return self.search_service.search(payload, trace=trace)
 
     def _search_direct(self, payload):
+        if self.temporal_mode=='on' and self.temporal_experiment=='absolute_query':
+            from .query_time import resolve_query_time, expanded_query
+            from types import SimpleNamespace
+            target=resolve_query_time(payload.query,getattr(payload,'reference_time',None),
+                                      getattr(payload,'reference_timezone','UTC'))
+            if target is not None:
+                payload=SimpleNamespace(**(payload.model_dump() if hasattr(payload,'model_dump') else vars(payload)))
+                payload.query=expanded_query(payload.query,target)
         from .retrieval_scope import RetrievalScope
         scope = RetrievalScope(self, payload)
         with closing(self.connect()) as db:

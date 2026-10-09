@@ -45,6 +45,8 @@ class PartitionSearch:
             trace['routing_error'] = type(exc).__name__
         trace.update(mode='partition', partitions=list(types), partition_mode=self.mode)
         internal = SimpleNamespace(user_id=payload.user_id, query=payload.query,
+            reference_time=getattr(payload,'reference_time',None),
+            reference_timezone=getattr(payload,'reference_timezone','UTC'),
             top_k=payload.top_k, options=getattr(payload,'options',None),
             session_id=getattr(payload,'session_id',None), memory_types=types,
             fallback=self.mode != 'strict' or not types,

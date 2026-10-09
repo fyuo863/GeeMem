@@ -18,6 +18,11 @@ class SearchService:
         trace_lock = Lock()
 
         def retrieve_query(query):
+            # Planner-generated concrete subqueries inherit the request clock.
+            from types import SimpleNamespace
+            query = SimpleNamespace(**(query.model_dump() if hasattr(query,'model_dump') else vars(query)))
+            query.reference_time = getattr(payload,'reference_time',None)
+            query.reference_timezone = getattr(payload,'reference_timezone','UTC')
             # Each concurrent branch owns its scope and diagnostics. Never let a
             # subquery's partition trace overwrite the planner's request trace.
             if not partitioned:

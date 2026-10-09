@@ -22,6 +22,8 @@ class AtomicQuery:
     memory_types: tuple[str, ...] = ()
     fallback: bool = True
     include_evidence: bool = False
+    reference_time: int | None = None
+    reference_timezone: str = 'UTC'
 
     def __post_init__(self):
         from .typed_sources import TYPES

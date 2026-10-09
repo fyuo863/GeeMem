@@ -61,7 +61,9 @@ def public_samples(limit=10, kinds=('temporal-reasoning',)):
                 stamp=int(datetime.strptime(date[:10]+' '+date[-5:],'%Y/%m/%d %H:%M').replace(tzinfo=timezone.utc).timestamp()*1000)
                 sessions.append((sid,[dict(role=m['role'],content=m['content'],timestamp=stamp) for m in messages]))
                 gold.extend(f'{sid}:{i}' for i,m in enumerate(messages) if m.get('has_answer'))
-            result.append(dict(id=sample['question_id'],category=kind,question=sample['question'],sessions=sessions,gold=gold))
+            reference=sample['question_date']
+            reference_stamp=int(datetime.strptime(reference[:10]+' '+reference[-5:],'%Y/%m/%d %H:%M').replace(tzinfo=timezone.utc).timestamp()*1000)
+            result.append(dict(id=sample['question_id'],category=kind,question=sample['question'],sessions=sessions,gold=gold,reference_time=reference_stamp))
     return result
 
 
@@ -96,6 +98,7 @@ def main():
     parser.add_argument('--public-cache',type=Path,required=True)
     parser.add_argument('--count',type=int,default=10)
     parser.add_argument('--controls-per-kind',type=int,default=0,help='Cached non-abstention controls per other dataset category.')
+    parser.add_argument('--experiment',choices=['off','soft_score','absolute_query'],default='off')
     parser.add_argument('--rerank-mode',choices=['off','onnx','local'],default='onnx')
     parser.add_argument('--english-minilm',action='store_true',help='Use the verified local English MiniLM reranker for both arms.')
     parser.add_argument('--live-annotations',type=int,default=4,help='Maximum real annotation sources across the run.')
@@ -106,6 +109,8 @@ def main():
                RAG_RERANK_MODE=args.rerank_mode,RAG_MULTIHOP_MODE='off',RAG_PARTITION_MODE='off',
                RAG_WRITE_GATE_MODE='off',RAG_BUILD_MODE='off',RAG_TIME_ANNOTATION_MODE='off',
                AML_AUTH_MODE='bearer',AML_API_KEY='local-test')
+    cfg['RAG_TEMPORAL_EXPERIMENT']='off'
+    if args.experiment!='off': cfg['RAG_TEMPORAL_MODE']='on'
     if args.english_minilm:
         cfg.update(RAG_RERANK_MODE='local',RAG_RERANK_PATH='data/models/ms-marco-MiniLM-L-6-v2')
         cfg.pop('RAG_RERANK_API_URL',None)
@@ -139,7 +144,7 @@ def main():
             return self.cache[key]
         def documents(self,texts): return embedder.documents(texts)
     off=TracedMemory(cfg,CachedQueries())
-    on=TracedMemory(dict(cfg,RAG_TEMPORAL_MODE='on'),off.embedder,reranker=off.reranker)
+    on=TracedMemory(dict(cfg,RAG_TEMPORAL_MODE='on',RAG_TEMPORAL_EXPERIMENT=args.experiment),off.embedder,reranker=off.reranker)
     from memory.aml_api import AMLAdd
     from memory.temporal_index import TemporalIndex
     from memory.temporal import TemporalNormalizer
@@ -179,6 +184,9 @@ def main():
         print('indexed',sample['id'],flush=True)
         query_started=time.perf_counter()
         off.embedder.queries([sample['question']])
+        if args.experiment=='absolute_query':
+            from memory.query_time import resolve_query_time, expanded_query
+            off.embedder.queries([expanded_query(sample['question'],resolve_query_time(sample['question'],sample['reference_time']))])
         query_seconds=time.perf_counter()-query_started
         arms=[('off',off),('on',on)]
         if sample_number%2: arms.reverse()
@@ -186,14 +194,18 @@ def main():
             with TestClient(create_app(settings=cfg,backend=store)) as client:
                 client.headers['Authorization']='Bearer local-test'
                 before=time.perf_counter()
-                r=client.post('/search',json=dict(user_id='lme-pilot:'+sample['id'],query=sample['question'],top_k=10))
+                r=client.post('/search',json=dict(user_id='lme-pilot:'+sample['id'],query=sample['question'],top_k=10,
+                                                 reference_time=sample['reference_time'],reference_timezone='UTC'))
                 seconds=time.perf_counter()-before
                 assert r.status_code==200,r.status_code
                 hits=r.json()['data']
                 assert all(h['id'] in mapping and h['content']==mapping[h['id']]['content'] for h in hits)
                 assert len(hits)<=10 and len({h['id'] for h in hits})==len(hits)
                 assert all(a['score']>=b['score'] for a,b in zip(hits,hits[1:]))
+                from memory.query_time import resolve_query_time
+                resolved=resolve_query_time(sample['question'],sample['reference_time'])
                 c=dict(variant=name,id=sample['id'],category=sample['category'],question=sample['question'],gold=sample['gold'],
+                       reference_time=sample['reference_time'],resolved_time=resolved.description() if resolved else None,
                        temporal_triggered=bool(__import__('memory.temporal',fromlist=['TemporalRanker']).TemporalRanker.QUERY.search(sample['question'])),
                        query_embedding_seconds=query_seconds,
                        ranked_messages=[mapping[h['id']]['message'] for h in hits],hits=hits,seconds=seconds)
@@ -203,12 +215,12 @@ def main():
         changed+=cases[-1]['ranked_messages']!=cases[-2]['ranked_messages']
     report={name:dict(metrics={str(k):metrics([c for c in cases if c['variant']==name],k) for k in (5,10)},
              mean_seconds=float(np.mean([c['seconds'] for c in cases if c['variant']==name]))) for name in ('off','on')}
-    report.update(count=len(samples),changed_rankings=changed,annotation_calls=recorder.calls,
+    report.update(count=len(samples),changed_rankings=changed,annotation_calls=recorder.calls,experiment=args.experiment,
                   protocol='Real /search through in-process HTTP, cached full-history vectors, side-index backfill; planning/partition disabled in both arms; no answer generation.',
-                  reranker='MiniLM' if args.english_minilm else args.rerank_mode,query_timing_caveat='Both arms reuse the same prefetched query vector; alternating arm order; times exclude remote embedding.')
+                  reranker='MiniLM' if args.english_minilm else args.rerank_mode,query_timing_caveat='Query vectors prefetched, including rewritten query when used; alternating arm order; times exclude remote embedding.')
     (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf8')
-    manifest=dict(ids=[s['id'] for s in samples],revision=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
-                  source_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),PROJECT_ROOT/'memory/temporal.py',PROJECT_ROOT/'memory/temporal_index.py',PROJECT_ROOT/'memory/vanilla.py']},
+    manifest=dict(ids=[s['id'] for s in samples],experiment=args.experiment,revision=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+                  source_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),PROJECT_ROOT/'memory/temporal.py',PROJECT_ROOT/'memory/temporal_index.py',PROJECT_ROOT/'memory/vanilla.py',PROJECT_ROOT/'memory/query_time.py',PROJECT_ROOT/'memory/aml_api.py']},
                   dataset_sha256=hashlib.sha256((PROJECT_ROOT/'data/longmemeval/longmemeval_s_cleaned.json').read_bytes()).hexdigest(),
                   settings={k:v for k,v in cfg.items() if (k.startswith('RAG_') or k=='LLM_MODEL') and not any(s in k for s in ('KEY','URL','PROXY'))})
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')

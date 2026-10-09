@@ -61,6 +61,14 @@ class AMLSearch(Scope):
     query: str = Field(min_length=1, max_length=4000)
     options: list[str] | None = Field(default=None, max_length=100)
     top_k: int = Field(ge=1, le=100, strict=True)
+    reference_time: int | None = Field(default=None,ge=0,le=253402300799999,strict=True)
+    reference_timezone: str = 'UTC'
+
+    @field_validator('reference_timezone')
+    @classmethod
+    def valid_reference_timezone(cls, value):
+        from .query_time import validate_zone
+        return validate_zone(value)
 
     @field_validator('query')
     @classmethod
