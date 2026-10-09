@@ -4,7 +4,7 @@
 
 当前工作分支为 `codex/temporal-absolute-query`。本机已选择百炼
 `qwen3.7-text-rerank` API，embedding 仍为 `text-embedding-v4`，
-生成式判断仍为 `gpt-4o-mini`。本次修改未部署到服务器；下文旧参赛版本说明是历史记录，不能当作当前本机配置。
+生成式判断仍为 `gpt-4o-mini`。2026-10-10 已将通过全量测试的 `628a294` 代码部署到 `/GeeAI/AIAgent/CSIG`，公网 Add/Search/health 验证通过，见 [部署记录](docs/deployment-20261010.md)。下文旧参赛版本说明是历史记录，不能当作当前配置。
 
 已修复重排上下文丢失、多跳最终重排使用裸原文、英文月份日期无法归一化的问题。
 上下文仅供解释，最终响应仍返回原文；审查器的原文与上下文合计受既有字符预算约束。
