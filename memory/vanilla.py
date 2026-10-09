@@ -44,9 +44,15 @@ class VanillaMemory:
             raise ValueError('Invalid temporal experiment')
         if self.temporal_mode not in ('off', 'on'):
             raise ValueError('Invalid temporal mode')
+        self.temporal_fusion_weight = float(cfg.get('RAG_TEMPORAL_FUSION_WEIGHT', '0.10'))
+        self.temporal_window_ratio = float(cfg.get('RAG_TEMPORAL_WINDOW_RATIO', '0.50'))
+        self.temporal_context = int(cfg.get('RAG_TEMPORAL_CONTEXT', '1'))
         self.seeds = int(cfg.get('RAG_RESULT_WINDOW_SEED_K', '20'))
         if not (0 <= self.overlap < self.size and self.rrf > 0 and math.isfinite(self.weight) and self.weight >= 0
-                and self.window >= 0 and self.seeds > 0 and self.mode in ('hybrid', 'dense')):
+                and self.window >= 0 and self.seeds > 0 and self.mode in ('hybrid', 'dense')
+                and 0 <= self.temporal_fusion_weight <= 1
+                and 0 < self.temporal_window_ratio <= 1
+                and 0 <= self.temporal_context <= 2):
             raise ValueError('Invalid RAG configuration')
         self.tag_mode = cfg.get('RAG_TAG_MODE', 'off')
         self.tag_candidates = int(cfg.get('RAG_TAG_CANDIDATES', '400'))
@@ -379,6 +385,14 @@ class VanillaMemory:
             scores = scores.copy()
             for j,i in enumerate(candidates):scores[i] = reranked[j]
             order = [candidates[j] for j in ranking]
+        if self.temporal_experiment == 'window' and target is not None:
+            from .temporal_window import apply_temporal_fusion
+            order, scores, fusion_trace = apply_temporal_fusion(
+                rows, order, scores, target, self.temporal_fusion_weight,
+                self.temporal_context)
+            retrieval_trace = getattr(payload, 'retrieval_trace', None)
+            if retrieval_trace is not None:
+                retrieval_trace['temporal_fusion'] = fusion_trace
         if self.temporal_mode == 'on':
             from .temporal import TemporalRanker
             previous = list(order)
@@ -390,6 +404,19 @@ class VanillaMemory:
                 slots = sorted((float(scores[i]) for i in previous), reverse=True)
                 for i, value in zip(order, slots):
                     scores[i] = value
+        if self.temporal_experiment == 'window' and target is not None:
+            from .temporal_window import soft_quota
+            order, quota_trace = soft_quota(rows, order, target, payload.top_k,
+                                            self.temporal_window_ratio)
+            # Quota is a deterministic selection policy. Keep the public
+            # scores monotonic after moving a bounded window candidate.
+            slots = sorted((float(scores[i]) for i in order), reverse=True)
+            scores = scores.copy()
+            for i, value in zip(order, slots):
+                scores[i] = value
+            retrieval_trace = getattr(payload, 'retrieval_trace', None)
+            if retrieval_trace is not None:
+                retrieval_trace['temporal_quota'] = quota_trace
         selected = []
         seen = set()
         def include(i):

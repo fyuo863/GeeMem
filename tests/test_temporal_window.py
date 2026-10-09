@@ -1,6 +1,6 @@
 from datetime import date
 from memory.query_time import QueryTime
-from memory.temporal_window import window_candidates
+from memory.temporal_window import window_candidates, apply_temporal_fusion, soft_quota
 
 
 TARGET = QueryTime('today', date(2023, 3, 31), date(2023, 3, 31))
@@ -34,6 +34,17 @@ def test_short_pool_and_one_slot_keep_budget():
     rows = [dict(time_mentions=[]) for _ in range(3)]
     assert window_candidates(rows, [0, 1, 2], TARGET, 10)[0] == [0, 1, 2]
     assert window_candidates(rows, [0, 1, 2], TARGET, 1)[0] == [0]
+
+
+def test_temporal_fusion_and_soft_quota_are_bounded():
+    rows = [dict(session_id='s', time_mentions=[]),
+            dict(session_id='s', time_mentions=[dict(start='2023-03-31', end='2023-03-31')]),
+            dict(session_id='s', time_mentions=[])]
+    order, scores, trace = apply_temporal_fusion(rows, [0, 1, 2], [1., .99, .98], TARGET, .1, 1)
+    assert order[1] == 1 and trace['matched_count'] == 1
+    assert scores[1] > .99
+    quota, qtrace = soft_quota(rows, order, TARGET, 2, .5)
+    assert quota[0] == 1 and qtrace['window_selected'] == 1
 
 
 def test_http_window_promotes_evidence_without_timestamp_filter(tmp_path):
