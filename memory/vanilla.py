@@ -38,6 +38,9 @@ class VanillaMemory:
         self.rrf = int(cfg.get('RAG_RRF_K', '60'))
         self.weight = float(cfg.get('RAG_LEXICAL_WEIGHT', '0.5'))
         self.window = int(cfg.get('RAG_RESULT_WINDOW', '1'))
+        self.temporal_mode = cfg.get('RAG_TEMPORAL_MODE', 'off')
+        if self.temporal_mode not in ('off', 'on'):
+            raise ValueError('Invalid temporal mode')
         self.seeds = int(cfg.get('RAG_RESULT_WINDOW_SEED_K', '20'))
         if not (0 <= self.overlap < self.size and self.rrf > 0 and math.isfinite(self.weight) and self.weight >= 0
                 and self.window >= 0 and self.seeds > 0 and self.mode in ('hybrid', 'dense')):
@@ -87,6 +90,10 @@ class VanillaMemory:
         self.vector_writer = VectorWriter(self.embedder, self.connect, self.lock,
                                           size=self.size, overlap=self.overlap)
         self.vector_writer.initialize()
+        self.temporal_index = None
+        if self.temporal_mode == 'on':
+            from .temporal_index import TemporalIndex
+            self.temporal_index = TemporalIndex(self.connect, annotate=cfg.get('RAG_TIME_ANNOTATION_MODE','off') == 'on')
         with closing(self.connect()) as db, db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS rag_tags(memory_id TEXT PRIMARY KEY, identity TEXT NOT NULL,
@@ -151,6 +158,8 @@ class VanillaMemory:
         # the vector writer's request deduplication.
         with self.lock:
             self._add_sources(payload)
+            if self.temporal_index is not None:
+                self.temporal_index.write(payload)
             if self.route_writer is not None:
                 self.route_writer.process(payload.user_id, payload.request_id)
 
@@ -208,10 +217,18 @@ class VanillaMemory:
 
 
     def retrieval_text(self, row):
+        text = row['content']
         if self.metadata_mode == 'on':
             from .provenance import metadata_text
-            return metadata_text(row)
-        return row['content']
+            text = metadata_text(row)
+        mentions = dict(row).get('time_mentions', [])
+        references = []
+        for mention in mentions:
+            if mention['start']:
+                references.append(mention['text'] + ' = ' + mention['start'] + ' to ' + mention['end'])
+        if references:
+            text += '\nSource time mentions (not inferred event dates): ' + '; '.join(references)
+        return text
 
     def score_candidates(self, query, rows, candidates):
         documents = []
@@ -255,6 +272,9 @@ class VanillaMemory:
                               'LEFT JOIN rag_sources s ON s.memory_id=m.id LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
                               (payload.user_id,)).fetchall()
         rows = scope.session_rows(rows)
+        from .temporal import TemporalRanker
+        if self.temporal_index is not None and TemporalRanker.QUERY.search(payload.query):
+            rows = self.temporal_index.enrich(payload.user_id, rows)
         eligible = scope.eligible(rows)
         if not eligible:
             return {'data': []}
@@ -273,7 +293,7 @@ class VanillaMemory:
             scores = np.zeros(len(rows))
             for rank, i in enumerate(order, 1):
                 scores[i] = 1 / (self.rrf + rank)
-            lexical = bm25([r['content'] for r in rows], query)
+            lexical = bm25([self.retrieval_text(r) if dict(r).get('time_mentions') else r['content'] for r in rows], query)
             for rank, i in enumerate(sorted((i for i in range(len(rows)) if lexical[i] > 0), key=lambda i: (-lexical[i], i)), 1):
                 scores[i] += self.weight / (self.rrf + rank)
             order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
@@ -338,6 +358,17 @@ class VanillaMemory:
             scores = scores.copy()
             for j,i in enumerate(candidates):scores[i] = reranked[j]
             order = [candidates[j] for j in ranking]
+        if self.temporal_mode == 'on':
+            from .temporal import TemporalRanker
+            previous = list(order)
+            order = TemporalRanker.order(payload.query, rows, order, scores)
+            if order != previous:
+                # Reuse sorted score slots; never replace scores with arbitrary
+                # integers or feed temporal ranks into semantic fusion.
+                scores = scores.copy()
+                slots = sorted((float(scores[i]) for i in previous), reverse=True)
+                for i, value in zip(order, slots):
+                    scores[i] = value
         selected = []
         seen = set()
         def include(i):
