@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1990" viewBox="0 0 1680 1990"><rect width="100%" height="100%" fill="white"/>
+<text x="45" y="54" font-family="Microsoft YaHei, sans-serif" font-size="32" fill="#26334a" text-anchor="start">GeeMem · 当前系统架构</text>
+<text x="45" y="87" font-family="Microsoft YaHei, sans-serif" font-size="17" fill="#59687a" text-anchor="start">main · 13a7864  |  2026-10-08  |  实线框：已实现；橙色虚线框：未实现 / 待完善</text>
+<rect x="35" y="112" width="1610" height="47" rx="8" fill="#f2f5f9"/>
+<text x="55" y="143" font-family="Microsoft YaHei, sans-serif" font-size="23" fill="#26334a" text-anchor="start">01  写入 /add</text>
+<text x="630" y="141" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#59687a" text-anchor="start">LLM 选择标签与消息；程序绑定来源；所有消息均保留向量与原文</text>
+<polygon points="68,280 200,280 182,360 50,360" fill="#dff3e6" stroke="#355b48" stroke-width="2"/>
+<text x="125.0" y="326.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">/add</text>
+<polygon points="365.0,205 495,320.0 365.0,435 235,320.0" fill="#fff0c7" stroke="#89703b" stroke-width="2"/>
+<text x="365.0" y="289.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">4o-mini 多标签分类器</text>
+<text x="365.0" y="315.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">记忆价值判断</text>
+<text x="365.0" y="340.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">选择类型及消息序号</text>
+<text x="365.0" y="365.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">支持失败重试</text>
+<polyline points="200,320 235,320" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="235,320 225.09508187412055,324.78462087522354 225.09508187412055,315.21537912477646" fill="#586779"/>
+<rect x="550" y="205" width="305" height="95" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="702.5" y="234.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">vector_only</text>
+<text x="702.5" y="260.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">不进入类型分区</text>
+<text x="702.5" y="285.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">仍保留原文与向量</text>
+<rect x="550" y="345" width="305" height="130" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="702.5" y="379.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">valuable · 多标签路由</text>
+<text x="702.5" y="405.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">profile / relationship / event</text>
+<text x="702.5" y="430.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">rule / other_memory</text>
+<text x="702.5" y="455.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">选中原文 + 前两条上下文</text>
+<polyline points="495,290 525,290 525,252 550,252" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="550,252 540.0950818741205,256.78462087522354 540.0950818741205,247.21537912477646" fill="#586779"/>
+<text x="500" y="252" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="start">否</text>
+<polyline points="495,355 525,355 525,410 550,410" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="550,410 540.0950818741205,414.78462087522354 540.0950818741205,405.21537912477646" fill="#586779"/>
+<text x="500" y="406" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="start">是</text>
+<rect x="915" y="265" width="310" height="125" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1070.0" y="296.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">VectorWriter 向量写入器</text>
+<text x="1070.0" y="322.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">消息分块 / embedding</text>
+<text x="1070.0" y="347.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">原文、向量、来源 ID、消息时间</text>
+<text x="1070.0" y="372.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">幂等持久化；标签增强按配置</text>
+<polyline points="855,252 885,252 885,305 915,305" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="915,305 905.0950818741205,309.78462087522354 905.0950818741205,300.21537912477646" fill="#586779"/>
+<polyline points="855,410 885,410 885,353 915,353" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="915,353 905.0950818741205,357.78462087522354 905.0950818741205,348.21537912477646" fill="#586779"/>
+<rect x="1290" y="260" width="320" height="135" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1450.0" y="296.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">共享原文与向量存储</text>
+<text x="1450.0" y="322.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">rag_memories / rag_sources</text>
+<text x="1450.0" y="347.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">规则标签与标签向量（可配置）</text>
+<text x="1450.0" y="372.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">user_id 隔离 / 请求去重</text>
+<polyline points="1225,328 1290,328" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1290,328 1280.0950818741205,332.78462087522354 1280.0950818741205,323.21537912477646" fill="#586779"/>
+<rect x="915" y="445" width="310" height="85" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1070.0" y="481.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">RouteWriter 路由写入</text>
+<text x="1070.0" y="507.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">持久化后索引；失败请求可重试</text>
+<polyline points="1070,390 1070,445" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1070,445 1065.2153791247765,435.0950818741206 1074.7846208752235,435.0950818741206" fill="#586779"/>
+<text x="1090" y="427" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#26334a" text-anchor="start">valuable</text>
+<rect x="50" y="585" width="290" height="100" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="195.0" y="616.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">ProfileBuilder</text>
+<text x="195.0" y="642.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">人物画像原文索引</text>
+<text x="195.0" y="667.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">SourceBuilder；不生成新事实</text>
+<rect x="380" y="585" width="290" height="100" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="525.0" y="616.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">RelationshipBuilder</text>
+<text x="525.0" y="642.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">人物关系原文索引</text>
+<text x="525.0" y="667.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">SourceBuilder；不生成新事实</text>
+<rect x="710" y="585" width="290" height="100" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="855.0" y="616.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">EventBuilder</text>
+<text x="855.0" y="642.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">事件相关原文索引</text>
+<text x="855.0" y="667.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">SourceBuilder；不生成新事实</text>
+<rect x="1040" y="585" width="290" height="100" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1185.0" y="616.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">RuleBuilder</text>
+<text x="1185.0" y="642.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">规则与流程原文索引</text>
+<text x="1185.0" y="667.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">SourceBuilder；不生成新事实</text>
+<polyline points="1070,530 1070,557 195,557" fill="none" stroke="#586779" stroke-width="2"/>
+<polyline points="195,557 195,585" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="195,585 190.21537912477646,575.0950818741205 199.78462087522354,575.0950818741205" fill="#586779"/>
+<polyline points="525,557 525,585" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="525,585 520.2153791247765,575.0950818741205 529.7846208752235,575.0950818741205" fill="#586779"/>
+<polyline points="855,557 855,585" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="855,585 850.2153791247765,575.0950818741205 859.7846208752235,575.0950818741205" fill="#586779"/>
+<polyline points="1070,557 1185,557" fill="none" stroke="#586779" stroke-width="2"/>
+<polyline points="1185,557 1185,585" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1185,585 1180.2153791247765,575.0950818741205 1189.7846208752235,575.0950818741205" fill="#586779"/>
+<rect x="1380" y="585" width="230" height="100" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1495.0" y="616.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">other_memory</text>
+<text x="1495.0" y="642.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">仅保留基础存储</text>
+<text x="1495.0" y="667.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">无专属 Builder</text>
+<polyline points="1225,487 1495,487 1495,585" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1495,585 1490.2153791247765,575.0950818741205 1499.7846208752235,575.0950818741205" fill="#586779"/>
+<text x="50" y="726" font-family="Microsoft YaHei, sans-serif" font-size="17" fill="#59687a" text-anchor="start">分区只保存 source_id、上下文引用、分类分数等索引；原文和向量共享，不重复建立独立检索引擎。</text>
+<rect x="35" y="757" width="1610" height="47" rx="8" fill="#f2f5f9"/>
+<text x="55" y="788" font-family="Microsoft YaHei, sans-serif" font-size="23" fill="#26334a" text-anchor="start">02  检索 /search</text>
+<text x="630" y="786" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#59687a" text-anchor="start">配置决定路径：多跳开启时优先走多跳；否则走分区或直接召回</text>
+<polygon points="68,890 200,890 182,970 50,970" fill="#dff3e6" stroke="#355b48" stroke-width="2"/>
+<text x="125.0" y="936.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">/search</text>
+<polygon points="355.0,836 470,928.5 355.0,1021 240,928.5" fill="#fff0c7" stroke="#89703b" stroke-width="2"/>
+<text x="355.0" y="910.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">SearchService</text>
+<text x="355.0" y="936.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">按配置分流</text>
+<text x="355.0" y="961.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">非 LLM 判断开关</text>
+<polyline points="200,930 240,930" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="240,930 230.09508187412055,934.7846208752235 230.09508187412055,925.2153791247765" fill="#586779"/>
+<rect x="530" y="827" width="350" height="95" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="705.0" y="856.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">MultiHop · 4o-mini 规划</text>
+<text x="705.0" y="882.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">direct / split / chain</text>
+<text x="705.0" y="907.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">已实现；本机配置为 off</text>
+<rect x="530" y="968" width="350" height="110" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="705.0" y="992.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">PartitionSearch · 类型选择器</text>
+<text x="705.0" y="1018.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">profile / relationship / event / rule</text>
+<text x="705.0" y="1043.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">dual：分区候选 + 全局候选</text>
+<text x="705.0" y="1068.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">本机配置为 dual</text>
+<polyline points="470,885 500,885 500,874 530,874" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="530,874 520.0950818741205,878.7846208752235 520.0950818741205,869.2153791247765" fill="#586779"/>
+<polyline points="470,973 500,973 500,1023 530,1023" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="530,1023 520.0950818741205,1027.7846208752235 520.0950818741205,1018.2153791247765" fill="#586779"/>
+<rect x="965" y="814" width="620" height="165" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1275.0" y="853.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">多跳控制器 · 证据循环</text>
+<text x="1275.0" y="879.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">原问题召回 → 充分性审核 → 缺口子查询</text>
+<text x="1275.0" y="904.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">split 独立查询并发；chain 根据证据生成下一跳</text>
+<text x="1275.0" y="929.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">已执行但未解决的查询：有界上下文恢复</text>
+<text x="1275.0" y="954.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">来源/引用校验、去重、查询 / LLM / 时间预算</text>
+<polyline points="880,874 965,874" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="965,874 955.0950818741205,878.7846208752235 955.0950818741205,869.2153791247765" fill="#586779"/>
+<rect x="530" y="1125" width="480" height="125" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="770.0" y="1156.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">AtomicRetriever · 统一底层检索</text>
+<text x="770.0" y="1182.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">一个具体问题 → 召回与排序 → 原文候选</text>
+<text x="770.0" y="1207.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">向量 / 词法 / 标签等通道（按配置）</text>
+<text x="770.0" y="1232.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">BGE 或 MiniLM reranker；无生成式规划</text>
+<polyline points="705,1078 705,1125" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="705,1125 700.2153791247765,1115.0950818741205 709.7846208752235,1115.0950818741205" fill="#586779"/>
+<polyline points="355,1021 355,1187 530,1187" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="530,1187 520.0950818741205,1191.7846208752235 520.0950818741205,1182.2153791247765" fill="#586779"/>
+<text x="365" y="1165" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#26334a" text-anchor="start">两者关闭：直接检索</text>
+<polyline points="1120,979 1120,1100 925,1100 925,1125" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="925,1125 920.2153791247765,1115.0950818741205 929.7846208752235,1115.0950818741205" fill="#586779"/>
+<text x="1134" y="1030" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#26334a" text-anchor="start">每次查询调用</text>
+<polyline points="1010,1210 1160,1210 1160,979" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1160,979 1164.7846208752235,988.9049181258795 1155.2153791247765,988.9049181258795" fill="#586779"/>
+<text x="1170" y="1145" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#26334a" text-anchor="start">原文证据返回审核</text>
+<rect x="1260" y="1040" width="325" height="95" rx="9" fill="#eef3fc" stroke="#435574" stroke-width="2"/>
+<text x="1422.5" y="1069.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">全局候选融合 · 多跳路径</text>
+<text x="1422.5" y="1095.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">原文 ID 去重 / 原问题重排</text>
+<text x="1422.5" y="1120.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">分支排名融合 / 引用支持优先</text>
+<polyline points="1430,979 1430,1040" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1430,1040 1425.2153791247765,1030.0950818741205 1434.7846208752235,1030.0950818741205" fill="#586779"/>
+<polygon points="1278,1180 1585,1180 1567,1275 1260,1275" fill="#dff3e6" stroke="#355b48" stroke-width="2"/>
+<text x="1422.5" y="1209.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">最终 Top-K 原文</text>
+<text x="1422.5" y="1235.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">id / content / score / created_at</text>
+<text x="1422.5" y="1260.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">不生成答案，不写回推断事实</text>
+<polyline points="1430,1135 1430,1180" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1430,1180 1425.2153791247765,1170.0950818741205 1434.7846208752235,1170.0950818741205" fill="#586779"/>
+<polyline points="1010,1235 1260,1235" fill="none" stroke="#586779" stroke-width="2"/>
+<polygon points="1260,1235 1250.0950818741205,1239.7846208752235 1250.0950818741205,1230.2153791247765" fill="#586779"/>
+<text x="1025" y="1270" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#26334a" text-anchor="start">非多跳路径直接返回</text>
+<text x="50" y="1327" font-family="Microsoft YaHei, sans-serif" font-size="17" fill="#59687a" text-anchor="start">注意：引用校验只验证来源与原文匹配，不证明语义推理正确；Top-K 按相关性排序，不是事件时间线。</text>
+<rect x="35" y="1355" width="1610" height="47" rx="8" fill="#f2f5f9"/>
+<text x="55" y="1386" font-family="Microsoft YaHei, sans-serif" font-size="23" fill="#26334a" text-anchor="start">03  独立占位 · 未接入或待完善</text>
+<text x="630" y="1384" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#59687a" text-anchor="start">以下为能力缺口，不表示当前请求会经过这些模块</text>
+<rect x="50" y="1440" width="490" height="140" rx="9" fill="#fff8ee" stroke="#b78341" stroke-width="2" stroke-dasharray="8 6"/>
+<polyline points="50,1440 540,1440 540,1580 50,1580 50,1440" fill="none" stroke="#b78341" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="295.0" y="1479.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">待接入 · 时间表达与事件绑定</text>
+<text x="295.0" y="1505.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">原文时间片段定位 / 事件片段对应</text>
+<text x="295.0" y="1530.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">相对时间归一化、区间、精度、参考时间</text>
+<text x="295.0" y="1555.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">event_time.py 有规则解析；当前主链路未接入</text>
+<rect x="595" y="1440" width="490" height="140" rx="9" fill="#fff8ee" stroke="#b78341" stroke-width="2" stroke-dasharray="8 6"/>
+<polyline points="595,1440 1085,1440 1085,1580 595,1580 595,1440" fill="none" stroke="#b78341" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="840.0" y="1479.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">未实现 · 专用时间查询执行器</text>
+<text x="840.0" y="1505.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">日期范围、最近 / 首次、先后与持续时间</text>
+<text x="840.0" y="1530.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">按事件发生时间比较，而非消息时间</text>
+<text x="840.0" y="1555.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">复用 AtomicRetriever，补查缺失证据</text>
+<rect x="1140" y="1440" width="490" height="140" rx="9" fill="#fff8ee" stroke="#b78341" stroke-width="2" stroke-dasharray="8 6"/>
+<polyline points="1140,1440 1630,1440 1630,1580 1140,1580 1140,1440" fill="none" stroke="#b78341" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="1385.0" y="1479.0" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">待完善 · 事件身份与版本关联</text>
+<text x="1385.0" y="1505.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">同一事件的计划 → 改期 → 取消</text>
+<text x="1385.0" y="1530.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">当前状态 / 历史状态 / 冲突证据</text>
+<text x="1385.0" y="1555.0" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">当前只保存各条原文，未自动形成事件链</text>
+<polyline points="540,1510 595,1510" fill="none" stroke="#586779" stroke-width="2" stroke-dasharray="7 6"/>
+<polygon points="595,1510 585.0950818741205,1514.7846208752235 585.0950818741205,1505.2153791247765" fill="#586779"/>
+<polyline points="1085,1510 1140,1510" fill="none" stroke="#586779" stroke-width="2" stroke-dasharray="7 6"/>
+<polygon points="1140,1510 1130.0950818741205,1514.7846208752235 1130.0950818741205,1505.2153791247765" fill="#586779"/>
+<rect x="50" y="1630" width="490" height="125" rx="9" fill="#fff8ee" stroke="#b78341" stroke-width="2" stroke-dasharray="8 6"/>
+<polyline points="50,1630 540,1630 540,1755 50,1755 50,1630" fill="none" stroke="#b78341" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="295.0" y="1661.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">待完善 · 多跳质量与覆盖保障</text>
+<text x="295.0" y="1687.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">模型的语义判断、错误实体传播</text>
+<text x="295.0" y="1712.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">超过 Top-K 的证据链完整性</text>
+<text x="295.0" y="1737.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">更大范围真实数据验证与失败案例测试</text>
+<rect x="595" y="1630" width="490" height="125" rx="9" fill="#fff8ee" stroke="#b78341" stroke-width="2" stroke-dasharray="8 6"/>
+<polyline points="595,1630 1085,1630 1085,1755 595,1755 595,1630" fill="none" stroke="#b78341" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="840.0" y="1661.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">待接入 · 分区与多跳协同</text>
+<text x="840.0" y="1687.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">目前两条路径按配置择一</text>
+<text x="840.0" y="1712.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">多跳子查询尚未自动经过分区选择器</text>
+<text x="840.0" y="1737.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">不是已实现的“多跳 + dual”串联</text>
+<rect x="1140" y="1630" width="490" height="125" rx="9" fill="#fff8ee" stroke="#b78341" stroke-width="2" stroke-dasharray="8 6"/>
+<polyline points="1140,1630 1630,1630 1630,1755 1140,1755 1140,1630" fill="none" stroke="#b78341" stroke-width="2" stroke-dasharray="7 6"/>
+<text x="1385.0" y="1661.5" font-family="Microsoft YaHei, sans-serif" font-size="19" fill="#26334a" text-anchor="middle">未系统实现 · 记忆治理</text>
+<text x="1385.0" y="1687.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">有效值判定、删除 / 遗忘及披露边界</text>
+<text x="1385.0" y="1712.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">不是增加一个分类标签即可完成</text>
+<text x="1385.0" y="1737.5" font-family="Microsoft YaHei, sans-serif" font-size="16" fill="#26334a" text-anchor="middle">幂等与用户隔离已在基础层实现</text>
+<text x="50" y="1831" font-family="Microsoft YaHei, sans-serif" font-size="21" fill="#26334a" text-anchor="start">与示例的差别</text>
+<text x="50" y="1868" font-family="Microsoft YaHei, sans-serif" font-size="18" fill="#26334a" text-anchor="start">① 向量写入是所有消息的公共步骤。  ② 类型构建器现在是原文索引器，不是结构化事实生成器。</text>
+<text x="50" y="1900" font-family="Microsoft YaHei, sans-serif" font-size="18" fill="#26334a" text-anchor="start">③ 旧图构建 / 旧结构化事件模块不属于当前主链路。  ④ 本图描述代码能力，启用状态以根目录 .env 为准。</text>
+<text x="50" y="1953" font-family="Microsoft YaHei, sans-serif" font-size="15" fill="#6c7887" text-anchor="start">GeeMem  /  architecture-current.svg  ·  可编辑矢量原图与 PNG 预览</text>
+</svg>
