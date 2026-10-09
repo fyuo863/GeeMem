@@ -25,6 +25,12 @@ class TracedMemory(VanillaMemory):
         self.last_trace={}
         return super().search(payload,trace=self.last_trace)
 
+    def _search_direct(self, payload):
+        from types import SimpleNamespace
+        internal = SimpleNamespace(**(payload.model_dump() if hasattr(payload, 'model_dump') else vars(payload)))
+        internal.retrieval_trace = self.last_trace
+        return super()._search_direct(internal)
+
 
 def synthetic():
     definitions=[
@@ -98,7 +104,9 @@ def main():
     parser.add_argument('--public-cache',type=Path,required=True)
     parser.add_argument('--count',type=int,default=10)
     parser.add_argument('--controls-per-kind',type=int,default=0,help='Cached non-abstention controls per other dataset category.')
-    parser.add_argument('--experiment',choices=['off','soft_score','absolute_query'],default='off')
+    parser.add_argument('--experiment',choices=['off','soft_score','absolute_query','window'],default='off')
+    parser.add_argument('--baseline-experiment',choices=['off','absolute_query'],default='off')
+    parser.add_argument('--resolved-only',action='store_true',help='Diagnostic replay of resolvable questions from the selected set.')
     parser.add_argument('--rerank-mode',choices=['off','onnx','local'],default='onnx')
     parser.add_argument('--english-minilm',action='store_true',help='Use the verified local English MiniLM reranker for both arms.')
     parser.add_argument('--live-annotations',type=int,default=4,help='Maximum real annotation sources across the run.')
@@ -109,7 +117,7 @@ def main():
                RAG_RERANK_MODE=args.rerank_mode,RAG_MULTIHOP_MODE='off',RAG_PARTITION_MODE='off',
                RAG_WRITE_GATE_MODE='off',RAG_BUILD_MODE='off',RAG_TIME_ANNOTATION_MODE='off',
                AML_AUTH_MODE='bearer',AML_API_KEY='local-test')
-    cfg['RAG_TEMPORAL_EXPERIMENT']='off'
+    cfg['RAG_TEMPORAL_EXPERIMENT']=args.baseline_experiment
     if args.experiment!='off': cfg['RAG_TEMPORAL_MODE']='on'
     if args.english_minilm:
         cfg.update(RAG_RERANK_MODE='local',RAG_RERANK_PATH='data/models/ms-marco-MiniLM-L-6-v2')
@@ -122,6 +130,9 @@ def main():
             controls=[s for s in public_samples(1000,(kind,)) if 'lme-pilot:'+s['id'] in available][:args.controls_per_kind]
             if len(controls)!=args.controls_per_kind: raise ValueError('Not enough cached control questions')
             samples.extend(controls)
+        if args.resolved_only:
+            from memory.query_time import resolve_query_time
+            samples = [s for s in samples if resolve_query_time(s['question'], s['reference_time']) is not None]
         # Freeze selections and verify complete histories before any search.
         inventory=[]
         for sample in samples:
@@ -184,7 +195,7 @@ def main():
         print('indexed',sample['id'],flush=True)
         query_started=time.perf_counter()
         off.embedder.queries([sample['question']])
-        if args.experiment=='absolute_query':
+        if args.experiment in ('absolute_query','window') or args.baseline_experiment=='absolute_query':
             from memory.query_time import resolve_query_time, expanded_query
             off.embedder.queries([expanded_query(sample['question'],resolve_query_time(sample['question'],sample['reference_time']))])
         query_seconds=time.perf_counter()-query_started
@@ -207,7 +218,8 @@ def main():
                 c=dict(variant=name,id=sample['id'],category=sample['category'],question=sample['question'],gold=sample['gold'],
                        reference_time=sample['reference_time'],resolved_time=resolved.description() if resolved else None,
                        temporal_triggered=bool(__import__('memory.temporal',fromlist=['TemporalRanker']).TemporalRanker.QUERY.search(sample['question'])),
-                       query_embedding_seconds=query_seconds,
+                       query_embedding_seconds=query_seconds,trace=store.last_trace,
+                       candidate_messages=[mapping[mid]['message'] for mid in store.last_trace.get('candidate_ids',[])],
                        ranked_messages=[mapping[h['id']]['message'] for h in hits],hits=hits,seconds=seconds)
                 cases.append(c)
                 with (out/'cases.jsonl').open('a',encoding='utf8') as f:f.write(json.dumps(c,ensure_ascii=False)+'\n')
@@ -215,7 +227,7 @@ def main():
         changed+=cases[-1]['ranked_messages']!=cases[-2]['ranked_messages']
     report={name:dict(metrics={str(k):metrics([c for c in cases if c['variant']==name],k) for k in (5,10)},
              mean_seconds=float(np.mean([c['seconds'] for c in cases if c['variant']==name]))) for name in ('off','on')}
-    report.update(count=len(samples),changed_rankings=changed,annotation_calls=recorder.calls,experiment=args.experiment,
+    report.update(count=len(samples),changed_rankings=changed,annotation_calls=recorder.calls,experiment=args.experiment,baseline_experiment=args.baseline_experiment,
                   protocol='Real /search through in-process HTTP, cached full-history vectors, side-index backfill; planning/partition disabled in both arms; no answer generation.',
                   reranker='MiniLM' if args.english_minilm else args.rerank_mode,query_timing_caveat='Query vectors prefetched, including rewritten query when used; alternating arm order; times exclude remote embedding.')
     (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf8')
@@ -223,6 +235,11 @@ def main():
                   source_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),PROJECT_ROOT/'memory/temporal.py',PROJECT_ROOT/'memory/temporal_index.py',PROJECT_ROOT/'memory/vanilla.py',PROJECT_ROOT/'memory/query_time.py',PROJECT_ROOT/'memory/aml_api.py']},
                   dataset_sha256=hashlib.sha256((PROJECT_ROOT/'data/longmemeval/longmemeval_s_cleaned.json').read_bytes()).hexdigest(),
                   settings={k:v for k,v in cfg.items() if (k.startswith('RAG_') or k=='LLM_MODEL') and not any(s in k for s in ('KEY','URL','PROXY'))})
+    manifest['baseline_experiment'] = args.baseline_experiment
+    manifest['resolved_only'] = args.resolved_only
+    window_source = PROJECT_ROOT/'memory/temporal_window.py'
+    if window_source.exists():
+        manifest['source_hashes'][str(window_source)] = hashlib.sha256(window_source.read_bytes()).hexdigest()
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')
     print('COMPLETE',out,flush=True)
 

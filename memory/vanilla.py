@@ -40,7 +40,7 @@ class VanillaMemory:
         self.window = int(cfg.get('RAG_RESULT_WINDOW', '1'))
         self.temporal_mode = cfg.get('RAG_TEMPORAL_MODE', 'off')
         self.temporal_experiment = cfg.get('RAG_TEMPORAL_EXPERIMENT','off')
-        if self.temporal_experiment not in ('off','absolute_query'):
+        if self.temporal_experiment not in ('off','absolute_query','window'):
             raise ValueError('Invalid temporal experiment')
         if self.temporal_mode not in ('off', 'on'):
             raise ValueError('Invalid temporal mode')
@@ -268,7 +268,8 @@ class VanillaMemory:
         return self.search_service.search(payload, trace=trace)
 
     def _search_direct(self, payload):
-        if self.temporal_mode=='on' and self.temporal_experiment=='absolute_query':
+        target = None
+        if self.temporal_mode=='on' and self.temporal_experiment in ('absolute_query','window'):
             from .query_time import resolve_query_time, expanded_query
             from types import SimpleNamespace
             target=resolve_query_time(payload.query,getattr(payload,'reference_time',None),
@@ -284,7 +285,7 @@ class VanillaMemory:
                               (payload.user_id,)).fetchall()
         rows = scope.session_rows(rows)
         from .temporal import TemporalRanker
-        if self.temporal_index is not None and TemporalRanker.QUERY.search(payload.query):
+        if self.temporal_index is not None and (target is not None or TemporalRanker.QUERY.search(payload.query)):
             rows = self.temporal_index.enrich(payload.user_id, rows)
         eligible = scope.eligible(rows)
         if not eligible:
@@ -347,6 +348,15 @@ class VanillaMemory:
                         scores[i] += self.tag_weight / (self.rrf + rank)
                     order.sort(key=lambda i: (-scores[i], -float(dense[i]), i))
         budget = max(payload.top_k, self.rerank_candidates)
+        if self.temporal_experiment == 'window' and target is not None:
+            from .temporal_window import window_candidates
+            window_pool, window_trace = window_candidates(rows, order, target, budget)
+            # Retain the tail for the existing partition reservation, if enabled.
+            chosen = set(window_pool)
+            order = window_pool + [i for i in order if i not in chosen]
+            retrieval_trace = getattr(payload, 'retrieval_trace', None)
+            if retrieval_trace is not None:
+                retrieval_trace['temporal_window'] = window_trace
         if getattr(payload, 'dual_channel', False):
             from .partition_search import merge_candidates
             matched = {i for i in order if rows[i]['source_id'] in scope.sources}

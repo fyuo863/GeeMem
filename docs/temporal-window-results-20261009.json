@@ -1,0 +1,177 @@
+{
+  "groups": {
+    "全部60题": {
+      "off": {
+        "5": {
+          "hit": 0.9166666666666666,
+          "recall": 0.815,
+          "micro_recall": 0.719626168224299,
+          "all_evidence": 0.7333333333333333
+        },
+        "10": {
+          "hit": 0.9666666666666667,
+          "recall": 0.8811111111111111,
+          "micro_recall": 0.822429906542056,
+          "all_evidence": 0.7833333333333333
+        }
+      },
+      "on": {
+        "5": {
+          "hit": 0.9166666666666666,
+          "recall": 0.815,
+          "micro_recall": 0.719626168224299,
+          "all_evidence": 0.7333333333333333
+        },
+        "10": {
+          "hit": 0.9666666666666667,
+          "recall": 0.8811111111111111,
+          "micro_recall": 0.822429906542056,
+          "all_evidence": 0.7833333333333333
+        }
+      }
+    },
+    "时间20题": {
+      "off": {
+        "5": {
+          "hit": 0.95,
+          "recall": 0.7866666666666667,
+          "micro_recall": 0.6744186046511628,
+          "all_evidence": 0.7
+        },
+        "10": {
+          "hit": 0.95,
+          "recall": 0.8483333333333333,
+          "micro_recall": 0.7906976744186046,
+          "all_evidence": 0.75
+        }
+      },
+      "on": {
+        "5": {
+          "hit": 0.95,
+          "recall": 0.7866666666666667,
+          "micro_recall": 0.6744186046511628,
+          "all_evidence": 0.7
+        },
+        "10": {
+          "hit": 0.95,
+          "recall": 0.8483333333333333,
+          "micro_recall": 0.7906976744186046,
+          "all_evidence": 0.75
+        }
+      }
+    },
+    "对照40题": {
+      "off": {
+        "5": {
+          "hit": 0.9,
+          "recall": 0.8291666666666666,
+          "micro_recall": 0.75,
+          "all_evidence": 0.75
+        },
+        "10": {
+          "hit": 0.975,
+          "recall": 0.8975,
+          "micro_recall": 0.84375,
+          "all_evidence": 0.8
+        }
+      },
+      "on": {
+        "5": {
+          "hit": 0.9,
+          "recall": 0.8291666666666666,
+          "micro_recall": 0.75,
+          "all_evidence": 0.75
+        },
+        "10": {
+          "hit": 0.975,
+          "recall": 0.8975,
+          "micro_recall": 0.84375,
+          "all_evidence": 0.8
+        }
+      }
+    }
+  },
+  "pool_diagnostics": [
+    {
+      "id": "71017277",
+      "question": "I received a piece of jewelry last Saturday from whom?",
+      "matched": 6,
+      "promoted": 0,
+      "gold_total": 1,
+      "gold_in_pool": 1,
+      "candidate_sets_equal": true
+    },
+    {
+      "id": "gpt4_7f6b06db",
+      "question": "What is the order of the three trips I took in the past three months, from earliest to latest?",
+      "matched": 17,
+      "promoted": 0,
+      "gold_total": 3,
+      "gold_in_pool": 3,
+      "candidate_sets_equal": true
+    },
+    {
+      "id": "gpt4_fa19884d",
+      "question": "What is the artist that I started to listen to last Friday?",
+      "matched": 3,
+      "promoted": 0,
+      "gold_total": 1,
+      "gold_in_pool": 1,
+      "candidate_sets_equal": true
+    },
+    {
+      "id": "6e984302",
+      "question": "I mentioned an investment for a competition four weeks ago? What did I buy?",
+      "matched": 5,
+      "promoted": 0,
+      "gold_total": 1,
+      "gold_in_pool": 1,
+      "candidate_sets_equal": true
+    }
+  ],
+  "paired_report": {
+    "off": {
+      "metrics": {
+        "5": {
+          "hit": 0.9166666666666666,
+          "recall": 0.815,
+          "micro_recall": 0.719626168224299,
+          "all_evidence": 0.7333333333333333
+        },
+        "10": {
+          "hit": 0.9666666666666667,
+          "recall": 0.8811111111111111,
+          "micro_recall": 0.822429906542056,
+          "all_evidence": 0.7833333333333333
+        }
+      },
+      "mean_seconds": 0.5917836733705675
+    },
+    "on": {
+      "metrics": {
+        "5": {
+          "hit": 0.9166666666666666,
+          "recall": 0.815,
+          "micro_recall": 0.719626168224299,
+          "all_evidence": 0.7333333333333333
+        },
+        "10": {
+          "hit": 0.9666666666666667,
+          "recall": 0.8811111111111111,
+          "micro_recall": 0.822429906542056,
+          "all_evidence": 0.7833333333333333
+        }
+      },
+      "mean_seconds": 0.5910563016620775
+    },
+    "count": 60,
+    "changed_rankings": 0,
+    "annotation_calls": 0,
+    "experiment": "window",
+    "baseline_experiment": "absolute_query",
+    "protocol": "Real /search through in-process HTTP, cached full-history vectors, side-index backfill; planning/partition disabled in both arms; no answer generation.",
+    "reranker": "MiniLM",
+    "query_timing_caveat": "Query vectors prefetched, including rewritten query when used; alternating arm order; times exclude remote embedding."
+  },
+  "prior_B_rankings_reproduced": true
+}
