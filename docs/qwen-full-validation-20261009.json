@@ -1,0 +1,3552 @@
+{
+  "questions": 861,
+  "manifest": {
+    "settings": {
+      "LLM_MODEL": "gpt-4o-mini",
+      "RAG_MODEL_PATH": "data/models/bge-small-en-v1.5",
+      "RAG_RERANK_PATH": "D:/Program Data/Github Program/.ts/ts-learn/.fyuobot/models/transformers/Xenova/bge-reranker-base",
+      "RAG_METADATA_MODE": "on",
+      "RAG_RERANK_MODE": "local",
+      "RAG_RERANK_CONTEXT": "1",
+      "RAG_RERANK_CANDIDATES": "400",
+      "RAG_RERANK_NEIGHBOR_PENALTY": "2",
+      "RAG_RESULT_WINDOW": "0",
+      "RAG_TAG_MODE": "off",
+      "RAG_RETRIEVAL_MODE": "hybrid",
+      "RAG_RRF_K": "60",
+      "RAG_LEXICAL_WEIGHT": "0.5",
+      "RAG_CHUNK_TOKENS": "320",
+      "RAG_CHUNK_OVERLAP": "40",
+      "RAG_RERANK_BATCH_SIZE": "8",
+      "RAG_RERANK_MAX_LENGTH": "512",
+      "RAG_DEVICE": "cuda",
+      "RAG_RERANK_DEVICE": "cuda",
+      "RAG_EMBEDDING_API_MODEL": "text-embedding-v4",
+      "RAG_EMBEDDING_DIMENSIONS": "1024",
+      "RAG_EMBEDDING_BATCH_SIZE": "10",
+      "RAG_QUERY_PREFIX": "",
+      "RAG_QUERY_INSTRUCTION": "",
+      "RAG_MEMORY_DB": "data/aml/text-embedding-v4.sqlite3",
+      "RAG_MULTIHOP_MODE": "llm",
+      "RAG_WRITE_GATE_MODE": "on",
+      "RAG_PARTITION_MODE": "dual",
+      "RAG_RERANK_MANIFEST": "data/models/bge-reranker-base-onnx-manifest.json",
+      "RAG_RERANK_THREADS": "4",
+      "RAG_RERANK_SELECTION": "direct",
+      "RAG_MULTIHOP_RECOVERY": "on",
+      "RAG_MULTIHOP_RECOVERY_BUDGET": "2",
+      "RAG_MULTIHOP_RECOVERY_PER_HOP": "1",
+      "RAG_RERANK_API_PROTOCOL": "dashscope",
+      "RAG_RERANK_API_MODEL": "qwen3.7-text-rerank",
+      "RAG_RERANK_API_TIMEOUT": "60",
+      "RAG_TARGET_MODE": "off"
+    },
+    "settings_fingerprint": "8b213c2fa191f4968ff0f98b98bb1f30142b158e676342bb31a1dd3b504ac75d",
+    "source_sha256": "1aef6da702087d72515d1b9224f0956a2fbab415c11936253bf7d967d3cf8c17",
+    "source_hashes": {
+      "memory\\aml_api.py": "c7eb32916d1f4af3886b6d91d35655a167bd29bd96a49ad68a2caa8ddf23d4de",
+      "memory\\annotator.py": "c76888806b3fb39483d2ae02f1a4dcbafbbbc181629e43a54148fcdfc66a38af",
+      "memory\\api.py": "df2dbf01b21b61ab0c2d31657f2f782aefe7377a08d95552464836835fa948cf",
+      "memory\\atomic_retriever.py": "d11f9844bd412b60cd360967408d654457bb4c21df4c30caa8fc23d50b2afede",
+      "memory\\build_audit.py": "65f09a4d11282e9cbfeb7a4454cbade111b2016718333710f07265b0491a2c75",
+      "memory\\compact_prompts.py": "9ee7e4902a14b2f7faecbaecf936cbd91f1a86a7cf4cfa8dbcae6914a9bb9e2c",
+      "memory\\config.py": "735e34e731e7a386cd9fea4937e8367b89181b8138ed07915fb89b7d239c3041",
+      "memory\\embeddings.py": "79c3067df9e3afdc89fa3c9fba6db46b265c255e76ac89e76d7f2c406dd57870",
+      "memory\\entity_resolver.py": "577de24da293575bab3be5724ea2c220f1919ba26268e30000d212b61d3f59ba",
+      "memory\\evaluation.py": "747a7e9e91597a75028f97d7fefd128d4a682001bc0e338e71cd9e346ba07078",
+      "memory\\event.py": "e9f5731edc3136967b40e9a79ea9ecf8ea73234fce7db7d5ddeca08da6f9c7a3",
+      "memory\\event_structured.py": "672295ccac4545242dd6f2f16af9ef6a492b371cbdcd42b9ba8a39eafb6daaf5",
+      "memory\\event_time.py": "7c59fd0431c85d5b203200312f966e3d25603226675eee54ec9e4a30211d7845",
+      "memory\\focused_multihop.py": "d89ac8d306b71783f13a2c73d0314f7416e86eff3272a3bb13fd04a82fae8533",
+      "memory\\fusion_qa.py": "10dedb0fe99e7dafb7e0dbb8e9ad98092bc997ef8d28d8d3b3eac615288b498b",
+      "memory\\grounding.py": "0c9c2cf0e21d8262346480fba04de8139b9dfb27f6dcef776a272fb9e8fbc326",
+      "memory\\llm.py": "21ddd2cd8c0fe282aa75d7df2828d4f04e770824934150662c760fecb3ef6692",
+      "memory\\models.py": "56c8d9761cfc27560f8150c6e59c6bc8742cab233d797d248f2fa836e5cea5a6",
+      "memory\\multihop.py": "30b1e2096d8501a7966000e01236d630d079150674e6fc0bdd6d628af5e6f82a",
+      "memory\\multihop_evidence.py": "ac2d9f0d90c488d86dc1bf66fb69fcf563066fb528e37d2517f5825ed42bb543",
+      "memory\\multi_query.py": "3d5e1998b741d136f50485765ef013d1bfee8bb92b5b889f1d560e56022eacbd",
+      "memory\\partition_search.py": "5982e47458ceca0edb38150ee6481313ed60045258325084a615b48d7741ea71",
+      "memory\\planning.py": "9d15e46403306028bb42c5e0d90c032feb32b0f1c31f562ea51b5d04b5f30775",
+      "memory\\profile.py": "688cf91d8bae06b2f79f19db97ed6c76247d7f961bb1a593193caaea33ac28ec",
+      "memory\\provenance.py": "397425b592952f69e58b8fdbe083ea6cd4cb631b83094444f6a7038c4b933a64",
+      "memory\\query_time.py": "0660f4a7e0b4318f6872636c6fbdce825879305703eb9864d23531604fef0874",
+      "memory\\relationship.py": "a600f58437c2bb3ff1a7ec4724c5bddf1e4281a7be25dec6132e261a34d3ddba",
+      "memory\\rerank.py": "e0e83f4fd7c040e7908097e05e871415c7a09f3dee144390e559ff5bb4518c62",
+      "memory\\retrieval.py": "023183491fb919af8c2212c126adb06ddf3026337be2f2fc3fff9de214bd195f",
+      "memory\\retrieval_scope.py": "206e12e1eafae5735481a5fcf47b2cc42eb4582c644b36b8cf92c62eb8a9bdbf",
+      "memory\\route_writer.py": "56b72a04355cf6aca306e48cb3dc49ea0fac6e3c0a4ce6515ac4cf1dcf8b5c36",
+      "memory\\rule.py": "c1fa63d678006e48ba287a5a25c59f32046136fb98cede287c71a7edee4b46f1",
+      "memory\\search_service.py": "f5ba4ff0abfced1880bde293369509e0530dde7460a7eb576c3fdb4baef0515f",
+      "memory\\second_pass.py": "816a969a7c81dc92fded513a96c5315a1a1436528ef172a0b800bb93a52046b6",
+      "memory\\selector.py": "5f47f3c7845d59e0c04930d31d39896f3da9c0ad409534006db1c1dd26082638",
+      "memory\\soft_recall.py": "772c7a56556642d63c20ef3d3ce9e519044f3dbfb96436b96ec2cc80543f7787",
+      "memory\\store.py": "047e8eb6481ab95ee4de60e07a21bb93aa7b35c34a03d8c46f272d5923eb883b",
+      "memory\\tags.py": "e2481050cd2fb9daa54ded3e3ecf38dae12f467c8860b69137d99e3ce6a27dc7",
+      "memory\\target_rerank.py": "fb3f86d6ef79a435fb8fbdf63ce5bfd3bbd0e9c443e949673c250bf54b6ee626",
+      "memory\\temporal.py": "09f945578c06346140d2027519a65cd7fefed6999f80878b277077b023b2247e",
+      "memory\\temporal_index.py": "ca5f824a0d9b37ca9e3d4b6cdd0879ec4c8313e3f1990e8f988bf770704f3c41",
+      "memory\\temporal_window.py": "49cb8e3eeb82b1ff5cb25fea43c11b458bb56eb464db476dd071a9bf3010d8e0",
+      "memory\\typed_sources.py": "9a834fb9e52f5278591157d4908fe4150025c5351eed3fd3ea405cf44925567e",
+      "memory\\vanilla.py": "50ea3e584c0f97ea4a36137c04de4a7ed8d585441ddc0a4d6373d710b67821d5",
+      "memory\\vector_writer.py": "e56911d089353fd55f831679aab6dede5985061674b5d5f761a018123d54fd2d",
+      "memory\\write_gate.py": "f353910622db122e7e917f60f1e1c9a842e87165f3bc94bf0e17d584187c6339",
+      "memory\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commit": "85a43acde995186bd9f883bce4ceed1cb56dcfa6",
+    "request_contract": "Standard textual fields; top_k=100; no query reference time",
+    "speaker_mode": "inline",
+    "reranker": "configured",
+    "comparator": "Same code/model/corpus, direct atomic retrieval (planning/partition/temporal off)",
+    "official_evaluation": false
+  },
+  "metrics": {
+    "previous": {
+      "5": {
+        "hit": 0.5494761350407451,
+        "recall": 0.5164920450135817,
+        "micro_recall": 0.462756052141527,
+        "all_evidence": 0.48661233993015135,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      },
+      "10": {
+        "hit": 0.580908032596042,
+        "recall": 0.5454986418315871,
+        "micro_recall": 0.4934823091247672,
+        "all_evidence": 0.5133876600698487,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      },
+      "100": {
+        "hit": 0.860302677532014,
+        "recall": 0.8257663950329841,
+        "micro_recall": 0.7839851024208566,
+        "all_evidence": 0.7904540162980209,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      }
+    },
+    "direct": {
+      "5": {
+        "hit": 0.9359720605355064,
+        "recall": 0.9013387660069848,
+        "micro_recall": 0.8463687150837989,
+        "all_evidence": 0.8661233993015134,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      },
+      "10": {
+        "hit": 0.969732246798603,
+        "recall": 0.9421808304229724,
+        "micro_recall": 0.9050279329608939,
+        "all_evidence": 0.9150174621653085,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      },
+      "100": {
+        "hit": 0.9953434225844005,
+        "recall": 0.9848661233993015,
+        "micro_recall": 0.972998137802607,
+        "all_evidence": 0.9708963911525029,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      }
+    },
+    "current": {
+      "5": {
+        "hit": 0.9499417927823051,
+        "recall": 0.9213232440822663,
+        "micro_recall": 0.87243947858473,
+        "all_evidence": 0.8917345750873108,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      },
+      "10": {
+        "hit": 0.9685681024447031,
+        "recall": 0.9458672875436555,
+        "micro_recall": 0.9115456238361266,
+        "all_evidence": 0.9220023282887078,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      },
+      "100": {
+        "hit": 0.9953434225844005,
+        "recall": 0.9865153279006597,
+        "micro_recall": 0.9767225325884544,
+        "all_evidence": 0.9743888242142026,
+        "evaluated": 859,
+        "excluded_no_gold": 2
+      }
+    }
+  },
+  "diagnostics": {
+    "previous": {
+      "http_errors": 0,
+      "fallbacks": 13,
+      "routing_errors": 8,
+      "p50": 8.999440500047058,
+      "p95": 29.353951499797404
+    },
+    "direct": {
+      "http_errors": 0,
+      "fallbacks": 0,
+      "routing_errors": 0,
+      "p50": 1.2893114001490176,
+      "p95": 2.532866300083697
+    },
+    "current": {
+      "http_errors": 0,
+      "fallbacks": 9,
+      "routing_errors": 7,
+      "p50": 9.945394000038505,
+      "p95": 21.589921599719673
+    }
+  },
+  "categories": {
+    "1": {
+      "previous": {
+        "hit": 0.36363636363636365,
+        "recall": 0.22294372294372292,
+        "micro_recall": 0.21787709497206703,
+        "all_evidence": 0.1038961038961039,
+        "evaluated": 77,
+        "excluded_no_gold": 0
+      },
+      "direct": {
+        "hit": 0.948051948051948,
+        "recall": 0.774891774891775,
+        "micro_recall": 0.7486033519553073,
+        "all_evidence": 0.6233766233766234,
+        "evaluated": 77,
+        "excluded_no_gold": 0
+      },
+      "current": {
+        "hit": 0.948051948051948,
+        "recall": 0.7987012987012987,
+        "micro_recall": 0.770949720670391,
+        "all_evidence": 0.6493506493506493,
+        "evaluated": 77,
+        "excluded_no_gold": 0
+      }
+    },
+    "2": {
+      "previous": {
+        "hit": 0.6287425149700598,
+        "recall": 0.5958083832335329,
+        "micro_recall": 0.5721649484536082,
+        "all_evidence": 0.562874251497006,
+        "evaluated": 167,
+        "excluded_no_gold": 0
+      },
+      "direct": {
+        "hit": 0.9820359281437125,
+        "recall": 0.9570858283433132,
+        "micro_recall": 0.9278350515463918,
+        "all_evidence": 0.9341317365269461,
+        "evaluated": 167,
+        "excluded_no_gold": 0
+      },
+      "current": {
+        "hit": 0.9880239520958084,
+        "recall": 0.9680638722554892,
+        "micro_recall": 0.9432989690721649,
+        "all_evidence": 0.9461077844311377,
+        "evaluated": 167,
+        "excluded_no_gold": 0
+      }
+    },
+    "3": {
+      "previous": {
+        "hit": 0.3235294117647059,
+        "recall": 0.23529411764705882,
+        "micro_recall": 0.20689655172413793,
+        "all_evidence": 0.14705882352941177,
+        "evaluated": 34,
+        "excluded_no_gold": 2
+      },
+      "direct": {
+        "hit": 0.8529411764705882,
+        "recall": 0.7867647058823529,
+        "micro_recall": 0.7241379310344828,
+        "all_evidence": 0.7352941176470589,
+        "evaluated": 34,
+        "excluded_no_gold": 2
+      },
+      "current": {
+        "hit": 0.7941176470588235,
+        "recall": 0.7426470588235294,
+        "micro_recall": 0.6896551724137931,
+        "all_evidence": 0.7058823529411765,
+        "evaluated": 34,
+        "excluded_no_gold": 2
+      }
+    },
+    "4": {
+      "previous": {
+        "hit": 0.6110154905335629,
+        "recall": 0.5919391853126792,
+        "micro_recall": 0.5723172628304821,
+        "all_evidence": 0.5748709122203098,
+        "evaluated": 581,
+        "excluded_no_gold": 0
+      },
+      "direct": {
+        "hit": 0.9759036144578314,
+        "recall": 0.9691623637406769,
+        "micro_recall": 0.9580093312597201,
+        "all_evidence": 0.9586919104991394,
+        "evaluated": 581,
+        "excluded_no_gold": 0
+      },
+      "current": {
+        "hit": 0.9759036144578314,
+        "recall": 0.970883534136546,
+        "micro_recall": 0.9611197511664075,
+        "all_evidence": 0.963855421686747,
+        "evaluated": 581,
+        "excluded_no_gold": 0
+      }
+    }
+  },
+  "changes": {
+    "previous": {
+      "improved": 383,
+      "regressed": 2,
+      "unchanged": 474,
+      "differences": [
+        {
+          "sample_id": "conv-26",
+          "question_index": 2,
+          "question": "What fields would Caroline be likely to pursue in her education?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 3,
+          "question": "What did Caroline research?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 7,
+          "question": "What is Caroline's relationship status?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 8,
+          "question": "When did Caroline give a speech at a school?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 11,
+          "question": "Where did Caroline move from 4 years ago?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 13,
+          "question": "What career path has Caroline decided to persue?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 19,
+          "question": "Would Caroline likely have Dr. Seuss books on her bookshelf?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 21,
+          "question": "Would Caroline pursue writing as a career option?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 25,
+          "question": "When did Melanie go camping in June?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 26,
+          "question": "When did Melanie go camping in July?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 28,
+          "question": "What did Melanie paint recently?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 29,
+          "question": "In what ways is Caroline participating in the LGBTQ community?",
+          "before": 1,
+          "after": 2,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 33,
+          "question": "When is Melanie's daughter's birthday?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 35,
+          "question": "Would Melanie be considered an ally to the transgender community?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 45,
+          "question": "What instruments does Melanie play?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 46,
+          "question": "What musical artists/bands has Melanie seen?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 49,
+          "question": "Would Melanie likely enjoy the song \"The Four Seasons\" by Vivaldi?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 50,
+          "question": "What are some changes Caroline has faced during her transition journey?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 56,
+          "question": "When did Melanie's friend adopt a child?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 57,
+          "question": "When did Melanie get hurt?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 60,
+          "question": "When did Melanie go on a hike after the roadtrip?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 67,
+          "question": "What did Melanie realize after the charity race?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 68,
+          "question": "How does Melanie prioritize self-care?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 69,
+          "question": "What are Caroline's plans for the summer?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 70,
+          "question": "What type of individuals does the adoption agency Caroline is considering support?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 72,
+          "question": "What is Caroline excited about in the adoption process?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 79,
+          "question": "What did Melanie and her family do while camping?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 80,
+          "question": "What kind of counseling and mental health services is Caroline interested in pursuing?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 81,
+          "question": "What workshop did Caroline attend recently?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 83,
+          "question": "What motivated Caroline to pursue counseling?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 84,
+          "question": "What kind of place does Caroline want to create for people?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 85,
+          "question": "Did Melanie make the black and white bowl in the photo?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 86,
+          "question": "What kind of books does Caroline have in her library?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 89,
+          "question": "What did Caroline take away from the book \"Becoming Nicole\"?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 90,
+          "question": "What are the new shoes that Melanie got used for?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 91,
+          "question": "What is Melanie's reason for getting into running?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 92,
+          "question": "What does Melanie say running has been great for?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 98,
+          "question": "What inspired Caroline's painting for the art show?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 101,
+          "question": "How did Melanie feel while watching the meteor shower?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 102,
+          "question": "Whose birthday did Melanie celebrate recently?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 104,
+          "question": "Why did Melanie choose to use colors and patterns in her pottery project?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 105,
+          "question": "What pet does Caroline have?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 108,
+          "question": "What activity did Caroline used to do with her dad?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 114,
+          "question": "How long has Melanie been creating art?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 115,
+          "question": "What advice does Caroline give for getting started with adoption?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 116,
+          "question": "What setback did Melanie face in October 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 117,
+          "question": "What does Melanie do to keep herself busy during her pottery break?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 118,
+          "question": "What was the poetry reading that Caroline attended about?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 119,
+          "question": "What does Caroline's drawing symbolize for her?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 122,
+          "question": "How did Melanie's kids handle the accident?",
+          "before": 2,
+          "after": 4,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 124,
+          "question": "How did Melanie's children handle the accident?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-26",
+          "question_index": 127,
+          "question": "How did Melanie feel about her family supporting her?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 2,
+          "question": "How do Jon and Gina both like to destress?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 3,
+          "question": "What do Jon and Gina both have in common?",
+          "before": 0,
+          "after": 1,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 9,
+          "question": "Which city have both Jean and John visited?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 13,
+          "question": "When did Jon host a dance competition?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 15,
+          "question": "Do Jon and Gina start businesses out of what they love?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 19,
+          "question": "What does Jon's dance studio offer?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 20,
+          "question": "When did Jon receive mentorship to promote his venture?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 22,
+          "question": "When was Jon in Rome?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 28,
+          "question": "When did Gina start being recognized by fashion editors?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 33,
+          "question": "What is Gina's favorite style of dance?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 34,
+          "question": "What is Jon's favorite style of dance?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 36,
+          "question": "What kind of dance piece did Gina's team perform to win first place?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 37,
+          "question": "What does Gina say about the dancers in the photo?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 38,
+          "question": "What is Jon's attitude towards being part of the dance festival?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 49,
+          "question": "Why did Gina combine her clothing business with dance?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 50,
+          "question": "What does Jon's dance make him?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 53,
+          "question": "What kind of professional experience did Gina get accepted for on May 23, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 56,
+          "question": "What is Jon offering to the dancers at his dance studio?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 57,
+          "question": "How does Jon use the clipboard with a notepad attached to it?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 60,
+          "question": "What is Jon working on opening?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 61,
+          "question": "How does Gina describe the studio that Jon has opened?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 62,
+          "question": "How does Jon feel about the opening night of his dance studio?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 63,
+          "question": "What does Gina say to Jon about the grand opening?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 67,
+          "question": "What plans does Jon have after receiving advice at the networking event?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-30",
+          "question_index": 68,
+          "question": "What offer does Gina make to Jon regarding social media?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 1,
+          "question": "When did Maria donate her car?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 2,
+          "question": "What martial arts has John done?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 5,
+          "question": "When did Maria go to the beach?",
+          "before": 0,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 6,
+          "question": "Where has Maria made friends?",
+          "before": 0,
+          "after": 1,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 7,
+          "question": "What items does John mention having as a child?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 8,
+          "question": "Who gave Maria's family money when she was younger and her family was going through tough times?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 9,
+          "question": "What test has John taken multiple times?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 12,
+          "question": "What writing classes has Maria taken?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 14,
+          "question": "Who did John go to yoga with?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 17,
+          "question": "What areas of the U.S. has John been to or is planning to go to?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 27,
+          "question": "What types of yoga has Maria practiced?",
+          "before": 0,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 28,
+          "question": "When did Maria join a gym?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 30,
+          "question": "What music events has John attended?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 32,
+          "question": "What are the names of John's children?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 34,
+          "question": "What area was hit by a flood?",
+          "before": 2,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 39,
+          "question": "Who have written notes of gratitude to Maria?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 56,
+          "question": "What kind of activities did John and his mates from the online group do as part of their service efforts?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 59,
+          "question": "What did Jean go through before meeting Maria?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 60,
+          "question": "Why did John decide to run for office again?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 65,
+          "question": "What areas is John particularly interested in for policymaking?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 74,
+          "question": "How often does John work out with his family?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 75,
+          "question": "How has John's fitness improved since starting boot camps with his family?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 76,
+          "question": "What kind of food did Maria have on her dinner spread iwth her mother?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 89,
+          "question": "What did Maria say it was like being at the waterfall in Oregon?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 91,
+          "question": "What exciting news did Maria share on 16 June, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 94,
+          "question": "What was one of the biggest challenges John faced in his journey to becoming assistant manager?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 95,
+          "question": "How does John describe the support he received during his journey to becoming assistant manager?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 96,
+          "question": "What kind of event did John and his family attend in June 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 97,
+          "question": "Why did Maria need to help her cousin find a new place to live?",
+          "before": 2,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 99,
+          "question": "What inspired John to join the marching event for veterans' rights?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 103,
+          "question": "What motivated Maria and John to discuss potential solutions for their community on 7 July, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 104,
+          "question": "What did Maria plan to do later on the evening of 7 July, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 105,
+          "question": "What kind of activities did Maria do at the picnic with her church friends?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 106,
+          "question": "What does John appreciate about the veteran's hospital visit?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 110,
+          "question": "Which activity has John done apart from yoga at the studio?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 111,
+          "question": "What community service did Maria mention that she was involved in on 31 July, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 114,
+          "question": "How did John describe his kids' reaction at the military memorial?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 116,
+          "question": "What does John believe is important for children regarding veterans?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 117,
+          "question": "What happened to John's job in August 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 119,
+          "question": "What did John do to help his community last year in his hometown?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 127,
+          "question": "What is the name of Maria's second puppy?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 129,
+          "question": "What is John currently doing as a volunteer in August 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 5,
+          "question": "When did Nate get his first two turtles?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 8,
+          "question": "What is Joanna allergic to?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 12,
+          "question": "What movie did Joanna watch on 1 May, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 13,
+          "question": "Which outdoor spot did Joanna visit in May?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 17,
+          "question": "When did Joanna start writing her third screenplay?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 20,
+          "question": "When did Nate win his third tourney?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 21,
+          "question": "What places has Joanna submitted her work to?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 27,
+          "question": "What book recommendations has Joanna given to Nate?",
+          "before": 0,
+          "after": 1,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 32,
+          "question": "When did Nate attend a cooking show?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 35,
+          "question": "What movies have both Joanna and Nate seen?",
+          "before": 0,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 42,
+          "question": "How many times has Joanna's scripts been rejected?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 45,
+          "question": "How many of Joanna's writing have made it to the big screen?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 46,
+          "question": "When was Joanna's second movie script shown on the big screens?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 48,
+          "question": "When did Joanna plan to go over to Nate's and share recipes?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 52,
+          "question": "Which torunament did Nate win in the beginning of November 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 57,
+          "question": "When did Joanna plan on going to Nate's to watch him play with his turtles?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 58,
+          "question": "What state did Joanna visit in summer 2021?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 68,
+          "question": "What state did Nate visit?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 70,
+          "question": "What game was the second tournament that Nate won based on?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 71,
+          "question": "What is Joanna's third screenplay about?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 73,
+          "question": "What type of movies does Nate enjoy watching the most?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 75,
+          "question": "What genre is Joanna's first screenplay?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 76,
+          "question": "What are Joanna's plans for her finished screenplay in January 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 79,
+          "question": "Which dairy-free dessert flavors does Nate enjoy?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 80,
+          "question": "What did Joanna recently watch and recommend to Nate on February 7, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 85,
+          "question": "How does Nate describe the process of taking care of turtles?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 86,
+          "question": "What was Joanna's audition for?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 89,
+          "question": "What is Joanna's project called in the writers group?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 92,
+          "question": "What kind of films does Joanna enjoy?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 96,
+          "question": "What creative activity does Nate joke about pursuing after being inspired by their hikes with Jo?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 100,
+          "question": "What event is Nate organizing in June 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 101,
+          "question": "Who did Nate plan to invite to his gaming party in June 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 102,
+          "question": "What special items did Nate get for everyone at his gaming party?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 109,
+          "question": "What recipe did Nate offer to share with Joanna in June 2022?",
+          "before": 0,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 114,
+          "question": "What specific themes are explored in Joanna's new book?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 115,
+          "question": "What inspired Joanna's new script in July 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 140,
+          "question": "What does Joanna recommend to make a living room comfy like hers?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 142,
+          "question": "What does Joanna do while she writes?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 143,
+          "question": "Why did Joanna name the stuffed animal dog Tilly?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 144,
+          "question": "What does Joanna do after receiving a rejection from a production company?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 146,
+          "question": "What encouragement does Nate give to Joanna after her setback?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 147,
+          "question": "What does Nate rely on for cheer and joy?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 148,
+          "question": "What does Joanna use to remember her dog from Michigan?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 150,
+          "question": "What inspires Joanna to create drawings of her characters?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 157,
+          "question": "What did Joanna receive from her brother that brought back childhood memories?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 160,
+          "question": "What project is Joanna working on in her notebook on November 9, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 164,
+          "question": "What advice does Joanna give to Nate about making YouTube videos?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 168,
+          "question": "What does Nate want to do when Joanna comes over to his place?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 177,
+          "question": "What types of animals and insects does Joanna mention being allergic to?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 1,
+          "question": "What are John's goals for his career that are not related to his basketball skills?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 9,
+          "question": "What kind of writing does Tim do?",
+          "before": 0,
+          "after": 3,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 15,
+          "question": "Where was John between August 11 and August 15 2023?",
+          "before": 2,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 18,
+          "question": "Which popular time management technique does Tim use to prepare for exams?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 22,
+          "question": "What outdoor activities does John enjoy?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 23,
+          "question": "Who is Tim and John's favorite basketball player?",
+          "before": 0,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 27,
+          "question": "Has Tim been to North Carolina and/or Tennesee states in the US?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 28,
+          "question": "What kind of fiction stories does Tim write?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 39,
+          "question": "When did Tim start playing the violin?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 43,
+          "question": "When did John achieve a career-high assist performance?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 62,
+          "question": "What kind of articles has Tim been writing about for the online magazine?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 63,
+          "question": "Which two fantasy novels does Tim particularly enjoy writing about?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 67,
+          "question": "How did John get introduced to basketball?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 75,
+          "question": "Which movie's theme is Tim's favorite to play on the piano?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 79,
+          "question": "How was John's experience in New York City?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 83,
+          "question": "What is Tim excited to see at Universal Studios?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 85,
+          "question": "What does John want to do after his basketball career?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 90,
+          "question": "Which basketball team does Tim support?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 92,
+          "question": "How does John describe the game season for his team?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 99,
+          "question": "What has John been able to help the younger players achieve?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 105,
+          "question": "What type of meal does John often cook using a slow cooker?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 106,
+          "question": "How will John share the honey garlic chicken recipe with the other person?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 109,
+          "question": "Why do Tim and John find LeBron inspiring?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 136,
+          "question": "What activity did Tim do after reading the stories about the Himalayan trek?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 142,
+          "question": "What is John's favorite book series?",
+          "before": 1,
+          "after": 0,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 147,
+          "question": "What map does Tim show to his friend John?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 152,
+          "question": "What was Johns's reaction to sealing the deal with the beverage company?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 157,
+          "question": "What kind of charity organization does John mention he is teaming up with?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 158,
+          "question": "Which movie's theme does Tim enjoy playing on the piano?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 159,
+          "question": "What could John do after his basketball career?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 0,
+          "question": "Which year did Audrey adopt the first three of her dogs?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 18,
+          "question": "What are some problems that Andrew faces before he adopted Toby?",
+          "before": 0,
+          "after": 1,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 36,
+          "question": "What technique is Audrey using to discipline her dogs?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 47,
+          "question": "What did Audrey eat for dinner on October 24, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 62,
+          "question": "What challenge is Andrew facing in their search for a pet?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 73,
+          "question": "What are some of the personalities of Audrey's four fur babies?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 77,
+          "question": "What advice did Audrey give to Andrew regarding grooming Toby?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 84,
+          "question": "What kind of flowers does Audrey take care of?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 92,
+          "question": "What organization does Audrey donate a portion of her profits to?",
+          "before": 2,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 93,
+          "question": "How does Audrey help out the animal shelter?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 94,
+          "question": "What type of games do Audrey's dogs like to play at the park?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 99,
+          "question": "What do Andrew and Buddy like doing on walks?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 103,
+          "question": "What did Andrew and Audrey plan to do on the Saturday after October 28, 2023?",
+          "before": 2,
+          "after": 3,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-44",
+          "question_index": 110,
+          "question": "What did Andrew get for Scout to create a safe and fun space for them?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 0,
+          "question": "Which recreational activity was James pursuing on March 16, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 2,
+          "question": "When did John resume playing drums in his adulthood?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 11,
+          "question": "Which books has John recommended to James?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 14,
+          "question": "Who or which organizations have been the beneficiaries of John's charity tournaments?",
+          "before": 0,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 15,
+          "question": "Are John and James fans of the same football team?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 16,
+          "question": "Which countries has James visited?",
+          "before": 1,
+          "after": 4,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 18,
+          "question": "When did James depart for his trip to Canada?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 19,
+          "question": "Which country did James book tickets for in July 2022?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 20,
+          "question": "How many days did James plan to spend on his trip in Canada?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 21,
+          "question": "Where was James at on July 12, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 22,
+          "question": "Which countries did James visit in July 2022?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 23,
+          "question": "What additional country did James visit during his trip to Canada?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 25,
+          "question": "When did John spend time with his sister and dogs?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 26,
+          "question": "What happened to John's job situation in 2022?",
+          "before": 0,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 27,
+          "question": "When did John start his job in IT?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 28,
+          "question": "When did James meet Samantha?",
+          "before": 1,
+          "after": 2,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 31,
+          "question": "Why didn't John want to go to Starbucks?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 45,
+          "question": "When did John and his gaming friends organize the charity tournament?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 47,
+          "question": "What was James' big moment with Samantha in October 2022?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 52,
+          "question": "What type of mobile application does James plan to build with John?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 55,
+          "question": "What did James offer to do for John regarding pets?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 57,
+          "question": "How long has John been playing the drums as of 27 March, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 60,
+          "question": "How does James communicate with his gaming team?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 61,
+          "question": "What advice did James receive from the famous players he met at the tournament?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 65,
+          "question": "What inspired James to create the game character in the virtual world?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 66,
+          "question": "Which country did James visit in 2021?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 70,
+          "question": "What type of pizza is James' favorite?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 72,
+          "question": "What did John organize with his friends on May 8, 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 76,
+          "question": "What did John create for the charitable foundation that helped generate reports for analysis?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 77,
+          "question": "What did John receive for achieving second place in the tournament?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 78,
+          "question": "What project is James working on in his game design course?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 79,
+          "question": "Who does James support in football matches?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 80,
+          "question": "Which football club does John support?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 85,
+          "question": "What did James enjoy doing on cold winter days?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 88,
+          "question": "When did James plan to return from his trip to Toronto and Vancouver?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 90,
+          "question": "What made John leave his IT job?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 91,
+          "question": "Which game tournaments does John plan to organize besides CS:GO?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 96,
+          "question": "Whose phone number did James receive during the beach outing?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 97,
+          "question": "What is James planning to do after receiving Samantha's phone number?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 98,
+          "question": "What is John organizing with his siblings?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 100,
+          "question": "What were some difficulties James faced during the development of his game?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 102,
+          "question": "What kind of programs are John's siblings making?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 109,
+          "question": "What is the name of the board game John tried in September 2022?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 110,
+          "question": "Where does James get his ideas from?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 111,
+          "question": "What kind of dream did James have recently?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 112,
+          "question": "What kind of music does John like?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 118,
+          "question": "What kind of gig was John offered at the game dev non-profit organization?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 119,
+          "question": "What does John feel about starting the journey as a programming mentor for game developers?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 130,
+          "question": "What did John suggest James practice before playing FIFA 23 together?",
+          "before": 1,
+          "after": 2,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 133,
+          "question": "What physical reason does John give for not being able to play bowling?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 0,
+          "question": "What kind of project was Jolene working on in the beginning of January 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 15,
+          "question": "When did Jolene buy her pet Seraphim?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 16,
+          "question": "In what country did Jolene buy snake Seraphim?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 23,
+          "question": "What are Jolene's favorite books?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 24,
+          "question": "Which book did Jolene read in January 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 32,
+          "question": "Which year did Jolene and her partner start dating?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 40,
+          "question": "When did Deborah go for a bicycle ride with Anna?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 46,
+          "question": "Which year did Jolene start practicing yoga?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 48,
+          "question": "When did Jolene lose a lot of progress in her work?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 49,
+          "question": "When did Jolene adopt her snake Susie?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 51,
+          "question": "Which pet did Jolene adopt more recently - Susie or Seraphim?",
+          "before": 1,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 54,
+          "question": "What games does Jolene recommend for Deborah?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 55,
+          "question": "What do Deborah and her husband do together?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 57,
+          "question": "What projects is Jolene planning for next year?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 58,
+          "question": "Where did Deborah get her cats?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 70,
+          "question": "What card game is Deborah talking about?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 74,
+          "question": "Has Jolene tried surfing?",
+          "before": 0,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 75,
+          "question": "When did the Deboran and Jolene agree to go surfing?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 80,
+          "question": "When did Jolene buy her pet snake?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 82,
+          "question": "Where did Deborah meet her new neighbor Anna?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 83,
+          "question": "What activity did Jolene and her partner plan to do together instead of resuming yoga?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 84,
+          "question": "What milestone did Jolene achieve recently on 4 February, 2023?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 87,
+          "question": "What new outlook did Jolene gain after her mini retreat on 9 February, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 88,
+          "question": "What cool stuff did Jolene accomplish at the retreat on 9 February, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 93,
+          "question": "How did Jolene and her partner initially meet?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 98,
+          "question": "What did Jolene ask Deb to help with on 13 March, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 101,
+          "question": "How does Jolene plan to pursue her dream of learning to surf?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 116,
+          "question": "Why did Jolene decide to get a snake as a pet?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 118,
+          "question": "What activity does Deborah do with her cats?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 121,
+          "question": "How did Jolene come to have her pet, Susie?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 133,
+          "question": "What did Jolene participate in recently that provided her with a rewarding experience?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 135,
+          "question": "What kind of event did Jolene present at recently?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 143,
+          "question": "Why did Jolene get the new plant on 30 August, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 147,
+          "question": "What was one of Jolene's favorite games to play with her mom on the nintendo wii game system?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 149,
+          "question": "Why did Jolene have to reschedule their meeting with Deborah on September 8, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 152,
+          "question": "How did Jolene feel about her progress in practicing mindfulness and gratitude?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 153,
+          "question": "What positive change did Jolene experience during the retreat?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 155,
+          "question": "What did Deborah do with their mom's old friends?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 157,
+          "question": "What does yoga on the beach provide for Deborah?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 158,
+          "question": "How does Jolene describe their home room?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 11,
+          "question": "When did Sam first go to the doctor and find out he had a weight problem?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 13,
+          "question": "What kind of unhealthy snacks does Sam enjoy eating?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 14,
+          "question": "What recurring issue frustrates Sam at the grocery store?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 20,
+          "question": "When did Sam start working out at the gym?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 26,
+          "question": "What recurring frustration does Evan experience?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 27,
+          "question": "What is the recurring dream that Sam keeps having?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 31,
+          "question": "How many months lapsed between Sam's first and second doctor's appointment?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 33,
+          "question": "Which classes did Evan join in mid-August 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 36,
+          "question": "How do Evan and Sam use creative outlets to cope with life's challenges?",
+          "before": 0,
+          "after": 1,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 40,
+          "question": "Which activity do Evan and Sam plan on doing together during September 2023?",
+          "before": 2,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 42,
+          "question": "What recurring adventure does Evan have with strangers?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 43,
+          "question": "What is Sam's persistent problem with his phone?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 44,
+          "question": "Which US state(s) was Sam travelling in during October 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 45,
+          "question": "When did Sam and his friend decide to try kayaking?",
+          "before": 3,
+          "after": 4,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 46,
+          "question": "Which new activity does Sam take up in October 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 48,
+          "question": "When was Sam in the ER?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 49,
+          "question": "Which ailment does Sam have to face due to his weight?",
+          "before": 0,
+          "after": 2,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 51,
+          "question": "When did Evan lose his job?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 52,
+          "question": "When did Evan and Sam planned a trip to the beach together?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 64,
+          "question": "When did Evan have a drunken night with his friends?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 65,
+          "question": "What type of car did Evan get after his old Prius broke down?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 66,
+          "question": "How did Evan get into watercolor painting?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 68,
+          "question": "What advice did Evan give Sam about finding a passion?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 70,
+          "question": "What did Evan find relaxing about his road trip to Jasper?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 71,
+          "question": "What habit is Sam trying to change in terms of diet?",
+          "before": 0,
+          "after": 4,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 72,
+          "question": "What new suggestion did Evan give to Sam regarding his soda and candy consumption?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 73,
+          "question": "What did Sam agree to try instead of soda and candy?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 78,
+          "question": "What does the bonsai tree symbolize for Evan?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 79,
+          "question": "Why did Evan decide to get the bonsai tree?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 89,
+          "question": "What injury did Evan suffer from in August 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 91,
+          "question": "What suggestion did Sam give to Evan to help with his knee issue?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 93,
+          "question": "What did Evan recommend Sam acquire to get started with painting?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 94,
+          "question": "What activity does Evan do to keep himself busy while healing his knee?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 96,
+          "question": "What kind of writing does Sam enjoy as a form of expression?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 101,
+          "question": "What digestive issue did Sam experience lately?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 106,
+          "question": "Why had Evan been going through a tough time lately?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 118,
+          "question": "How did Evan feel when he painted the piece with the bird flying over it?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 120,
+          "question": "How did Evan describe the process of creating the painting with the bird flying over it?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 121,
+          "question": "What did Evan want to share with his work friends?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 125,
+          "question": "What advice did Evan suggest Sam seek from a doctor?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 133,
+          "question": "How many times does Sam mention having had a health checkup or doctor's appointment?",
+          "before": 0,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 134,
+          "question": "How did Evan try to view the setback with his broken Prius?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 0,
+          "question": "When did Calvin first travel to Tokyo?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 5,
+          "question": "What are Dave's dreams?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 9,
+          "question": "When did Calvin's place get flooded in Tokyo?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 11,
+          "question": "When was Calvin's concert in Tokyo?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 19,
+          "question": "Who inspired Dave's passion for car engineering?",
+          "before": 0,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 27,
+          "question": "Where was Dave in the last two weeks of August 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 29,
+          "question": "What was Dave doing in San Francisco?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 30,
+          "question": "When did Dave return from San Francisco?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 32,
+          "question": "When was Calvin's album released?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 35,
+          "question": "What was the artists Calvin used to listen to when he was a kid?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 36,
+          "question": "Which of their family member do Calvin and Dave have nostalgic memories about?",
+          "before": 0,
+          "after": 1,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 38,
+          "question": "Which city was Calvin at on October 3, 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 41,
+          "question": "When Dave was a child, what did he and his father do in the garage?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 45,
+          "question": "What does help Calvin stay connected to the creative process?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 47,
+          "question": "Which cities did Dave travel to in 2023?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 48,
+          "question": "Which hobby did Dave pick up in October 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 55,
+          "question": "When did Calvin attend a gala in Boston?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 58,
+          "question": "Where did Calvin attend a music festival in April 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 62,
+          "question": "What did Calvin receive as a gift from another artist?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 63,
+          "question": "What was the necklace Calvin received meant to remind him of?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 64,
+          "question": "What does Dave do when he feels his creativity is frozen?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 67,
+          "question": "What did Dave open in May 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 74,
+          "question": "What kind of music has Calvin been creating lately?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 82,
+          "question": "What does Dave say is important for making his custom cars unique?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 86,
+          "question": "What did Calvin and his friends record in August 2023?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 87,
+          "question": "Where did Calvin start shooting a video for his new album?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 88,
+          "question": "What design is featured on Calvin's guitar?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 90,
+          "question": "What color glow did Calvin customize his guitar with?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 94,
+          "question": "What is Calvin excited about after the tour?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 97,
+          "question": "What activity did Calvin enjoy during his summer?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 98,
+          "question": "Which song from the childhood of Calvin brings back memories of a road trip with his dad?",
+          "before": 0,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 106,
+          "question": "What activity does Dave find fulfilling, similar to Calvin's passion for music festivals?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 112,
+          "question": "How does Calvin balance his job and personal life?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 113,
+          "question": "What inspired Calvin's recent music?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 114,
+          "question": "How does Calvin describe his music in relation to capturing feelings?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 115,
+          "question": "What is the toughest part of car restoration according to Dave?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 118,
+          "question": "When did Dave first get interested in cars?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 119,
+          "question": "How did Calvin feel about performing with someone he admires?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 120,
+          "question": "What realization did the nightclub experience bring to Calvin?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 130,
+          "question": "What hobby did Dave take up recently?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 135,
+          "question": "Where did Dave take a stunning photo of a waterfall?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        }
+      ]
+    },
+    "direct": {
+      "improved": 11,
+      "regressed": 5,
+      "unchanged": 843,
+      "differences": [
+        {
+          "sample_id": "conv-30",
+          "question_index": 15,
+          "question": "Do Jon and Gina start businesses out of what they love?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-41",
+          "question_index": 11,
+          "question": "Would John be considered a patriotic person?",
+          "before": 1,
+          "after": 0,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-42",
+          "question_index": 70,
+          "question": "What game was the second tournament that Nate won based on?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-43",
+          "question_index": 23,
+          "question": "Who is Tim and John's favorite basketball player?",
+          "before": 3,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 7,
+          "question": "Did James have a girlfriend during April 2022?",
+          "before": 1,
+          "after": 0,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 11,
+          "question": "Which books has John recommended to James?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 14,
+          "question": "Who or which organizations have been the beneficiaries of John's charity tournaments?",
+          "before": 3,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-47",
+          "question_index": 130,
+          "question": "What did John suggest James practice before playing FIFA 23 together?",
+          "before": 3,
+          "after": 2,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 51,
+          "question": "Which pet did Jolene adopt more recently - Susie or Seraphim?",
+          "before": 1,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 74,
+          "question": "Has Jolene tried surfing?",
+          "before": 1,
+          "after": 2,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 75,
+          "question": "When did the Deboran and Jolene agree to go surfing?",
+          "before": 0,
+          "after": 1,
+          "gold": 1
+        },
+        {
+          "sample_id": "conv-48",
+          "question_index": 84,
+          "question": "What milestone did Jolene achieve recently on 4 February, 2023?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 31,
+          "question": "How many months lapsed between Sam's first and second doctor's appointment?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        },
+        {
+          "sample_id": "conv-49",
+          "question_index": 71,
+          "question": "What habit is Sam trying to change in terms of diet?",
+          "before": 3,
+          "after": 4,
+          "gold": 4
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 19,
+          "question": "Who inspired Dave's passion for car engineering?",
+          "before": 1,
+          "after": 3,
+          "gold": 3
+        },
+        {
+          "sample_id": "conv-50",
+          "question_index": 45,
+          "question": "What does help Calvin stay connected to the creative process?",
+          "before": 1,
+          "after": 2,
+          "gold": 2
+        }
+      ]
+    }
+  },
+  "strategies": {
+    "direct": 703,
+    "null": 8,
+    "chain": 92,
+    "split": 58
+  },
+  "add": {
+    "batches": 399,
+    "messages": 5882,
+    "failed_attempts": 3,
+    "route_status": {
+      "event:completed": 327,
+      "profile:completed": 303,
+      "relationship:completed": 248,
+      "other_memory:stored_only": 13
+    }
+  }
+}

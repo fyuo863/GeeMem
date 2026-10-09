@@ -75,10 +75,13 @@ def main():
     parser.add_argument('--speaker-mode',choices=['role_only','inline'],default='inline',
                         help='Preserve supplied dataset identity inside standard content; role_only reproduces the earlier lossy adapter.')
     parser.add_argument('--reranker',choices=['configured','minilm'],default='configured')
+    parser.add_argument('--sample',action='append',help='Resume only selected sample IDs; reports still aggregate the complete run.')
     args = parser.parse_args()
     out = args.out.resolve(); out.mkdir(parents=True, exist_ok=True)
     source = PROJECT_ROOT/'data/locomo-refined/data/raw/locomo_refined.json'
     samples = json.loads(source.read_text(encoding='utf8'))
+    if args.sample and not set(args.sample)<={s['sample_id'] for s in samples}:
+        raise ValueError('Unknown sample ID')
     cfg = load_settings()
     assert cfg['LLM_MODEL']=='gpt-4o-mini'
     assert cfg['RAG_EMBEDDING_API_MODEL']=='text-embedding-v4'
@@ -176,7 +179,8 @@ def main():
                     append(folder/'cases.jsonl',case)
                     print('SEARCH',sid,len(done_q)+1,flush=True);done_q.add(qi)
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            futures={pool.submit(run,s):s['sample_id'] for s in samples}
+            futures={pool.submit(run,s):s['sample_id'] for s in samples
+                     if not args.sample or s['sample_id'] in args.sample}
             errors=[]
             for future in as_completed(futures):
                 try:future.result()
