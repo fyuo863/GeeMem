@@ -240,21 +240,15 @@ class VanillaMemory:
         return text
 
     def score_candidates(self, query, rows, candidates):
-        documents = []
-        for i in candidates:
-            text = self.retrieval_text(rows[i])
-            if self.rerank_context:
-                before = [self.retrieval_text(rows[j]) for j in range(max(0,i-self.rerank_context),i)
-                          if rows[j]['session_id'] == rows[i]['session_id']]
-                after = [self.retrieval_text(rows[j]) for j in range(i+1,min(len(rows),i+1+self.rerank_context))
-                         if rows[j]['session_id'] == rows[i]['session_id']]
-                text = 'Target message: ' + text + '\nPrevious context: ' + ' '.join(before) + '\nNext context: ' + ' '.join(after)
-            documents.append(text)
+        documents = [self.ranking_text(rows,i) for i in candidates]
         with self.lock:
             reranked = np.asarray(self.reranker.score(query, documents),dtype=float).reshape(-1)
         if len(reranked) != len(candidates) or not np.isfinite(reranked).all():
             raise ValueError('Invalid reranker scores')
-        if self.target_mode == 'on':
+        # Provider probabilities are request-relative; local logit corrections
+        # and cross-request score arithmetic do not apply to them.
+        relative = getattr(self.reranker, 'relative_scores', False)
+        if self.target_mode == 'on' and not relative:
             from .target_rerank import combine_target_scores
             with self.lock:
                 target = self.reranker.score(query, [self.retrieval_text(rows[i]) for i in candidates])
@@ -263,11 +257,22 @@ class VanillaMemory:
                 reranked = fuse_scores(rows, candidates, reranked, target)
             else:
                 reranked = combine_target_scores(reranked, target)
-        if self.rerank_selection == 'context_support':
+        if self.rerank_selection == 'context_support' and not relative:
             from .rerank import context_support_scores
             _, supported = context_support_scores(rows, candidates, reranked, self.neighbor_penalty)
             reranked = np.asarray([supported[i] for i in candidates], dtype=float)
         return reranked
+
+    def ranking_text(self, rows, i):
+        """Internal evidence representation; public content stays byte-exact."""
+        text=self.retrieval_text(rows[i])
+        if self.rerank_context:
+            before=[self.retrieval_text(rows[j]) for j in range(max(0,i-self.rerank_context),i)
+                    if rows[j]['session_id']==rows[i]['session_id']]
+            after=[self.retrieval_text(rows[j]) for j in range(i+1,min(len(rows),i+1+self.rerank_context))
+                   if rows[j]['session_id']==rows[i]['session_id']]
+            text='Target message: '+text+'\nPrevious context: '+' '.join(before)+'\nNext context: '+' '.join(after)
+        return text
 
     def search(self, payload, *, trace=None):
         # SearchService owns orchestration; this backend owns retrieval details.
@@ -436,6 +441,8 @@ class VanillaMemory:
         for i in selected:
             row = rows[i]
             hit = dict(id=row['id'], content=row['content'], score=float(scores[i]))
+            if getattr(payload, '_include_retrieval_context', False):
+                hit['_retrieval_text'] = self.ranking_text(rows,i)
             if row['timestamp'] is not None:
                 hit['created_at'] = datetime.fromtimestamp(row['timestamp']/1000, timezone.utc).isoformat().replace('+00:00', 'Z')
             scope.enrich(hit, row)

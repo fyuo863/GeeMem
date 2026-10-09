@@ -86,25 +86,63 @@ class ONNXReranker:
 
 
 class HTTPReranker:
-    """vLLM /v1/rerank endpoint, configured only in .env."""
+    """vLLM or DashScope native rerank, configured exclusively in .env.
+
+    One pool per request: native scores must never be merged across batches.
+    """
     def __init__(self, cfg):
         import httpx
         self.url = cfg['RAG_RERANK_API_URL'].rstrip('/')
         self.model_name = cfg.get('RAG_RERANK_API_MODEL', '')
-        self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
-        self.client = httpx.Client(timeout=self.timeout, trust_env=False)
+        self.protocol = cfg.get('RAG_RERANK_API_PROTOCOL', 'vllm')
+        if self.protocol not in ('vllm', 'dashscope'): raise ValueError('Invalid rerank API protocol')
+        self.relative_scores = self.protocol == 'dashscope'
+        self.max_documents = 500 if self.relative_scores else int(cfg.get('RAG_RERANK_API_MAX_DOCUMENTS', '1000'))
+        self.timeout = float(cfg.get('RAG_RERANK_API_TIMEOUT', cfg.get('RAG_API_TIMEOUT', '60')))
+        self.retries = int(cfg.get('RAG_RERANK_API_RETRIES', '1'))
+        if not 0 <= self.retries <= 2: raise ValueError('Invalid rerank retry budget')
+        key = cfg.get('RAG_RERANK_API_KEY', '')
+        self.client = httpx.Client(timeout=self.timeout, trust_env=False,
+            proxy=cfg.get('RAG_RERANK_API_PROXY') or None,
+            headers={'Authorization': 'Bearer '+key} if key else {})
         self.identity = json.dumps(['http-reranker-v1', self.url, self.model_name], sort_keys=True)
 
     def score(self, query, documents):
+        import httpx
+        import time
+        if not documents: return np.empty(0,dtype=float)
+        if len(documents)>self.max_documents: raise ValueError('Rerank pool exceeds single-request limit')
         payload = {'query': query, 'documents': list(documents)}
         if self.model_name: payload['model'] = self.model_name
-        response = self.client.post(self.url, json=payload); response.raise_for_status()
-        rows = response.json().get('results', [])
+        if self.protocol == 'dashscope':
+            payload = dict(model=self.model_name,input=dict(query=query,documents=list(documents)),
+                           parameters=dict(top_n=len(documents)))
+        for attempt in range(self.retries+1):
+            try:
+                response = self.client.post(self.url, json=payload)
+                if response.status_code in (429,500,502,503,504) and attempt<self.retries:
+                    try: delay=float(response.headers.get('Retry-After','1'))
+                    except ValueError: delay=1
+                    if not 0<=delay<=5: response.raise_for_status()
+                    time.sleep(delay);continue
+                response.raise_for_status()
+                break
+            except (httpx.TimeoutException,httpx.NetworkError):
+                if attempt==self.retries: raise
+        data=response.json()
+        if data.get('code'): raise ValueError('Reranker API returned an error')
+        rows = (data.get('output',{}) if self.relative_scores else data).get('results', [])
         scores = np.full(len(documents), -np.inf, dtype=float)
+        seen=set()
         for row in rows:
-            index = int(row['index'])
-            if 0 <= index < len(scores): scores[index] = float(row['relevance_score'])
+            index = row['index']
+            if type(index) is not int or not 0<=index<len(scores) or index in seen:
+                raise ValueError('Invalid or duplicate reranker index')
+            seen.add(index)
+            scores[index] = float(row['relevance_score'])
         if not np.isfinite(scores).all(): raise ValueError('Invalid reranker API response')
+        if self.relative_scores and (np.any(scores<0) or np.any(scores>1)):
+            raise ValueError('Invalid reranker probability')
         return scores
 
 

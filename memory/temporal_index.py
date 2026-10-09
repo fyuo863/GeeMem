@@ -56,12 +56,19 @@ class TemporalIndex:
                                  (user_id,)).fetchall()
         by_id = {}
         for r in sorted(records, key=lambda r:r['version'].endswith('-llm')):
-            by_id[r['source_id']] = json.loads(r['mentions'])
+            if r['version'].startswith(TemporalNormalizer.VERSION+'-'):
+                by_id[r['source_id']] = json.loads(r['mentions'])
         enriched = []
         for row in rows:
             item = dict(row)
             start,end = item.get('char_start'),item.get('char_end')
-            item['time_mentions'] = [m for m in by_id.get(item.get('source_id'),[]) if
+            mentions=by_id.get(item.get('source_id'))
+            # Read-time rule refresh for old indexes; no re-embedding or LLM.
+            if mentions is None and start is not None and item.get('content'):
+                stamp=item.get('timestamp') if item.get('timestamp') is not None else item.get('session_timestamp')
+                mentions=[dict(m,char_start=m['char_start']+start,char_end=m['char_end']+start)
+                          for m in TemporalNormalizer.mentions(item['content'],stamp)]
+            item['time_mentions'] = [m for m in mentions or [] if
                                     start is not None and end is not None and m['char_start']>=start and m['char_end']<=end]
             enriched.append(item)
         return enriched

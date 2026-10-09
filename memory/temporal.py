@@ -5,14 +5,21 @@ anchor explicit relative expressions only; they are not event occurrence dates.
 """
 import re
 from datetime import datetime, timedelta, timezone
+import calendar
+
+MONTHS={name.lower():i for i in range(1,13) for name in (calendar.month_name[i],calendar.month_abbr[i])}
+MONTHS['sept']=9
+MONTH_PATTERN='(?:'+'|'.join(sorted(MONTHS,key=len,reverse=True))+r')\.?'
+ENGLISH_DATE=(r'\b(?:\d{1,2}(?:st|nd|rd|th)?\s+'+MONTH_PATTERN+r',?\s+\d{4}|'
+              +MONTH_PATTERN+r'\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?|'
+              +MONTH_PATTERN+r'\s+\d{4})\b')
 
 
 class TemporalNormalizer:
-    VERSION = 'time-mentions-v1'
+    VERSION = 'time-mentions-v2'
     PATTERN = re.compile(
         r'\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b|'
-        r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December) '
-        r'\d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?\b|'
+        +ENGLISH_DATE+r'|'
         r'\b(?:yesterday|today|tomorrow|last month|next month|last year|next year)\b|'
         r'\b\d+ (?:days?|weeks?) ago\b|'
         r'\d{4}年\d{1,2}月\d{1,2}日|昨天|今天|明天|上个月|下个月', re.I)
@@ -27,10 +34,21 @@ class TemporalNormalizer:
             if numeric:
                 day = datetime(*map(int, numeric.groups())).date()
                 return dict(start=day.isoformat(), end=day.isoformat(), precision='day', anchored=False)
-            english = re.fullmatch(r'([a-z]+) (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?', text)
+            reverse = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\.?,?\s+(\d{4})',text)
+            if reverse:
+                text=f'{reverse[2]} {reverse[1]} {reverse[3]}'
+            english = re.fullmatch(r'([a-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?', text)
             if english and english[3]:
-                day = datetime.strptime(f'{english[1]} {english[2]} {english[3]}', '%B %d %Y').date()
+                month=MONTHS.get(english[1])
+                if month is None: raise ValueError('Unknown month')
+                day = datetime(int(english[3]),month,int(english[2])).date()
                 return dict(start=day.isoformat(), end=day.isoformat(), precision='day', anchored=False)
+            month_year=re.fullmatch(r'([a-z]+)\.?\s+(\d{4})',text)
+            if month_year and month_year[1] in MONTHS:
+                month=MONTHS[month_year[1]];year=int(month_year[2])
+                start=datetime(year,month,1).date()
+                end=datetime(year,month,calendar.monthrange(year,month)[1]).date()
+                return dict(start=start.isoformat(),end=end.isoformat(),precision='month',anchored=False)
             if anchor is not None:
                 offsets = {'yesterday':-1, '昨天':-1, 'today':0, '今天':0, 'tomorrow':1, '明天':1}
                 relative = re.fullmatch(r'(\d+) (days?|weeks?) ago', text)

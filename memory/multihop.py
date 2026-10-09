@@ -152,7 +152,7 @@ class Planner(QueryPlanner):
         return self.complete(ROUTE_PROMPT,dict(question=question,options=options),Route,timeout)
 
     def review(self, question, options, strategy, evidence, history, timeout):
-        return self.complete(REVIEW_PROMPT,dict(question=question,options=options,
+        return self.complete(REVIEW_PROMPT+' The optional context field contains caller-supplied identity and adjacent messages for interpretation only. Cite a support quote only from that evidence item\'s content; context is not proof that the target speaker made a neighboring statement.',dict(question=question,options=options,
             strategy=strategy,evidence=evidence,tried_queries=history),Review,timeout)
 
 
@@ -338,8 +338,15 @@ class MultiHop:
                 for route in routes:
                     if rank<len(route) and route[rank] not in ids:
                         ids.append(route[rank])
-            return [dict(id=i,content=pool[i]['content'][:self.chars],
-                         created_at=pool[i].get('created_at')) for i in ids[:self.evidence_limit]]
+            evidence=[]
+            for i in ids[:self.evidence_limit]:
+                content=pool[i]['content'][:self.chars]
+                item=dict(id=i,content=content,created_at=pool[i].get('created_at'))
+                context=pool[i].get('_retrieval_text','')
+                if context and len(content)<self.chars:
+                    item['context']=context[:self.chars-len(content)]
+                evidence.append(item)
+            return evidence
 
         try:
             trace['llm_calls']+=1
@@ -452,7 +459,7 @@ class MultiHop:
             # prioritized to retain intermediate links even with low lexical overlap.
             ids=list(pool)
             phase='fusion'
-            scores=np.asarray(rerank(payload.query,[pool[i]['content'] for i in ids]),dtype=float).reshape(-1)
+            scores=np.asarray(rerank(payload.query,[pool[i].get('_retrieval_text',pool[i]['content']) for i in ids]),dtype=float).reshape(-1)
             if len(scores)!=len(ids) or not np.isfinite(scores).all():
                 raise ValueError('Invalid multihop rerank scores')
             original=sorted(range(len(ids)),key=lambda j:(-scores[j],j))

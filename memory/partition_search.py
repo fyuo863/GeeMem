@@ -50,6 +50,7 @@ class PartitionSearch:
             top_k=payload.top_k, options=getattr(payload,'options',None),
             session_id=getattr(payload,'session_id',None), memory_types=types,
             fallback=self.mode != 'strict' or not types,
+            _include_retrieval_context=getattr(payload,'_include_retrieval_context',False),
             dual_channel=self.mode == 'dual' and bool(types), retrieval_trace=trace)
         return retriever.retrieve(internal)
 

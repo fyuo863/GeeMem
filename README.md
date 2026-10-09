@@ -1,5 +1,39 @@
 # GeeMem：Agent 长期记忆与原文证据检索
 
+## 本机开发状态（2026-10-09）
+
+当前工作分支为 `codex/temporal-absolute-query`。本机已选择百炼
+`qwen3.7-text-rerank` API，embedding 仍为 `text-embedding-v4`，
+生成式判断仍为 `gpt-4o-mini`。本次修改未部署到服务器；下文旧参赛版本说明是历史记录，不能当作当前本机配置。
+
+已修复重排上下文丢失、多跳最终重排使用裸原文、英文月份日期无法归一化的问题。
+上下文仅供解释，最终响应仍返回原文；审查器的原文与上下文合计受既有字符预算约束。
+调用者可提供 `speaker`，或在原文中显式使用 `[speaker: Name] ` 前缀；系统不会从 `user/assistant` 猜测姓名，也不能恢复已经被输入适配器丢弃的身份。
+旧时间索引在读取时按新版规则补解析，不调用 LLM、不重新生成向量。
+
+80 题固定候选池对照的 Recall@10：旧 MiniLM 55.00%，补充上下文及目标评分后的 MiniLM 81.88%，Qwen 93.54%。这是公共数据子集的重排实验，并非全量系统或官方成绩，详见 [测试报告](docs/qwen-rerank-repairs-20261009.md)。
+
+本机 `.env` 使用如下配置（密钥仅填写于根目录 `.env`）：
+
+```dotenv
+RAG_RERANK_MODE=local
+RAG_RERANK_API_PROTOCOL=dashscope
+RAG_RERANK_API_URL=https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank
+RAG_RERANK_API_MODEL=qwen3.7-text-rerank
+RAG_RERANK_API_KEY=填写百炼密钥
+RAG_RERANK_API_TIMEOUT=60
+RAG_RERANK_API_RETRIES=1
+RAG_RERANK_CONTEXT=1
+RAG_RERANK_SELECTION=direct
+RAG_TARGET_MODE=off
+RAG_RESULT_WINDOW=0
+```
+
+API 整池一次请求，最多 500 条；分数只在同一次请求内比较，不使用本地 logits 的目标校正。
+网络错误及限流等可重试一次，失败不伪造分数。新工作空间建议使用官方工作空间域名；本机现有凭据已通过上述兼容域名实测。
+回退 MiniLM 时清空 API URL，设置本地 MiniLM 路径，并恢复 `RAG_TARGET_MODE=on`、`RAG_RERANK_SELECTION=context_support`。
+
+## 历史参赛基线说明
 
 GeeMem 是一个通用 Agent 长期记忆模块，通过同步 `POST /add` 保存对话，通过 `POST /search` 返回相关原文证据。当前提供 Agent Memory Leaderboard 文本赛道适配接口，入口为 `memory.aml_api:app`。
 

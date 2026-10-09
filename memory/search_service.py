@@ -23,6 +23,7 @@ class SearchService:
             query = SimpleNamespace(**(query.model_dump() if hasattr(query,'model_dump') else vars(query)))
             query.reference_time = getattr(payload,'reference_time',None)
             query.reference_timezone = getattr(payload,'reference_timezone','UTC')
+            query._include_retrieval_context = planned
             # Each concurrent branch owns its scope and diagnostics. Never let a
             # subquery's partition trace overwrite the planner's request trace.
             if not partitioned:
@@ -36,8 +37,10 @@ class SearchService:
 
         if planned:
             trace['pipeline'] = 'plan_scope_retrieve_review'
-            return self.multihop.run(payload, retrieve_query,
-                                    self.reranker.score if self.reranker else None, trace)
+            result = self.multihop.run(payload, retrieve_query,
+                                      self.reranker.score if self.reranker else None, trace)
+            return {'data':[{k:v for k,v in hit.items() if not k.startswith('_')}
+                            if isinstance(hit,dict) else hit for hit in result['data']]}
         # Disabling planning reduces the same pipeline to one concrete query.
         if partitioned:
             return self.partition_search.search(payload, self.direct_retriever, trace)

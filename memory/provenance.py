@@ -9,6 +9,13 @@ def source_id(user, request, index):
     return hashlib.sha256(json.dumps([user, request, index]).encode()).hexdigest()
 
 
+def supplied_speaker(message):
+    """Only explicit caller metadata/labels; never guess identity from pronouns."""
+    if getattr(message,'speaker',None): return message.speaker
+    match=re.match(r'^\[speaker: ([^\]\r\n]{1,256})\]\s',message.content)
+    return match[1].strip() or None if match else None
+
+
 def payload_digest(payload):
     # Preserve byte-compatible old digests when new optional metadata is absent.
     values = payload.model_dump()
@@ -48,7 +55,7 @@ def store_sources(db, payload, chunker, tokenizer, size, overlap):
             mid = hashlib.sha256(json.dumps([payload.user_id, payload.request_id, index, chunk_index]).encode()).hexdigest()
             db.execute('INSERT INTO rag_sources VALUES (?,?,?,?,?,?,?,?)',
                 (mid, source_id(payload.user_id, payload.request_id, index), offset+index,
-                 message.role, getattr(message, 'speaker', None), getattr(payload, 'session_timestamp', None), start, start+len(text)))
+                 message.role, supplied_speaker(message), getattr(payload, 'session_timestamp', None), start, start+len(text)))
 
 
 def metadata_text(row):

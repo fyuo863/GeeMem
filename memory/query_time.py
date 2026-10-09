@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import calendar
 import re
-from .temporal import TemporalNormalizer
+from .temporal import TemporalNormalizer, ENGLISH_DATE
 
 WORDS = dict(zip('one two three four five six seven eight nine ten eleven twelve'.split(),range(1,13)))
 NUM = r'(?:\d{1,3}|'+'|'.join(WORDS)+')'
@@ -14,7 +14,7 @@ PATTERN = re.compile(
     r'\b(?:'+NUM+r') (?:days?|weeks?) ago\b|'
     r'\b(?:past|last) '+NUM+r' months?\b|'
     r'\b(?:yesterday|today|tomorrow|last week|last month|last year)\b|昨天|今天|明天|上个月|'
-    r'\b\d{4}-\d{1,2}-\d{1,2}\b|\d{4}年\d{1,2}月\d{1,2}日',re.I)
+    r'\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b|\d{4}年\d{1,2}月\d{1,2}日|'+ENGLISH_DATE,re.I)
 
 
 def validate_zone(value):
