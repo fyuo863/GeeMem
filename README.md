@@ -424,3 +424,17 @@ profile、relationship、rule、event 统一使用 `memory/typed_sources.py` 的
 测试：`python -m pytest -q -p no:cacheprovider`；真实四类小测
 `python -m scripts.test_typed_source_live`，结果保存于 `data/typed-source-live-20261008/results.json`。
 真实小测使用独立数据库；重复运行相同目录会复用请求，不能用于重新测量写入耗时。
+
+
+### 统一检索编排（2026-10-09）
+
+SearchService 不再使用独立入口判断器。开启 `RAG_MULTIHOP_MODE=llm` 时，
+规划器选择 direct/split/chain；每次查询（原问题、子查询、恢复查询）经过
+PartitionSearch，再调用 AtomicRetriever。证据审核决定是否继续，最终融合原文 Top-K。
+`RAG_PARTITION_MODE=dual` 使用分区与全局候选；选择失败退回全局召回。
+多跳关闭时流程退化为单次查询；分区关闭时使用全局范围，均复用同一底层检索器。
+旧 `RAG_SEARCH_ROUTER` 已移除，不再生效。根目录 .env 配置修改后重启服务。
+
+子查询分区日志保存在 trace.partition_queries，每个并行分支独立保存，
+不覆盖主流程 strategy/stop。分区判断每次查询最多三次尝试，额外增加模型成本与延迟，
+目前不计入多跳内部 LLM 调用预算；时间限制也不是正在执行网络调用的硬中断。
