@@ -229,3 +229,5 @@ python -m pytest -q -p no:cacheprovider
 - [历史接口审查](docs/aml-contract-audit-20261002.md)
 
 代码保留实验模块供后续研究；“代码存在”不表示“线上开启”。
+
+本机诊断新增可选[详细检索审计日志](docs/search-audit.md)，记录问题、每轮审查证据及最终证据包；生产部署需单独配置启用。

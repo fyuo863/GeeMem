@@ -21,6 +21,8 @@ class VanillaMemory:
         cfg = raw_settings(cfg)
         from .position_trace import PositionLog
         self.position_log = PositionLog(cfg)
+        from .search_audit import SearchAudit
+        self.search_audit = SearchAudit(cfg)
         from .atomic_retriever import AtomicRetriever
         from .multihop import MultiHop
         self.multihop = MultiHop(cfg, multihop_planner)
@@ -296,22 +298,38 @@ class VanillaMemory:
 
     def search(self, payload, *, trace=None):
         from .read_versions import READ_VERSION
+        from .search_audit import error_metadata
+        from uuid import uuid4
+        import time
         trace=trace if trace is not None else {}
+        trace['position_trace_id'] = uuid4().hex
+        audit = getattr(self, 'search_audit', None)
+        trace['_audit_enabled'] = bool(audit and audit.enabled)
+        started_at = datetime.now(timezone.utc).isoformat()
+        started = time.perf_counter()
+        result = None
+        error = None
         versions=getattr(self,'versions',None)
         token=None
-        if versions is not None:
-            version=versions.latest(payload.user_id)
-            token=READ_VERSION.set((payload.user_id,version))
-            trace['read_version']=version
         try:
+            if versions is not None:
+                version=versions.latest(payload.user_id)
+                token=READ_VERSION.set((payload.user_id,version))
+                trace['read_version']=version
             result=self._search_request(payload,trace=trace)
             policy=getattr(self,'disclosure',None)
             result = policy.result(payload.user_id,result) if policy else result
             record_returned(trace, result['data'])
             if getattr(self, 'position_log', None): self.position_log.write(trace)
             return result
+        except Exception as exc:
+            error = error_metadata(exc)
+            raise
         finally:
             if token is not None: READ_VERSION.reset(token)
+            if audit:
+                audit.write(payload, trace, result if error is None else None,
+                            error, started_at, time.perf_counter()-started)
 
     def _search_request(self, payload, *, trace=None):
         # SearchService owns orchestration; this backend owns retrieval details.

@@ -38,7 +38,7 @@ class PositionLog:
         import logging
         from datetime import datetime, timezone
         from uuid import uuid4
-        trace['position_trace_id'] = uuid4().hex
+        trace.setdefault('position_trace_id', uuid4().hex)
         event = dict(trace_id=trace['position_trace_id'], at=datetime.now(timezone.utc).isoformat(),
             positions=trace.get('positions', {}), final_source_positions=trace.get('final_source_positions', {}),
             queries=[{k:q[k] for k in ('call_id','top_k','positions','reranker_applied','error_type') if k in q}

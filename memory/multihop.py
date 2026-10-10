@@ -499,8 +499,16 @@ class MultiHop:
                     break
                 trace['llm_calls']+=1
                 phase='review'
+                audit_step = None
+                if trace.get('_audit_enabled'):
+                    from copy import deepcopy
+                    audit_step = dict(round=iteration+1, evidence=deepcopy(evidence),
+                                      history=deepcopy(history))
+                    trace.setdefault('audit_review_inputs', []).append(audit_step)
                 review=planner.review(payload.query,payload.options,
                     plan.strategy,evidence,list(history),timeout())
+                if audit_step is not None:
+                    audit_step['model_output'] = deepcopy(review.model_dump() if hasattr(review, 'model_dump') else review)
                 review = (CollectionReview if self.coverage else ChainReview if self.chain_mode == 'on' else Review).model_validate(review.model_dump() if hasattr(review, 'model_dump') else review)
                 valid={}
                 invalid_support=False

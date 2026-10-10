@@ -51,7 +51,8 @@ class SearchService:
                                   for k,v in local.items() if k not in ('query', 'call_id')})
                 return result
             except Exception as exc:
-                local['error_type'] = type(exc).__name__
+                from .search_audit import error_metadata
+                local.update(error_metadata(exc))
                 raise
 
         if hasattr(self.direct_retriever, 'expand_neighbors'):
