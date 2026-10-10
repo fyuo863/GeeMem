@@ -128,10 +128,11 @@ def create_app(store=None, llm=None, settings=None, backend=None):
         if mode!='none' and not key:
             raise ValueError('AML_API_KEY is required for authenticated evaluation')
         add_limit=int(cfg.get('AML_ADD_CONCURRENCY','1'));search_limit=int(cfg.get('AML_SEARCH_CONCURRENCY','4'))
-        if not 1<=add_limit<=32 or not 1<=search_limit<=32:
-            raise ValueError('AML concurrency must be between 1 and 32')
+        if add_limit<0 or search_limit<0:
+            raise ValueError('AML concurrency must be nonnegative; zero disables the admission limit')
         app.state.auth_mode=mode;app.state.api_key=key
-        app.state.add_slots=BoundedSemaphore(add_limit);app.state.search_slots=BoundedSemaphore(search_limit)
+        app.state.add_slots=BoundedSemaphore(add_limit) if add_limit else None
+        app.state.search_slots=BoundedSemaphore(search_limit) if search_limit else None
         mode_backend=cfg.get('MEMORY_BACKEND','vanilla')
         if mode_backend not in ('vanilla','graph'):
             raise ValueError('Unsupported MEMORY_BACKEND')
@@ -159,6 +160,9 @@ def create_app(store=None, llm=None, settings=None, backend=None):
 
     @contextmanager
     def capacity(semaphore):
+        if semaphore is None:
+            yield
+            return
         if not semaphore.acquire(blocking=False):
             raise HTTPException(429,'Capacity exhausted',headers={'Retry-After':'5'})
         try:yield

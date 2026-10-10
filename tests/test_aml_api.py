@@ -152,3 +152,29 @@ def test_model_rule(tmp_path,monkeypatch):
     monkeypatch.setattr(config,'PROJECT_ROOT',tmp_path)
     (tmp_path/'.env').write_text('LLM_MODEL=another-model',encoding='utf-8')
     with pytest.raises(ValueError,match='gpt-4o-mini'):EvaluationLLM()
+
+
+@pytest.mark.parametrize('endpoint',['/add','/search'])
+def test_unlimited_admission_accepts_overlapping_requests(endpoint):
+    from threading import Barrier
+    barrier=Barrier(2)
+    class Backend:
+        def add(self,p):barrier.wait(timeout=5)
+        def search(self,p):barrier.wait(timeout=5);return {'data':[]}
+    app=create_app(settings=dict(AML_AUTH_MODE='bearer',AML_API_KEY='test-secret',
+        AML_ADD_CONCURRENCY='0',AML_SEARCH_CONCURRENCY='0'),backend=Backend())
+    body=payload() if endpoint=='/add' else dict(user_id='u',query='q',top_k=100)
+    with TestClient(app) as client,ThreadPoolExecutor(max_workers=2) as pool:
+        futures=[pool.submit(client.post,endpoint,json=body,headers=HEAD) for _ in range(2)]
+        assert all(f.result().status_code==200 for f in futures)
+
+
+def test_concurrency_has_no_arbitrary_upper_bound(tmp_path):
+    app,_,_=setup(tmp_path,AML_ADD_CONCURRENCY='64',AML_SEARCH_CONCURRENCY='128')
+    with TestClient(app) as c:assert c.get('/health').status_code==200
+
+
+def test_negative_concurrency_is_rejected(tmp_path):
+    app,_,_=setup(tmp_path,AML_ADD_CONCURRENCY='-1')
+    with pytest.raises(ValueError,match='nonnegative'):
+        with TestClient(app):pass
