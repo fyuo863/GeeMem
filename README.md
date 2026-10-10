@@ -1,5 +1,12 @@
 # GeeMem：Agent 长期记忆与原文证据检索
 
+## 当前上线版本（2026-10-10）
+
+服务器已部署 `f3e941f` 的上一版原文证据包行为：`RAG_EVIDENCE_BUNDLE_MODE=raw`，
+本轮实验增强 `RAG_RAW_COVERAGE_MODE=off`。正式 Add/Search/health、原文打包、
+用户隔离及鉴权检查通过。详见[上线记录](docs/raw-release-deployment-20261010.md)。
+以下实验记录保留其当时状态，服务器实际配置以上线记录为准。
+
 ## 原文证据包实验（2026-10-10，本机）
 
 `codex/state-evidence-pilot` 新增 `RAG_EVIDENCE_BUNDLE_MODE=raw`：将多跳关系、
