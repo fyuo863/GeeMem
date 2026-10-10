@@ -58,7 +58,8 @@ def append(path, data):
 
 def metrics(cases, arm, k):
     valid = [c for c in cases if c['gold']]
-    ns = [len(set(c['gold']) & set(c[arm]['ranked'][:k])) for c in valid]
+    ns = [len(set(c['gold']) & {sid for group in c[arm].get('ranked_groups',
+           [[sid] for sid in c[arm]['ranked']])[:k] for sid in group}) for c in valid]
     totals = [len(set(c['gold'])) for c in valid]
     return dict(hit=float(np.mean([n>0 for n in ns])),
                 recall=float(np.mean([n/t for n,t in zip(ns, totals)])),
@@ -118,6 +119,7 @@ def main():
             from memory.retrieval import CallbackReranker
             backend.search_service.reranker=CallbackReranker(backend._rerank_for_multihop)
             comparator=TracedMemory(dict(local,RAG_MULTIHOP_MODE='off',RAG_PARTITION_MODE='off',
+                RAG_FACT_REPLACEMENT_MODE='off',RAG_SEMANTIC_PRIVACY_MODE='off',RAG_DISCLOSURE_MODE='off',
                 RAG_TEMPORAL_MODE='off',RAG_TEMPORAL_EXPERIMENT='off',RAG_WRITE_GATE_MODE='off',RAG_BUILD_MODE='off'),
                 backend.embedder,reranker=reranker)
             uid='release-text:'+sid; conv=sample['conversation']; mapping={}; batches=[]
@@ -167,14 +169,38 @@ def main():
                         record=dict(status=r.status_code,seconds=time.perf_counter()-t,ranked=[],ids=[])
                         if r.status_code==200:
                             hits=r.json()['data'];assert len(hits)<=100 and len({h['id'] for h in hits})==len(hits)
-                            assert all(h['id'] in mapping and h['content']==mapping[h['id']][1] for h in hits)
+                            active=backend if name=='current' else comparator
+                            groups=[]
+                            with active.connect() as db:
+                                def resolve(mid):
+                                    if mid in mapping:return [mid]
+                                    if mid.startswith('view_'):
+                                        row=db.execute('SELECT source_id FROM rag_disclosure_views WHERE user_id=? AND view_id=?',(uid,mid)).fetchone()
+                                        assert row and row[0] in mapping
+                                        return [row[0]]
+                                    if mid.startswith('bundle_'):
+                                        row=db.execute('SELECT source_ids FROM rag_evidence_bundles WHERE user_id=? AND bundle_id=?',(uid,mid)).fetchone()
+                                        assert row
+                                        members=json.loads(row[0])
+                                        assert all(not x.startswith('bundle_') for x in members)
+                                        return [source for member in members for source in resolve(member)]
+                                    raise AssertionError('Untraceable evidence ID')
+                                for hit in hits:
+                                    sources=resolve(hit['id'])
+                                    texts=[active.disclosure.mask(mapping[mid][1]) for mid in sources]
+                                    if hit['id'].startswith('bundle_'):
+                                        assert all(text in hit['content'] for text in texts)
+                                    else:assert hit['content']==texts[0]
+                                    groups.append(list(dict.fromkeys(mapping[mid][0] for mid in sources)))
                             assert all(a['score']>=b['score'] for a,b in zip(hits,hits[1:]))
-                            record.update(ranked=[mapping[h['id']][0] for h in hits],ids=[h['id'] for h in hits])
+                            record.update(ranked=[s for group in groups for s in group],ranked_groups=groups,
+                                ids=[h['id'] for h in hits],hits=hits,returned_chars=sum(len(h['content']) for h in hits))
                         trace=(backend if name=='current' else comparator).last_trace
                         record.update(fallback=trace.get('fallback',False),strategy=trace.get('strategy'),
                             llm_calls=trace.get('llm_calls',0),stop=trace.get('stop'),
                             routing_errors=sum('routing_error' in p for p in trace.get('partition_queries',[])),
                             error_type=trace.get('error_type'))
+                        record['trace']=trace
                         case[name]=record
                     append(folder/'cases.jsonl',case)
                     print('SEARCH',sid,len(done_q)+1,flush=True);done_q.add(qi)
