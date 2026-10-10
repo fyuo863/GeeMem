@@ -19,6 +19,8 @@ class VanillaMemory:
         from .atomic_retriever import AtomicRetriever
         from .multihop import MultiHop
         self.multihop = MultiHop(cfg, multihop_planner)
+        from .state_evidence import StateEvidenceSelector
+        self.state_evidence = StateEvidenceSelector(cfg)
         self.metadata_mode = cfg.get('RAG_METADATA_MODE', 'off')
         if self.metadata_mode not in ('off', 'on'):
             raise ValueError('Invalid metadata mode')
@@ -150,6 +152,15 @@ class VanillaMemory:
             partition_search=self.partition_search,
             multihop=self.multihop,
             reranker=CallbackReranker(self._rerank_for_multihop) if self.reranker is not None else None)
+        from .read_versions import ReadVersions
+        from .disclosure import DisclosurePolicy
+        version_mode=cfg.get('RAG_VERSION_MODE','off')
+        if version_mode not in ('off','on'): raise ValueError('Invalid version mode')
+        # Track completed writes even while read pinning is disabled, so toggling
+        # it back on never hides successful writes made during the interval.
+        self.publications=ReadVersions(self)
+        self.versions=self.publications if version_mode=='on' else None
+        self.disclosure=DisclosurePolicy(cfg,self)
 
     def _rerank_for_multihop(self, query, documents):
         with self.lock:
@@ -171,6 +182,7 @@ class VanillaMemory:
                 self.temporal_index.write(payload)
             if self.route_writer is not None:
                 self.route_writer.process(payload.user_id, payload.request_id)
+            self.publications.publish(payload.user_id,payload.request_id)
 
     def _add_sources(self, payload):
         with self.lock, closing(self.connect()) as db:
@@ -275,10 +287,51 @@ class VanillaMemory:
         return text
 
     def search(self, payload, *, trace=None):
+        from .read_versions import READ_VERSION
+        trace=trace if trace is not None else {}
+        versions=getattr(self,'versions',None)
+        token=None
+        if versions is not None:
+            version=versions.latest(payload.user_id)
+            token=READ_VERSION.set((payload.user_id,version))
+            trace['read_version']=version
+        try:
+            result=self._search_request(payload,trace=trace)
+            policy=getattr(self,'disclosure',None)
+            return policy.result(payload.user_id,result) if policy else result
+        finally:
+            if token is not None: READ_VERSION.reset(token)
+
+    def _search_request(self, payload, *, trace=None):
         # SearchService owns orchestration; this backend owns retrieval details.
-        return self.search_service.search(payload, trace=trace)
+        from types import SimpleNamespace
+        trace = trace if trace is not None else {}
+        internal = payload
+        if self.state_evidence.applies(payload.query) and payload.top_k < 16:
+            if hasattr(payload, 'model_copy'):
+                internal = payload.model_copy(update={'top_k': 16})
+            else:
+                internal = SimpleNamespace(**vars(payload))
+                internal.top_k = 16
+        result = self.search_service.search(internal, trace=trace)
+        bundles = result.pop('_bundles', [])
+        if bundles:
+            # Store IDs only, in the same user-scoped database as their originals.
+            with self.lock, closing(self.connect()) as db:
+                db.execute('CREATE TABLE IF NOT EXISTS rag_evidence_bundles '
+                           '(user_id TEXT NOT NULL, bundle_id TEXT NOT NULL, source_ids TEXT NOT NULL, '
+                           'PRIMARY KEY(user_id,bundle_id))')
+                db.executemany('INSERT OR IGNORE INTO rag_evidence_bundles VALUES (?,?,?)',
+                               [(payload.user_id, b['id'], json.dumps(b['source_ids'])) for b in bundles])
+                db.commit()
+        if self.state_evidence.mode == 'on':
+            result = dict(result, data=self.state_evidence.select(payload, result['data'], trace)[:payload.top_k])
+        return result
 
     def _search_direct(self, payload):
+        return self.disclosure.result(payload.user_id,self._search_direct_impl(payload))
+
+    def _search_direct_impl(self, payload):
         target = None
         if self.temporal_mode=='on' and self.temporal_experiment in ('absolute_query','window'):
             from .query_time import resolve_query_time, expanded_query
@@ -294,6 +347,9 @@ class VanillaMemory:
             rows = db.execute('SELECT m.*, s.role, s.speaker, s.session_timestamp, s.source_id, s.source_index, s.char_start, s.char_end, t.tags, t.identity AS tag_identity, v.vector AS tag_vector, v.dimension AS tag_dimension, v.identity AS tag_vector_identity FROM rag_memories m '
                               'LEFT JOIN rag_sources s ON s.memory_id=m.id LEFT JOIN rag_tags t ON t.memory_id=m.id LEFT JOIN rag_tag_vectors v ON v.memory_id=m.id WHERE m.user_id=? ORDER BY m.rowid',
                               (payload.user_id,)).fetchall()
+        if self.versions is not None:
+            rows=self.versions.visible(payload.user_id,rows)
+        rows=self.disclosure.rows(rows)
         rows = scope.session_rows(rows)
         from .temporal import TemporalRanker
         if self.temporal_index is not None and (target is not None or TemporalRanker.QUERY.search(payload.query)):

@@ -115,6 +115,7 @@ If no grounded next query exists return queries=[]. If sufficient return queries
 class Planner(QueryPlanner):
     """Independent bounded adapter; reads only settings supplied from root .env."""
     def __init__(self, cfg):
+        self.supplemental = cfg.get('RAG_SUPPLEMENTAL_MODE','off') == 'on'
         self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
         self.model = cfg.get('LLM_MODEL', 'gpt-4o-mini')
         if self.model != 'gpt-4o-mini':
@@ -152,7 +153,8 @@ class Planner(QueryPlanner):
         return self.complete(ROUTE_PROMPT,dict(question=question,options=options),Route,timeout)
 
     def review(self, question, options, strategy, evidence, history, timeout):
-        return self.complete(REVIEW_PROMPT+' The optional context field contains caller-supplied identity and adjacent messages for interpretation only. Cite a support quote only from that evidence item\'s content; context is not proof that the target speaker made a neighboring statement.',dict(question=question,options=options,
+        guidance = (' For rules, check the actual applicability condition; an emergency exception does not apply to ordinary travel. Include required defaults and applicable exceptions, not merely similar rules. For event progress, connect only the same subject AND same matter; plans are not completed events. Retain uncertainty when a transition or applicability is not established.' if self.supplemental else '')
+        return self.complete(REVIEW_PROMPT+guidance+' The optional context field contains caller-supplied identity and adjacent messages for interpretation only. Cite a support quote only from that evidence item\'s content; context is not proof that the target speaker made a neighboring statement.',dict(question=question,options=options,
             strategy=strategy,evidence=evidence,tried_queries=history),Review,timeout)
 
 
@@ -162,6 +164,10 @@ def normalized(text):
 
 class MultiHop:
     def __init__(self, cfg, planner=None):
+        from .evidence_bundle import EvidenceBundler
+        self.bundler = EvidenceBundler(cfg)
+        self.supplemental = cfg.get('RAG_SUPPLEMENTAL_MODE','off')
+        if self.supplemental not in ('off','on'): raise ValueError('Invalid supplemental mode')
         self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
         if self.prompt_style not in ('long', 'short', 'focused'):
             raise ValueError('Invalid multihop prompt style')
@@ -356,8 +362,20 @@ class MultiHop:
             # Always keep one exact original-query result for fail-open behavior.
             trace['search_calls']+=1
             phase='original_retrieval'
-            baseline=search(payload.query,payload.top_k)
-            collect(payload.query,baseline)
+            # A requested Top-1 must not hide related evidence before review.
+            initial_k = max(payload.top_k, min(16, self.evidence_limit)) if self.bundler.mode == 'on' else payload.top_k
+            initial_hits=search(payload.query,initial_k)
+            baseline=initial_hits[:payload.top_k]
+            collect(payload.query,initial_hits)
+            if self.supplemental=='on' and trace['search_calls']<self.query_limit and remaining()>0:
+                from .supplemental import supplemental_query
+                extra=supplemental_query(payload.query)
+                if extra:
+                    kind,extra_query=extra
+                    trace['search_calls']+=1
+                    trace['supplemental_kind']=kind
+                    trace['supplemental_calls']=1
+                    collect(extra_query,search(extra_query,min(12,self.candidates)))
             sources={'__question__':payload.query}
             pending=accepted(plan.queries,sources,1 if plan.strategy=='chain' else 3) if plan.strategy!='direct' else []
             initial_pending = pending
@@ -474,7 +492,9 @@ class MultiHop:
             trace['history']=history
             # Score is the fused ranking signal, not a calibrated confidence.
             # A support tier offset makes response scores consistent with its order.
-            return {'data':[dict(pool[i],score=fused[i]+(1.0 if i in supports else 0.0)) for i in chosen]}
+            ranked=[dict(pool[i],score=fused[i]+(1.0 if i in supports else 0.0)) for i in ordered]
+            return self.bundler.assemble(payload.user_id, ranked, supports,
+                                         trace.get('stop')=='sufficient', payload.top_k, trace)
         except (LLMError,ValueError,TypeError,TimeoutError,httpx.HTTPError) as exc:
             cause=exc.__cause__ or exc
             trace.update(fallback=True,stop='fallback',error_type=type(exc).__name__,

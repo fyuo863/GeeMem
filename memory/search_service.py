@@ -1,5 +1,6 @@
 """One search pipeline: plan, select scope, retrieve, review."""
 from threading import Lock
+from contextvars import copy_context
 from .retrieval import CallbackRetriever
 
 
@@ -16,8 +17,12 @@ class SearchService:
         partitioned = self.partition_search is not None and self.partition_search.mode != 'off'
         planned = self.multihop is not None and self.multihop.mode != 'off'
         trace_lock = Lock()
+        request_context = copy_context()
 
         def retrieve_query(query):
+            return request_context.copy().run(retrieve_in_context, query)
+
+        def retrieve_in_context(query):
             # Planner-generated concrete subqueries inherit the request clock.
             from types import SimpleNamespace
             query = SimpleNamespace(**(query.model_dump() if hasattr(query,'model_dump') else vars(query)))
@@ -39,8 +44,8 @@ class SearchService:
             trace['pipeline'] = 'plan_scope_retrieve_review'
             result = self.multihop.run(payload, retrieve_query,
                                       self.reranker.score if self.reranker else None, trace)
-            return {'data':[{k:v for k,v in hit.items() if not k.startswith('_')}
-                            if isinstance(hit,dict) else hit for hit in result['data']]}
+            return dict(result, data=[{k:v for k,v in hit.items() if not k.startswith('_')}
+                                      if isinstance(hit,dict) else hit for hit in result['data']])
         # Disabling planning reduces the same pipeline to one concrete query.
         if partitioned:
             return self.partition_search.search(payload, self.direct_retriever, trace)
