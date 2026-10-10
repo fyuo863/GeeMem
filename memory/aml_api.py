@@ -59,7 +59,9 @@ class AMLAdd(Scope):
 
 
 class AMLSearch(Scope):
-    query: str = Field(min_length=1, max_length=4000)
+    # Official textual questions may contain long context. Do not impose the
+    # internal legacy graph API's 4000-character cap or silently truncate input.
+    query: str = Field(min_length=1)
     options: list[str] | None = Field(default=None, max_length=100)
     top_k: int = Field(ge=1, le=100, strict=True)
     reference_time: int | None = Field(default=None,ge=0,le=253402300799999,strict=True)

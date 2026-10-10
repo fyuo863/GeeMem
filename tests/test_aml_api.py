@@ -31,6 +31,20 @@ def setup(tmp_path,**cfg):
 HEAD={'Authorization':'Bearer test-secret'}
 
 
+def test_long_official_textual_query_reaches_backend_unchanged(tmp_path):
+    class Backend:
+        def search(self,payload):
+            self.query=payload.query
+            return {'data':[]}
+    backend=Backend()
+    app=create_app(settings=dict(AML_AUTH_MODE='bearer',AML_API_KEY='test-secret'),backend=backend)
+    query=('Background context about past events. '*400)+'Which event happened first?'
+    with TestClient(app) as client:
+        response=client.post('/search',headers=HEAD,json=dict(user_id='long-query-test',query=query,top_k=100))
+    assert response.status_code==200
+    assert backend.query==query
+
+
 def test_validation_logs_field_codes_without_sensitive_input(tmp_path,caplog):
     app,_,_=setup(tmp_path)
     with TestClient(app) as c:
