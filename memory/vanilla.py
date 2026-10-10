@@ -161,6 +161,8 @@ class VanillaMemory:
         self.publications=ReadVersions(self)
         self.versions=self.publications if version_mode=='on' else None
         self.disclosure=DisclosurePolicy(cfg,self)
+        from .semantic_controls import SemanticControls
+        self.semantic_controls=SemanticControls(cfg,self)
 
     def _rerank_for_multihop(self, query, documents):
         with self.lock:
@@ -182,6 +184,7 @@ class VanillaMemory:
                 self.temporal_index.write(payload)
             if self.route_writer is not None:
                 self.route_writer.process(payload.user_id, payload.request_id)
+            self.semantic_controls.write(payload)
             self.publications.publish(payload.user_id,payload.request_id)
 
     def _add_sources(self, payload):
@@ -349,6 +352,7 @@ class VanillaMemory:
                               (payload.user_id,)).fetchall()
         if self.versions is not None:
             rows=self.versions.visible(payload.user_id,rows)
+        rows=self.semantic_controls.rows(payload.user_id,payload.query,rows,getattr(payload,'reference_time',None))
         rows=self.disclosure.rows(rows)
         rows = scope.session_rows(rows)
         from .temporal import TemporalRanker

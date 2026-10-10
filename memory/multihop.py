@@ -153,7 +153,11 @@ class Planner(QueryPlanner):
         return self.complete(ROUTE_PROMPT,dict(question=question,options=options),Route,timeout)
 
     def review(self, question, options, strategy, evidence, history, timeout):
-        guidance = (' For rules, check the actual applicability condition; an emergency exception does not apply to ordinary travel. Include required defaults and applicable exceptions, not merely similar rules. For event progress, connect only the same subject AND same matter; plans are not completed events. Retain uncertainty when a transition or applicability is not established.' if self.supplemental else '')
+        if self.supplemental:
+            from .stage_review import matches, review
+            if matches(question):
+                return review(self, question, evidence, timeout)
+        guidance = (' For rules, check the actual applicability condition; an emergency exception does not apply to ordinary travel. Include required defaults and applicable exceptions, not merely similar rules. For a question asking how a plan changed and its outcome, separately check original plan, change, and completed outcome. Cite each available phase, including the original plan even if a later cancellation mentions it. If the original plan is absent, query it before declaring sufficient. Connect only the same subject AND same matter; plans are not completed events. Retain uncertainty when a transition or applicability is not established.' if self.supplemental else '')
         return self.complete(REVIEW_PROMPT+guidance+' The optional context field contains caller-supplied identity and adjacent messages for interpretation only. Cite a support quote only from that evidence item\'s content; context is not proof that the target speaker made a neighboring statement.',dict(question=question,options=options,
             strategy=strategy,evidence=evidence,tried_queries=history),Review,timeout)
 
@@ -166,6 +170,9 @@ class MultiHop:
     def __init__(self, cfg, planner=None):
         from .evidence_bundle import EvidenceBundler
         self.bundler = EvidenceBundler(cfg)
+        self.rule_applicability = cfg.get('RAG_RULE_APPLICABILITY_MODE', 'off')
+        if self.rule_applicability not in ('off', 'on'):
+            raise ValueError('Invalid rule applicability mode')
         self.supplemental = cfg.get('RAG_SUPPLEMENTAL_MODE','off')
         if self.supplemental not in ('off','on'): raise ValueError('Invalid supplemental mode')
         self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
@@ -221,6 +228,9 @@ class MultiHop:
         planner=self.planner
         enhanced=self.bindings=='on' or self.needs=='on'
         previous_progress=None
+        from .rule_applicability import TRIGGER as RULE_TRIGGER
+        rule_reserved = int(self.rule_applicability == 'on' and bool(RULE_TRIGGER.search(payload.query)))
+        planning_limit = self.llm_limit - rule_reserved
 
         def remaining():
             return self.seconds-(time.perf_counter()-started)
@@ -234,8 +244,8 @@ class MultiHop:
             # user_id and options are copied from the caller, never from the LLM.
             return retrieve(payload.model_copy(update={'query':query,'top_k':k}))['data']
 
-        def repair_budget():
-            if trace['llm_calls']>=self.llm_limit or remaining()<=0:
+        def repair_budget(reserved=False):
+            if trace['llm_calls'] >= (self.llm_limit if reserved else planning_limit) or remaining()<=0:
                 return False
             trace['llm_calls']+=1
             return True
@@ -367,15 +377,6 @@ class MultiHop:
             initial_hits=search(payload.query,initial_k)
             baseline=initial_hits[:payload.top_k]
             collect(payload.query,initial_hits)
-            if self.supplemental=='on' and trace['search_calls']<self.query_limit and remaining()>0:
-                from .supplemental import supplemental_query
-                extra=supplemental_query(payload.query)
-                if extra:
-                    kind,extra_query=extra
-                    trace['search_calls']+=1
-                    trace['supplemental_kind']=kind
-                    trace['supplemental_calls']=1
-                    collect(extra_query,search(extra_query,min(12,self.candidates)))
             sources={'__question__':payload.query}
             pending=accepted(plan.queries,sources,1 if plan.strategy=='chain' else 3) if plan.strategy!='direct' else []
             initial_pending = pending
@@ -385,7 +386,7 @@ class MultiHop:
                 if remaining()<=0:
                     trace['stop']='time_budget'
                     break
-                if trace['llm_calls']>=self.llm_limit:
+                if trace['llm_calls']>=planning_limit:
                     trace['stop']='llm_budget'
                     break
                 pending=pending[:max(0,self.query_limit-trace['search_calls'])]
@@ -420,7 +421,7 @@ class MultiHop:
                 evidence=packet()
                 sources={'__question__':payload.query,**{e['id']:e['content'] for e in evidence}}
                 seen_evidence.update(e['id'] for e in evidence)
-                if trace['llm_calls']>=self.llm_limit:
+                if trace['llm_calls']>=planning_limit:
                     trace['stop']='llm_budget'
                     break
                 trace['llm_calls']+=1
@@ -459,6 +460,23 @@ class MultiHop:
                     pending = pending or initial_pending
                 if not pending:
                     pending = recover(sources)
+                # Supplement only an actual unresolved gap. A sufficient initial
+                # review no longer pays for a generic, exception-heavy query.
+                if (not pending and self.supplemental == 'on' and
+                        not trace.get('supplemental_calls') and review.missing.strip() and
+                        trace['search_calls'] < self.query_limit and remaining() > 0):
+                    from .supplemental import supplemental_query
+                    extra = supplemental_query(payload.query, review.missing)
+                    if extra:
+                        kind, extra_query = extra
+                        trace['search_calls'] += 1
+                        trace['supplemental_kind'] = kind
+                        trace['supplemental_calls'] = 1
+                        old_ids = set(pool)
+                        collect(extra_query, search(extra_query, min(12, self.candidates)))
+                        trace['supplemental_new_candidates'] = len(set(pool)-old_ids)
+                        if len(set(pool)-old_ids) and trace['llm_calls'] < planning_limit:
+                            continue
                 if enhanced:
                     progress=(tuple(sorted(supports)),planner.progress_token)
                     if (iteration>0 and len(set(pool)-before)==0 and progress==previous_progress
@@ -493,6 +511,25 @@ class MultiHop:
             # Score is the fused ranking signal, not a calibrated confidence.
             # A support tier offset makes response scores consistent with its order.
             ranked=[dict(pool[i],score=fused[i]+(1.0 if i in supports else 0.0)) for i in ordered]
+            if self.rule_applicability == 'on':
+                from .rule_applicability import select_rules, TRIGGER
+                if TRIGGER.search(payload.query) and repair_budget(reserved=True):
+                    try:
+                        rejected, audit = select_rules(payload.query, ranked, self.planner, timeout())
+                        if audit['status'] == 'checked':
+                            unchecked = {h['id'] for h in ranked} - set(audit['checked_ids'])
+                            audit['unchecked_omitted'] = len(unchecked)
+                            rejected.update(unchecked)
+                        ranked = [h for h in ranked if h['id'] not in rejected]
+                        if rejected.intersection(supports):
+                            trace['stop'] = 'applicability_rejected_support'
+                        supports = {i: s for i, s in supports.items() if i not in rejected}
+                        trace['rule_applicability'] = audit
+                        trace['support_ids'] = list(supports)
+                    except (LLMError, ValueError, TimeoutError) as exc:
+                        trace['rule_applicability'] = {'status': 'unknown', 'error': type(exc).__name__}
+                elif TRIGGER.search(payload.query):
+                    trace['rule_applicability'] = {'status': 'budget_exhausted'}
             return self.bundler.assemble(payload.user_id, ranked, supports,
                                          trace.get('stop')=='sufficient', payload.top_k, trace)
         except (LLMError,ValueError,TypeError,TimeoutError,httpx.HTTPError) as exc:
