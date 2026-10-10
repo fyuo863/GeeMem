@@ -21,4 +21,5 @@ def test_search_service_dispatches_only_atomic_retrieval():
     trace = {}
     service = SearchService(direct)
     assert service.search(payload, trace=trace)['data'][0]['content'] == 'direct'
-    assert trace == {'mode': 'atomic'}
+    assert trace['mode'] == 'atomic'
+    assert trace['retrieval_queries'][0]['query'] == 'q'

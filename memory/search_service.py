@@ -31,14 +31,32 @@ class SearchService:
             query._include_retrieval_context = planned
             # Each concurrent branch owns its scope and diagnostics. Never let a
             # subquery's partition trace overwrite the planner's request trace.
-            if not partitioned:
-                return self.direct_retriever.retrieve(query)
-            local = {'query': query.query}
-            try:
-                return self.partition_search.search(query, self.direct_retriever, local)
-            finally:
-                with trace_lock:
+            local = {'query': query.query, 'top_k': getattr(query, 'top_k', None)}
+            with trace_lock:
+                local['call_id'] = len(trace.setdefault('retrieval_queries', [])) + 1
+                trace['retrieval_queries'].append(local)
+                if partitioned:
                     trace.setdefault('partition_queries', []).append(local)
+            try:
+                if partitioned:
+                    result = self.partition_search.search(query, self.direct_retriever, local)
+                else:
+                    query.retrieval_trace = local
+                    result = self.direct_retriever.retrieve(query)
+                from .position_trace import record_positions
+                if all(isinstance(h, dict) and 'id' in h for h in result['data']):
+                    record_positions(local, 'returned', [h['id'] for h in result['data']])
+                if not planned:
+                    trace.update({k:(dict(v) if k == 'positions' else v)
+                                  for k,v in local.items() if k not in ('query', 'call_id')})
+                return result
+            except Exception as exc:
+                local['error_type'] = type(exc).__name__
+                raise
+
+        if hasattr(self.direct_retriever, 'expand_neighbors'):
+            retrieve_query.expand_neighbors = lambda anchors, missing: request_context.copy().run(
+                self.direct_retriever.expand_neighbors, payload, anchors, missing)
 
         if planned:
             trace['pipeline'] = 'plan_scope_retrieve_review'
@@ -47,7 +65,5 @@ class SearchService:
             return dict(result, data=[{k:v for k,v in hit.items() if not k.startswith('_')}
                                       if isinstance(hit,dict) else hit for hit in result['data']])
         # Disabling planning reduces the same pipeline to one concrete query.
-        if partitioned:
-            return self.partition_search.search(payload, self.direct_retriever, trace)
-        trace.update(mode='atomic')
-        return self.direct_retriever.retrieve(payload)
+        trace.update(mode='atomic' if not partitioned else 'partition')
+        return retrieve_query(payload)

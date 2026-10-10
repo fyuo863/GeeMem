@@ -64,6 +64,8 @@ class SemanticControls:
     HISTORY = re.compile(r'以前|之前|曾经|历史|变化|\b(before|previous|history|changed|used to|in 20\d\d)\b', re.I)
 
     def __init__(self, cfg, backend):
+        from .raw_evidence import raw_settings
+        cfg = raw_settings(cfg)
         self.backend = backend
         self.privacy = cfg.get('RAG_SEMANTIC_PRIVACY_MODE', 'off')
         self.facts = cfg.get('RAG_FACT_REPLACEMENT_MODE', 'off')

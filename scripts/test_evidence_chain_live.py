@@ -17,6 +17,8 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--cases', nargs='*')
     parser.add_argument('--only-on', action='store_true')
+    parser.add_argument('--group-modes', nargs='+', choices=['off','adjacent','window','combined'])
+    parser.add_argument('--dataset-extra', type=int, default=0)
     args=parser.parse_args()
     source = PROJECT_ROOT/'data/final-text-validation/20261010-semantic-full'
     out = PROJECT_ROOT/'data/evidence-chain'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -48,6 +50,8 @@ def main():
     def save(): (out/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf8')
     cases=[]
     for name,q,texts,gold,answerable in synthetic:
+        if args.dataset_extra: continue
+        if args.cases and name not in args.cases: continue
         store.add(AMLAdd(user_id='chain:'+name,request_id=name,session_id=name,messages=[dict(role='user',content=t,timestamp=1735689600000) for t in texts]))
         cases.append(dict(name=name,user_id='chain:'+name,question=q,gold=[texts[i] for i in gold],answerable=answerable,kind='synthetic'))
     repeats=json.loads((source/'diagnostic_repeats.json').read_text())
@@ -56,6 +60,13 @@ def main():
         cases.append(dict(name='dataset_'+str(old['question_index']),user_id='release-text:conv-48',question=q,gold=old['gold'],kind='dataset'))
     samples=json.loads((PROJECT_ROOT/'data/locomo-refined/data/raw/locomo_refined.json').read_text(encoding='utf8'))
     sample=next(s for s in samples if s['sample_id']=='conv-48')
+    if args.dataset_extra:
+        import hashlib
+        eligible=[(i,q) for i,q in enumerate(sample['qa']) if i not in (51,75)
+                  and q.get('category') in (2,3) and not q.get('is_multi_modality') and q.get('evidence')]
+        eligible.sort(key=lambda v:hashlib.sha256(('group-check-v1:'+str(v[0])).encode()).hexdigest())
+        cases=[dict(name='extra_'+str(i),user_id='release-text:conv-48',question=q['question'],
+                    gold=q['evidence'],kind='dataset') for i,q in eligible[:args.dataset_extra]]
     with store.connect() as db:
         id_to_dia={r['id']:sample['conversation'][r['session_id']][int(r['request_id'].rsplit(':',1)[1])+r['message_index']]['dia_id']
             for r in db.execute("select * from rag_memories where user_id='release-text:conv-48'")}
@@ -66,9 +77,10 @@ def main():
         for case in cases:
             if args.cases and case['name'] not in args.cases: continue
             row=dict(case)
-            for mode in (['on'] if args.only_on else ['off','on']):
-                store.multihop.chain_mode=mode
-                store.multihop.planner.chain_mode=mode=='on'
+            for mode in (args.group_modes or (['on'] if args.only_on else ['off','on'])):
+                store.multihop.chain_mode='on' if args.group_modes else mode
+                store.multihop.planner.chain_mode=store.multihop.chain_mode=='on'
+                store.multihop.group_mode=mode if args.group_modes else 'off'
                 trace={}; original=store.search
                 def wrapped(payload,**kwargs): return original(payload,trace=trace)
                 store.search=wrapped; start=time.perf_counter()

@@ -50,6 +50,10 @@ class AtomicRetriever:
         result = self.backend._search_direct(payload)
         return self._normalize(result)
 
+    def expand_neighbors(self, payload, anchors, missing):
+        from .evidence_groups import expand_groups
+        return expand_groups(self.backend, payload, anchors, missing)
+
     def query(self, request: AtomicQuery) -> dict:
         """Convenience entry point for callers outside the HTTP layer."""
         payload = SimpleNamespace(**asdict(request))

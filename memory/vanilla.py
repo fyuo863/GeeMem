@@ -12,10 +12,15 @@ from .embeddings import HTTPEmbedder, LocalEmbedder
 from .retrieval import bm25, chunks
 from .vector_writer import VectorWriter
 from .store import Conflict
+from .position_trace import record_positions, record_returned
 
 
 class VanillaMemory:
     def __init__(self, cfg, embedder=None, tagger=None, reranker=None, multihop_planner=None, write_selector=None, builders=None, partition_selector=None):
+        from .raw_evidence import raw_settings
+        cfg = raw_settings(cfg)
+        from .position_trace import PositionLog
+        self.position_log = PositionLog(cfg)
         from .atomic_retriever import AtomicRetriever
         from .multihop import MultiHop
         self.multihop = MultiHop(cfg, multihop_planner)
@@ -301,7 +306,10 @@ class VanillaMemory:
         try:
             result=self._search_request(payload,trace=trace)
             policy=getattr(self,'disclosure',None)
-            return policy.result(payload.user_id,result) if policy else result
+            result = policy.result(payload.user_id,result) if policy else result
+            record_returned(trace, result['data'])
+            if getattr(self, 'position_log', None): self.position_log.write(trace)
+            return result
         finally:
             if token is not None: READ_VERSION.reset(token)
 
@@ -318,6 +326,7 @@ class VanillaMemory:
                 internal.top_k = 16
         result = self.search_service.search(internal, trace=trace)
         bundles = result.pop('_bundles', [])
+        trace['bundle_sources'] = {b['id']: b['source_ids'] for b in bundles}
         if bundles:
             # Store IDs only, in the same user-scoped database as their originals.
             with self.lock, closing(self.connect()) as db:
@@ -441,6 +450,7 @@ class VanillaMemory:
         retrieval_trace = getattr(payload, 'retrieval_trace', None)
         if retrieval_trace is not None:
             retrieval_trace['candidate_ids'] = [rows[i]['id'] for i in candidates]
+            record_positions(retrieval_trace, 'candidate', retrieval_trace['candidate_ids'])
             retrieval_trace['candidate_count'] = len(candidates)
             retrieval_trace['typed_candidate_count'] = sum(rows[i]['source_id'] in scope.sources for i in candidates)
         if self.reranker is not None:
@@ -450,6 +460,9 @@ class VanillaMemory:
             scores = scores.copy()
             for j,i in enumerate(candidates):scores[i] = reranked[j]
             order = [candidates[j] for j in ranking]
+        if retrieval_trace is not None:
+            retrieval_trace['reranker_applied'] = self.reranker is not None
+            record_positions(retrieval_trace, 'rerank', [rows[i]['id'] for i in order])
         if self.temporal_experiment == 'window' and target is not None:
             from .temporal_window import apply_temporal_fusion
             order, scores, fusion_trace = apply_temporal_fusion(
@@ -482,6 +495,7 @@ class VanillaMemory:
             retrieval_trace = getattr(payload, 'retrieval_trace', None)
             if retrieval_trace is not None:
                 retrieval_trace['temporal_quota'] = quota_trace
+        record_positions(retrieval_trace, 'post_policy', [rows[i]['id'] for i in order])
         selected = []
         seen = set()
         def include(i):
@@ -497,6 +511,7 @@ class VanillaMemory:
                             include(neighbor)
         for i in order:
             include(i)
+        record_positions(retrieval_trace, 'selected', [rows[i]['id'] for i in selected])
         hits = []
         for i in selected:
             row = rows[i]

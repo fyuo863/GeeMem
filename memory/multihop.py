@@ -14,6 +14,7 @@ from .llm import LLMError, strict_json_schema
 from .models import StrictModel
 from .planning import QueryPlanner
 from .evidence_chain import build_chain
+from .position_trace import record_positions
 
 
 class Query(StrictModel):
@@ -48,6 +49,11 @@ class Review(StrictModel):
 
 class ChainReview(Review):
     links: list[EvidenceLink] = Field(default_factory=list, max_length=12)
+
+
+class CollectionReview(Review):
+    gap_queries: list[Query] = Field(default_factory=list, max_length=2)
+    gap_kinds: list[str] = Field(default_factory=list, max_length=2)
 
 
 CHAIN_PROMPT = """ Order supports from prerequisites to terminal facts. For chain strategy,
@@ -133,12 +139,16 @@ the user's name, or extra background is not a gap for a simple attribute lookup.
 Before proposing a query, read it with its bridge substituted: the subject must
 have the correct type and role. Dates, durations, schools and activities are not
 people. Query only an unresolved relation, not an arbitrary topic in the evidence.
-If no grounded next query exists return queries=[]. If sufficient return queries=[].'''
+The optional adjacency metadata gives program-bound same-session groups and message positions. Read such groups in message order to resolve pronouns; select the antecedent and answer separately. A relative time or approximate period can be sufficient when the question does not demand an exact calendar date. Bind each time expression to the event and object it actually describes, not another nearby event or object. Adjacent messages can establish a question-answer or pronoun reference, but adjacency alone is not proof. Select each necessary source separately; reject topic switches and wrong people. If no grounded next query exists return queries=[]. If sufficient return queries=[].'''
 
 
 class Planner(QueryPlanner):
     """Independent bounded adapter; reads only settings supplied from root .env."""
     def __init__(self, cfg):
+        from .raw_evidence import raw_settings
+        cfg = raw_settings(cfg)
+        self.raw_evidence = cfg.get('RAG_EVIDENCE_BUNDLE_MODE') == 'raw'
+        self.coverage = self.raw_evidence and cfg.get('RAG_RAW_COVERAGE_MODE','off') == 'on'
         self.chain_mode = cfg.get('RAG_EVIDENCE_CHAIN_MODE', 'off') == 'on'
         self.supplemental = cfg.get('RAG_SUPPLEMENTAL_MODE','off') == 'on'
         self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
@@ -178,6 +188,9 @@ class Planner(QueryPlanner):
         return self.complete(ROUTE_PROMPT,dict(question=question,options=options),Route,timeout)
 
     def review(self, question, options, strategy, evidence, history, timeout):
+        if self.raw_evidence:
+            from .raw_evidence import select
+            return select(self, question, options, strategy, evidence, history, timeout)
         if self.supplemental and not (self.chain_mode and strategy == 'chain'):
             from .stage_review import matches, review
             if matches(question):
@@ -193,8 +206,15 @@ def normalized(text):
 
 class MultiHop:
     def __init__(self, cfg, planner=None):
+        from .raw_evidence import raw_settings
+        cfg = raw_settings(cfg)
         from .evidence_bundle import EvidenceBundler
         self.bundler = EvidenceBundler(cfg)
+        coverage_mode=cfg.get('RAG_RAW_COVERAGE_MODE','off')
+        if coverage_mode not in ('off','on'): raise ValueError('Invalid raw coverage mode')
+        self.coverage = self.bundler.mode == 'raw' and coverage_mode == 'on'
+        self.group_mode = cfg.get('RAG_EVIDENCE_GROUP_MODE','off')
+        if self.group_mode not in ('off','adjacent','window','combined'): raise ValueError('Invalid evidence group mode')
         self.chain_mode = cfg.get('RAG_EVIDENCE_CHAIN_MODE', 'off')
         if self.chain_mode not in ('off', 'on'): raise ValueError('Invalid evidence chain mode')
         self.rule_applicability = cfg.get('RAG_RULE_APPLICABILITY_MODE', 'off')
@@ -256,6 +276,12 @@ class MultiHop:
         chain=[]
         chain_audit={'status':'partial','nodes':[]}
         seen_evidence=set()
+        evidence_groups=[]
+        expansion_done=False
+        last_review_signature=None
+        gap_count=0
+        gap_used=set()
+        page_rounds=0
         phase='route'
         planner=self.planner
         enhanced=self.bindings=='on' or self.needs=='on'
@@ -386,10 +412,22 @@ class MultiHop:
                 for route in routes:
                     if rank<len(route) and route[rank] not in ids:
                         ids.append(route[rank])
+            if self.group_mode in ('window','combined') and seen_evidence:
+                from .evidence_groups import select_packet_ids
+                ids, omitted = select_packet_ids(supports, evidence_groups, routes, seen_evidence, self.evidence_limit)
+                trace['omitted_review_groups'] = omitted
+            if self.coverage and seen_evidence:
+                # Keep a small anchor window, reserving space for unseen sources.
+                anchors=list(supports)[-4:]
+                ids=list(dict.fromkeys(anchors+[i for i in ids if i not in seen_evidence]+
+                                       [i for i in ids if i not in anchors]))
             evidence=[]
             for i in ids[:self.evidence_limit]:
                 content=pool[i]['content'][:self.chars]
                 item=dict(id=i,content=content,created_at=pool[i].get('created_at'))
+                memberships=[dict(group=g+1,message_position=members.index(i)+1)
+                             for g,members in enumerate(evidence_groups) if i in members]
+                if memberships: item['adjacency'] = memberships
                 context=pool[i].get('_retrieval_text','')
                 if context and len(content)<self.chars:
                     item['context']=context[:self.chars-len(content)]
@@ -405,7 +443,8 @@ class MultiHop:
             trace['search_calls']+=1
             phase='original_retrieval'
             # A requested Top-1 must not hide related evidence before review.
-            initial_k = max(payload.top_k, min(16, self.evidence_limit)) if self.bundler.mode == 'on' else payload.top_k
+            initial_k = max(payload.top_k, min(16, self.evidence_limit)) if self.bundler.mode != 'off' else payload.top_k
+            if self.coverage: initial_k=max(initial_k,self.candidates)
             initial_hits=search(payload.query,initial_k)
             baseline=initial_hits[:payload.top_k]
             collect(payload.query,initial_hits)
@@ -445,7 +484,7 @@ class MultiHop:
                         for p,future in zip(pending,futures,strict=True):
                             hits = future.result()
                             collect(p.query,hits)
-                            key = normalized(p.query)
+                            key = recovery_keys.get(normalized(p.query), normalized(p.query))
                             jobs.setdefault(key, dict(query=p, retries=0,
                                 need=getattr(planner, 'query_needs', {}).get(key), hit_ids=set()))
                             jobs[key].setdefault('hit_ids', set())
@@ -462,7 +501,7 @@ class MultiHop:
                 phase='review'
                 review=planner.review(payload.query,payload.options,
                     plan.strategy,evidence,list(history),timeout())
-                review = (ChainReview if self.chain_mode == 'on' else Review).model_validate(review.model_dump() if hasattr(review, 'model_dump') else review)
+                review = (CollectionReview if self.coverage else ChainReview if self.chain_mode == 'on' else Review).model_validate(review.model_dump() if hasattr(review, 'model_dump') else review)
                 valid={}
                 invalid_support=False
                 for support in review.supports:
@@ -474,7 +513,9 @@ class MultiHop:
                         continue
                     if support.source_id in pool:
                         valid[support.source_id]=support
-                supports=valid
+                # Raw packages retain sources selected in earlier hops. A later
+                # lookup must not silently erase the original relationship/history.
+                supports = {**supports, **valid} if self.bundler.mode == 'raw' else valid
                 if self.chain_mode == 'on':
                     chain, chain_audit = build_chain(review.supports, sources, plan.strategy,
                         review.sufficient, getattr(review, 'links', []), review.missing,
@@ -483,9 +524,39 @@ class MultiHop:
                 step=dict(round=iteration+1,stage='baseline_review' if iteration==-1 else 'retrieval_review',queries=[p.model_dump() for p in pending],
                     new_candidates=len(set(pool)-before),evidence_ids=[e['id'] for e in evidence],
                     review=review.model_dump(),valid_support_ids=list(supports))
+                record_positions(step, 'review_input', [e['id'] for e in evidence])
+                record_positions(step, 'model_supports', [s.source_id for s in review.supports])
+                record_positions(step, 'validated_supports', list(supports))
                 trace['rounds'].append(step)
+                signature=(tuple(sorted(e['id'] for e in evidence)), tuple(sorted(supports)), normalized(review.missing))
+                stagnant=signature==last_review_signature
+                last_review_signature=signature
                 if enhanced:
                     step['need_states']=list(planner.states)
+                can_review=(iteration < self.rounds-1 and trace['llm_calls'] < planning_limit and remaining()>0)
+                if self.coverage:
+                    trace['unreviewed_source_ids']=[i for i in pool if i not in seen_evidence]
+                    # One extra candidate page without another retrieval, within
+                    # existing review/time budgets, even if the first page looked sufficient.
+                    if page_rounds < 1 and trace['unreviewed_source_ids'] and can_review:
+                        page_rounds+=1
+                        trace['candidate_page_rounds']=page_rounds
+                        pending=[]
+                        continue
+                    proposals=[]
+                    for kind,query in zip(review.gap_kinds,review.gap_queries):
+                        key=(kind,query.source_id)
+                        if key not in gap_used and gap_count+len(proposals)<2:
+                            proposals.append((key,query))
+                    extra=accepted([q for _,q in proposals],sources,1 if plan.strategy=='chain' else 2)
+                    extra=extra[:max(0,self.query_limit-trace['search_calls'])]
+                    if extra and can_review:
+                        for key,q in proposals:
+                            if q in extra: gap_used.add(key)
+                        gap_count+=len(extra)
+                        trace.setdefault('companion_queries',[]).extend(q.model_dump() for q in extra)
+                        pending=extra
+                        continue
                 # Quote validation proves provenance, not semantic entailment.
                 if (review.sufficient and (supports or self.validation_mode == 'trust') and
                         not invalid_support and (self.chain_mode == 'off' or chain_audit['status'] == 'complete')):
@@ -493,6 +564,27 @@ class MultiHop:
                     break
                 if trace['search_calls']>=self.query_limit:
                     trace['stop']='query_budget'
+                    break
+                if (self.group_mode in ('adjacent','combined') and not expansion_done
+                        and review.missing.strip() and hasattr(retrieve,'expand_neighbors')
+                        and iteration < self.rounds-1 and trace['llm_calls'] < planning_limit
+                        and trace['search_calls'] < self.query_limit and remaining()>0):
+                    expansion_done=True
+                    phase='adjacency_expansion'
+                    trace['search_calls']+=1
+                    groups=retrieve.expand_neighbors([pool[e['id']] for e in evidence],review.missing)
+                    trace['adjacency_calls']=1
+                    trace['adjacency_groups']=[[h['id'] for h in g] for g in groups]
+                    trace['adjacency_new_ids']=list(dict.fromkeys(h['id'] for g in groups for h in g if h['id'] not in pool))
+                    for group in groups:
+                        for h in group: pool.setdefault(h['id'],h)
+                        ids=[h['id'] for h in group]
+                        evidence_groups.append(ids);routes.append(ids)
+                    if groups:
+                        pending=[]
+                        continue
+                if self.group_mode != 'off' and stagnant:
+                    trace['stop']='no_new_evidence_or_gap'
                     break
                 pending=accepted(review.queries,sources,1 if plan.strategy=='chain' else 3)
                 if iteration == -1:
@@ -556,6 +648,7 @@ class MultiHop:
             if chain_ids:
                 ordered = chain_ids + [i for i in ordered if i not in chain_ids]
                 trace['evidence_chain']['ordered_source_ids'] = chain_ids
+            record_positions(trace, 'fused', ordered)
             chosen=ordered[:payload.top_k]
             trace['support_ids']=list(supports)
             trace['supports_fit']=len(supports)<=payload.top_k and not trace.get('support_overflow',False)
@@ -585,6 +678,7 @@ class MultiHop:
                         trace['rule_applicability'] = {'status': 'unknown', 'error': type(exc).__name__}
                 elif TRIGGER.search(payload.query):
                     trace['rule_applicability'] = {'status': 'budget_exhausted'}
+            record_positions(trace, 'pre_bundle', [h['id'] for h in ranked])
             return self.bundler.assemble(payload.user_id, ranked, supports,
                                          trace.get('stop')=='sufficient', payload.top_k, trace)
         except (LLMError,ValueError,TypeError,TimeoutError,httpx.HTTPError) as exc:
@@ -596,6 +690,12 @@ class MultiHop:
             if baseline is None:
                 trace['search_calls']+=1
                 baseline=search(payload.query,payload.top_k)
+            if self.coverage and supports and pool:
+                # A later provider failure must not erase earlier selected raw
+                # sources. These already passed retrieval scope/privacy controls.
+                preserved=sorted(pool.values(),key=lambda h:h['id'] not in supports)
+                trace['fallback_preserved_sources']=list(supports)
+                return self.bundler.assemble(payload.user_id,preserved,supports,False,payload.top_k,trace)
             return {'data':baseline}
         finally:
             trace['seconds']=time.perf_counter()-started
