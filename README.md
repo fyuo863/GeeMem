@@ -8,8 +8,8 @@ GeeMem 通过同步 `POST /add` 保存对话，通过 `POST /search` 返回可�
 
 | 项目 | 当前值 |
 | --- | --- |
-| 版本标签 | [`smoke-raw-evidence-20261010`](https://github.com/fyuo863/GeeMem/tree/smoke-raw-evidence-20261010) |
-| 部署代码 | `f3e941f5648d67555852926e8f875178e072392d` |
+| 版本标签 | [`smoke-raw-audit-20261010`](https://github.com/fyuo863/GeeMem/tree/smoke-raw-audit-20261010) |
+| 实现提交 | `04e6403`（部署版本以本表标签指向的提交为准） |
 | 运行行为 | 原文证据包开启；候选翻页与分类缺口补查增强关闭 |
 | LLM | `gpt-4o-mini`：分类、检索规划与来源选择 |
 | Embedding | 百炼 `text-embedding-v4` API，1024维 |
@@ -230,4 +230,4 @@ python -m pytest -q -p no:cacheprovider
 
 代码保留实验模块供后续研究；“代码存在”不表示“线上开启”。
 
-本机诊断新增可选[详细检索审计日志](docs/search-audit.md)，记录问题、每轮审查证据及最终证据包；生产部署需单独配置启用。
+本版本已启用[详细检索审计日志](docs/search-audit.md)，记录问题、每轮审查证据及最终证据包。生产配置 `RAG_SEARCH_AUDIT_PATH=data/logs/search-audit.jsonl`；日志包含评测原文，须与数据库一并按评测数据保留要求清理。
