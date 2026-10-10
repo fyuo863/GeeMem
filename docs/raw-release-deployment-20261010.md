@@ -12,7 +12,10 @@
 关闭 coverage 增强、邻近组扩展、链条裁决、事实替代、状态选择、语义隐私；
 多跳采用 long 标准路径，bindings/needs 关闭。旧有 supplemental 与此次新加的
 coverage 缺口补查是不同开关，后者未上线。时间增强保持服务器原来的 off。
-位置 JSONL 暂不启用，避免多实例共享滚动文件。
+后续按用户要求补齐显式配置：写入构建器 `RAG_BUILD_MODE=on`，原有默认预算显式
+设为3轮/6次查询/5次LLM/12条审阅证据/每条1200字符。正式服务开启独立位置日志
+`data/logs/production-search-positions.jsonl`；隔离测试继续关闭位置日志，避免多
+实例共享滚动文件。该调整不启用coverage、时间增强或事实裁决。
 
 保留服务器自己的 LLM、embedding、reranker 凭据、接口鉴权、代理、并发限制和
 生产数据库路径；没有复制本机密钥。模型仍为服务器原配置。
