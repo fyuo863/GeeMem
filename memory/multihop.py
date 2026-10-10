@@ -13,6 +13,7 @@ from pydantic import Field
 from .llm import LLMError, strict_json_schema
 from .models import StrictModel
 from .planning import QueryPlanner
+from .evidence_chain import build_chain
 
 
 class Query(StrictModel):
@@ -32,11 +33,34 @@ class Support(StrictModel):
     needed_for: str = Field(min_length=1, max_length=200)
 
 
+class EvidenceLink(StrictModel):
+    parent: int = Field(ge=0, le=7, description='Zero-based index in supports of the prerequisite fact.')
+    child: int = Field(ge=0, le=7, description='Index of a later support connected through the bridge.')
+    bridge: str = Field(min_length=2, max_length=100, description='Exact shared entity phrase in BOTH support quotes; never a generic relation word.')
+
+
 class Review(StrictModel):
     sufficient: bool
     supports: list[Support] = Field(default_factory=list, max_length=8)
     missing: str = Field(max_length=500)
     queries: list[Query] = Field(default_factory=list, max_length=3)
+
+
+class ChainReview(Review):
+    links: list[EvidenceLink] = Field(default_factory=list, max_length=12)
+
+
+CHAIN_PROMPT = """ Order supports from prerequisites to terminal facts. For chain strategy,
+select links by zero-based support indices and a short exact entity phrase present
+in BOTH quotes. Shared words alone do not prove a link: check the same entity and
+relationship. For direct/split leave links=[]; independent operands are NOT a chain.
+If a required relationship or identity is uncertain, sufficient=false and state the
+gap. One source can contain all steps. Include all steps in its selected quote.
+The first support must explicitly connect the named subject in the original
+question to its first intermediate entity. Never start at an unrelated person's
+otherwise complete chain. Example: quotes 'Ada has brother Ben', 'Ben learns from
+Cy', 'Cy teaches flute' use links [{"parent":0,"child":1,"bridge":"Ben"},
+{"parent":1,"child":2,"bridge":"Cy"}]. Do not invent edges just to connect every source. If chain_feedback is supplied, fix the cited missing links using evidence, or return sufficient=false and a grounded query for the missing relationship. """
 
 
 ROUTE_PROMPT = '''You select a retrieval algorithm BEFORE seeing any memories.
@@ -115,6 +139,7 @@ If no grounded next query exists return queries=[]. If sufficient return queries
 class Planner(QueryPlanner):
     """Independent bounded adapter; reads only settings supplied from root .env."""
     def __init__(self, cfg):
+        self.chain_mode = cfg.get('RAG_EVIDENCE_CHAIN_MODE', 'off') == 'on'
         self.supplemental = cfg.get('RAG_SUPPLEMENTAL_MODE','off') == 'on'
         self.prompt_style = cfg.get('RAG_MULTIHOP_PROMPT_STYLE', 'long')
         self.model = cfg.get('LLM_MODEL', 'gpt-4o-mini')
@@ -153,13 +178,13 @@ class Planner(QueryPlanner):
         return self.complete(ROUTE_PROMPT,dict(question=question,options=options),Route,timeout)
 
     def review(self, question, options, strategy, evidence, history, timeout):
-        if self.supplemental:
+        if self.supplemental and not (self.chain_mode and strategy == 'chain'):
             from .stage_review import matches, review
             if matches(question):
                 return review(self, question, evidence, timeout)
         guidance = (' For rules, check the actual applicability condition; an emergency exception does not apply to ordinary travel. Include required defaults and applicable exceptions, not merely similar rules. For a question asking how a plan changed and its outcome, separately check original plan, change, and completed outcome. Cite each available phase, including the original plan even if a later cancellation mentions it. If the original plan is absent, query it before declaring sufficient. Connect only the same subject AND same matter; plans are not completed events. Retain uncertainty when a transition or applicability is not established.' if self.supplemental else '')
-        return self.complete(REVIEW_PROMPT+guidance+' The optional context field contains caller-supplied identity and adjacent messages for interpretation only. Cite a support quote only from that evidence item\'s content; context is not proof that the target speaker made a neighboring statement.',dict(question=question,options=options,
-            strategy=strategy,evidence=evidence,tried_queries=history),Review,timeout)
+        return self.complete(REVIEW_PROMPT+guidance+(CHAIN_PROMPT if self.chain_mode else '')+' The optional context field contains caller-supplied identity and adjacent messages for interpretation only. Cite a support quote only from that evidence item\'s content; context is not proof that the target speaker made a neighboring statement.',dict(question=question,options=options,
+            strategy=strategy,evidence=evidence,tried_queries=history),ChainReview if self.chain_mode else Review,timeout)
 
 
 def normalized(text):
@@ -170,6 +195,8 @@ class MultiHop:
     def __init__(self, cfg, planner=None):
         from .evidence_bundle import EvidenceBundler
         self.bundler = EvidenceBundler(cfg)
+        self.chain_mode = cfg.get('RAG_EVIDENCE_CHAIN_MODE', 'off')
+        if self.chain_mode not in ('off', 'on'): raise ValueError('Invalid evidence chain mode')
         self.rule_applicability = cfg.get('RAG_RULE_APPLICABILITY_MODE', 'off')
         if self.rule_applicability not in ('off', 'on'):
             raise ValueError('Invalid rule applicability mode')
@@ -196,6 +223,9 @@ class MultiHop:
         self.recovery_budget = int(cfg.get('RAG_MULTIHOP_RECOVERY_BUDGET', '2'))
         self.recovery_per_hop = int(cfg.get('RAG_MULTIHOP_RECOVERY_PER_HOP', '1'))
         self.llm_limit = int(cfg.get('RAG_MULTIHOP_LLM_CALLS', str(self.rounds+2)))
+        if self.chain_mode == 'on' and (self.prompt_style == 'focused' or
+                self.bindings == 'on' or self.needs == 'on'):
+            raise ValueError('Evidence chains require standard review: focused/bindings/needs are not supported')
         if (self.mode not in ('off','llm') or not 1<=self.rounds<=4 or not 2<=self.query_limit<=10
                 or not 1<=self.candidates<=100 or not 8<=self.evidence_limit<=24
                 or not 200<=self.chars<=2400 or not math.isfinite(self.timeout)
@@ -223,6 +253,8 @@ class MultiHop:
         pool={}
         routes=[]
         supports={}
+        chain=[]
+        chain_audit={'status':'partial','nodes':[]}
         seen_evidence=set()
         phase='route'
         planner=self.planner
@@ -419,6 +451,8 @@ class MultiHop:
                             jobs[key].setdefault('hit_ids', set())
                             jobs[key]['hit_ids'].update(h['id'] for h in hits)
                 evidence=packet()
+                if evidence and trace.get('chain_repair_requested'):
+                    evidence[0]['chain_feedback'] = {k: chain_audit.get(k) for k in ('errors', 'missing_hops')}
                 sources={'__question__':payload.query,**{e['id']:e['content'] for e in evidence}}
                 seen_evidence.update(e['id'] for e in evidence)
                 if trace['llm_calls']>=planning_limit:
@@ -426,8 +460,9 @@ class MultiHop:
                     break
                 trace['llm_calls']+=1
                 phase='review'
-                review=Review.model_validate(planner.review(payload.query,payload.options,
-                    plan.strategy,evidence,list(history),timeout()))
+                review=planner.review(payload.query,payload.options,
+                    plan.strategy,evidence,list(history),timeout())
+                review = (ChainReview if self.chain_mode == 'on' else Review).model_validate(review.model_dump() if hasattr(review, 'model_dump') else review)
                 valid={}
                 invalid_support=False
                 for support in review.supports:
@@ -440,6 +475,11 @@ class MultiHop:
                     if support.source_id in pool:
                         valid[support.source_id]=support
                 supports=valid
+                if self.chain_mode == 'on':
+                    chain, chain_audit = build_chain(review.supports, sources, plan.strategy,
+                        review.sufficient, getattr(review, 'links', []), review.missing,
+                        initial_pending[0].bridge if initial_pending and plan.strategy == 'chain' else '')
+                    trace['evidence_chain'] = chain_audit
                 step=dict(round=iteration+1,stage='baseline_review' if iteration==-1 else 'retrieval_review',queries=[p.model_dump() for p in pending],
                     new_candidates=len(set(pool)-before),evidence_ids=[e['id'] for e in evidence],
                     review=review.model_dump(),valid_support_ids=list(supports))
@@ -447,7 +487,8 @@ class MultiHop:
                 if enhanced:
                     step['need_states']=list(planner.states)
                 # Quote validation proves provenance, not semantic entailment.
-                if review.sufficient and (supports or self.validation_mode == 'trust') and not invalid_support:
+                if (review.sufficient and (supports or self.validation_mode == 'trust') and
+                        not invalid_support and (self.chain_mode == 'off' or chain_audit['status'] == 'complete')):
                     trace['stop']='sufficient'
                     break
                 if trace['search_calls']>=self.query_limit:
@@ -484,6 +525,13 @@ class MultiHop:
                         trace['stop']='no_progress'
                         break
                     previous_progress=progress
+                if (not pending and self.chain_mode == 'on' and review.sufficient
+                        and chain_audit['status'] != 'complete'
+                        and not trace.get('chain_repair_requested')
+                        and iteration < self.rounds-1 and trace['llm_calls'] < planning_limit):
+                    # One bounded review repair, within existing time/call/round budgets.
+                    trace['chain_repair_requested'] = True
+                    continue
                 if not pending:
                     trace['stop']='no_grounded_new_query'
                     break
@@ -504,6 +552,10 @@ class MultiHop:
                 for rank,i in enumerate(route,1):
                     fused[i]+=0.5/(60+rank)
             ordered=sorted(ids,key=lambda i:(i not in supports,-fused[i],ids.index(i)))
+            chain_ids = list(dict.fromkeys(node.source_id for node in chain if node.source_id in pool))
+            if chain_ids:
+                ordered = chain_ids + [i for i in ordered if i not in chain_ids]
+                trace['evidence_chain']['ordered_source_ids'] = chain_ids
             chosen=ordered[:payload.top_k]
             trace['support_ids']=list(supports)
             trace['supports_fit']=len(supports)<=payload.top_k and not trace.get('support_overflow',False)
@@ -523,6 +575,9 @@ class MultiHop:
                         ranked = [h for h in ranked if h['id'] not in rejected]
                         if rejected.intersection(supports):
                             trace['stop'] = 'applicability_rejected_support'
+                            if 'evidence_chain' in trace:
+                                trace['evidence_chain']['status'] = 'partial'
+                                trace['evidence_chain']['missing_hops'] = ['applicability_rejected_support']
                         supports = {i: s for i, s in supports.items() if i not in rejected}
                         trace['rule_applicability'] = audit
                         trace['support_ids'] = list(supports)
