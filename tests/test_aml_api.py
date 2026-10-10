@@ -31,6 +31,17 @@ def setup(tmp_path,**cfg):
 HEAD={'Authorization':'Bearer test-secret'}
 
 
+def test_validation_logs_field_codes_without_sensitive_input(tmp_path,caplog):
+    app,_,_=setup(tmp_path)
+    with TestClient(app) as c:
+        r=c.post('/search',headers=HEAD,json=dict(user_id='private-user',query='private-question',
+            top_k='bad-private-value',**{'private-extra-name':'private-extra-value'}))
+    assert r.status_code==422
+    assert 'api_validation_failed endpoint=/search' in caplog.text
+    assert 'top_k' in caplog.text and 'int_type' in caplog.text and 'extra_forbidden' in caplog.text
+    assert 'private-' not in caplog.text and 'test-secret' not in caplog.text
+
+
 def test_official_sync_contract_retry_and_optional_timestamp(tmp_path):
     app,store,llm=setup(tmp_path)
     with TestClient(app) as c:

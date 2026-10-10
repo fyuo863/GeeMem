@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager, contextmanager
 import hmac
 import json
+import logging
 import sqlite3
 from threading import BoundedSemaphore
 from typing import Literal
@@ -164,6 +165,15 @@ def create_app(store=None, llm=None, settings=None, backend=None):
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
         # Do not echo evaluation content/credentials inside validation responses.
+        # Pydantic input/ctx/msg may contain source text or credentials. Log only
+        # schema-owned field names, numeric positions and machine error codes.
+        known={'body','query','user_id','top_k','options','reference_time','reference_timezone',
+               'request_id','session_id','messages','role','content','timestamp','speaker','session_timestamp'}
+        fields=[dict(loc=[p if isinstance(p,int) or p in known else '<unknown-field>'
+                          for p in e['loc']],type=e['type']) for e in exc.errors()]
+        logging.getLogger(__name__).warning('api_validation_failed endpoint=%s fields=%s',
+            request.scope.get('route').path if request.scope.get('route') else '<unknown>',
+            json.dumps(fields,ensure_ascii=True))
         return JSONResponse(status_code=422,content={'detail':[
             dict(loc=e['loc'],type=e['type'],msg=e['msg']) for e in exc.errors()]})
 
