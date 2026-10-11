@@ -356,7 +356,10 @@ class VanillaMemory:
                 db.commit()
         if self.state_evidence.mode == 'on':
             result = dict(result, data=self.state_evidence.select(payload, result['data'], trace)[:payload.top_k])
-        return result
+        # Presentation must not affect embeddings, reranking, quotes or selectors.
+        # Apply even when planning timed out and returned ordinary raw sources.
+        from .source_presentation import present_sources
+        return present_sources(result, bundles, trace)
 
     def _search_direct(self, payload):
         return self.disclosure.result(payload.user_id,self._search_direct_impl(payload))

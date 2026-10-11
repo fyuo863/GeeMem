@@ -11,6 +11,7 @@ class EvidenceBundler:
         self.max_sources = 4
         self.max_chars = 6000
         self.coverage = cfg.get('RAG_RAW_COVERAGE_MODE','off') == 'on'
+        self.per_source = cfg.get('RAG_RAW_SELECTION_MODE', 'per_source') == 'per_source'
 
     def assemble(self, user_id, ranked, supports, sufficient, top_k, trace):
         if self.mode == 'raw':
@@ -83,15 +84,27 @@ class EvidenceBundler:
         selected = [h for h in ranked if h['id'] in supports
                    and supports[h['id']].quote
                    and supports[h['id']].quote in h['content']]
-        members = selected if self.coverage else selected[:8]
+        members = selected if self.coverage or self.per_source else selected[:8]
         # Timestamp order is presentation only; no earlier source is invalidated.
         members.sort(key=lambda h: (h.get('created_at') is None, h.get('created_at') or ''))
         header = ('[Related original sources; relationships, current validity and event '
                   'stages are not adjudicated. source_time is message time, not event time.]\n')
-        groups = []; group = []; size = len(header)
-        for h in members:
-            segment = (f'[source_id={json.dumps(h["id"], ensure_ascii=False)}; '
+        def segment_for(h):
+            return (f'[source_id={json.dumps(h["id"], ensure_ascii=False)}; '
                        f'source_time={json.dumps(h.get("created_at"), ensure_ascii=False)}]\n{h["content"]}')
+        groups = []; path_members = set(); seen_paths = set()
+        for ids in trace.get('raw_candidate_paths', [])[:8]:
+            key=tuple(ids)
+            if (key in seen_paths or not 2<=len(ids)<=6 or len(set(ids))!=len(ids)
+                    or any(i not in unique for i in ids)): continue
+            seen_paths.add(key)
+            candidate=[(unique[i], segment_for(unique[i])) for i in ids]
+            if len(header)+sum(len(s)+2 for _,s in candidate)>self.max_chars: continue
+            groups.append(candidate); path_members.update(ids)
+        group = []; size = len(header)
+        for h in members:
+            if h['id'] in path_members: continue
+            segment = segment_for(h)
             if len(header) + len(segment) > self.max_chars:
                 continue  # Retain the full oversized source as an ordinary result.
             if group and (len(group) == self.max_sources or size + len(segment) + 2 > self.max_chars):
@@ -106,11 +119,13 @@ class EvidenceBundler:
             bid = 'bundle_' + hashlib.sha256(identity.encode('utf8')).hexdigest()
             ids = [h['id'] for h,_ in group]
             first = next(h for h in ranked if h['id'] in ids)
-            replacements[first['id']] = dict(id=bid, content=content, score=first['score'])
+            replacements.setdefault(first['id'], []).append(dict(id=bid, content=content, score=first['score']))
             consumed.update(ids)
             mappings.append(dict(id=bid, source_ids=ids))
-        eligible = [replacements[h['id']] if h['id'] in replacements else h for h in ranked
-                    if h['id'] in replacements or h['id'] not in consumed]
+        eligible = []
+        for h in ranked:
+            if h['id'] in replacements: eligible.extend(replacements[h['id']])
+            elif h['id'] not in consumed: eligible.append(h)
         if self.coverage:
             priority={h['id'] for h in selected} | {b['id'] for b in mappings}
             eligible.sort(key=lambda h:h['id'] not in priority)
@@ -121,5 +136,7 @@ class EvidenceBundler:
         trace['evidence_bundle'] = dict(status='assembled' if mappings else 'raw_sources',
             mode='raw', semantic_status='not_adjudicated', packages=len(mappings),
             selected_source_ids=[h['id'] for h in selected],
+            candidate_path_source_ids=sorted(path_members),
+            omitted_path_source_ids=sorted(path_members-delivered),
             omitted_source_ids=[h['id'] for h in selected if h['id'] not in delivered])
         return dict(data=result, _bundles=mappings)

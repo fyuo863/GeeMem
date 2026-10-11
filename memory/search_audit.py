@@ -42,7 +42,7 @@ class SearchAudit:
                 'reference_time', 'reference_timezone') if hasattr(payload, k)}
             fields = ('pipeline', 'mode', 'strategy', 'initial_plan', 'read_version',
                       'rounds', 'audit_review_inputs', 'retrieval_queries', 'positions', 'final_source_positions',
-                      'bundle_sources', 'support_ids', 'stop', 'fallback', 'error_type',
+                      'bundle_sources', 'source_presentation', 'raw_candidate_paths', 'evidence_bundle', 'support_ids', 'stop', 'fallback', 'error_type',
                       'error_phase', 'cause_type', 'http_status', 'search_calls', 'llm_calls',
                       'rule_applicability', 'rejected_queries', 'rejected_supports')
             event = dict(schema_version=1, trace_id=trace['position_trace_id'],

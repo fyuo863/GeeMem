@@ -81,7 +81,9 @@ def test_http_window_promotes_evidence_without_timestamp_filter(tmp_path):
                      reference_time=1680652800000)
         result = client.post('/search', json=query)
         assert result.status_code == 200
-        assert result.json()['data'][0]['content'] == texts[-1]
+        shown = result.json()['data'][0]['content']
+        assert shown.split('\n', 1)[1] == texts[-1]
+        assert 'source_time="2023-04-05T00:00:00Z"' in shown
         assert len(reranker.seen) == 5
         assert any('Undated discussion' in d for d in reranker.seen)
         # No reference => original semantic pool. The late target cannot enter.

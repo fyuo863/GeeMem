@@ -62,10 +62,12 @@ def test_selected_fm_official_fields_top100_persistence_and_scores(tmp_path):
         assert response.status_code == 200
         hits = response.json()['data']
         assert len(hits) == len({h['id'] for h in hits}) == 100
-        assert all(h['content'] in {m['content'] for m in payload['messages']} for h in hits)
+        def original(hit):
+            return hit['content'].split('\n',1)[1] if 'created_at' in hit else hit['content']
+        assert all(original(h) in {m['content'] for m in payload['messages']} for h in hits)
         assert all(a['score'] >= b['score'] for a,b in zip(hits,hits[1:]))
         for hit in hits:
-            source = next(m for m in payload['messages'] if m['content']==hit['content'])
+            source = next(m for m in payload['messages'] if m['content']==original(hit))
             assert ('created_at' in hit) == ('timestamp' in source)
         assert client.post('/search',json=dict(query,user_id='isolated'),headers=auth).json()=={'data':[]}
     with TestClient(app()) as client:

@@ -81,7 +81,11 @@ def test_fact_current_history_pinned_and_idempotent(tmp_path):
     p=payload('b',new);p.messages[0].timestamp+=1000
     b.add(p);b.add(p)
     current=AMLSearch(user_id='u',query='Where does Alice work now?',top_k=10)
-    assert [h['content'] for h in b.search(current)['data']]==[new]
+    # Final presentation adds source metadata; semantic selection still keeps
+    # exactly the current original, without rewriting its text.
+    delivered=b.search(current)['data']
+    assert len(delivered)==1 and delivered[0]['content'].split('\n',1)[1]==new
+    assert '2024-01-01T00:00:01Z' in delivered[0]['content']
     assert len(b.search(current.model_copy(update={'query':'Where did Alice work before?'}))['data'])==2
     assert len(b.search(current.model_copy(update={'reference_time':1704067200000}))['data'])==2
     t=READ_VERSION.set(('u',version))

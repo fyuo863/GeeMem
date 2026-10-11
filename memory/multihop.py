@@ -52,8 +52,13 @@ class ChainReview(Review):
 
 
 class CollectionReview(Review):
+    supports: list[Support] = Field(default_factory=list, max_length=64)
     gap_queries: list[Query] = Field(default_factory=list, max_length=2)
     gap_kinds: list[str] = Field(default_factory=list, max_length=2)
+
+
+class RawReview(Review):
+    supports: list[Support] = Field(default_factory=list, max_length=64)
 
 
 CHAIN_PROMPT = """ Order supports from prerequisites to terminal facts. For chain strategy,
@@ -148,6 +153,12 @@ class Planner(QueryPlanner):
         from .raw_evidence import raw_settings
         cfg = raw_settings(cfg)
         self.raw_evidence = cfg.get('RAG_EVIDENCE_BUNDLE_MODE') == 'raw'
+        self.raw_selection = cfg.get('RAG_RAW_SELECTION_MODE', 'per_source')
+        if self.raw_selection not in ('legacy', 'per_source'):
+            raise ValueError('Invalid raw selection mode')
+        self.raw_chain_selection = cfg.get('RAG_RAW_CHAIN_SELECTION_MODE', 'joint')
+        if self.raw_chain_selection not in ('legacy', 'joint'):
+            raise ValueError('Invalid raw chain selection mode')
         self.coverage = self.raw_evidence and cfg.get('RAG_RAW_COVERAGE_MODE','off') == 'on'
         self.chain_mode = cfg.get('RAG_EVIDENCE_CHAIN_MODE', 'off') == 'on'
         self.supplemental = cfg.get('RAG_SUPPLEMENTAL_MODE','off') == 'on'
@@ -509,7 +520,9 @@ class MultiHop:
                     plan.strategy,evidence,list(history),timeout())
                 if audit_step is not None:
                     audit_step['model_output'] = deepcopy(review.model_dump() if hasattr(review, 'model_dump') else review)
-                review = (CollectionReview if self.coverage else ChainReview if self.chain_mode == 'on' else Review).model_validate(review.model_dump() if hasattr(review, 'model_dump') else review)
+                review = (CollectionReview if self.coverage else RawReview if self.bundler.mode == 'raw' else ChainReview if self.chain_mode == 'on' else Review).model_validate(review.model_dump() if hasattr(review, 'model_dump') else review)
+                from .supplemental import retrieval_gap
+                actionable_gap = retrieval_gap(review.missing)
                 valid={}
                 invalid_support=False
                 for support in review.supports:
@@ -532,6 +545,8 @@ class MultiHop:
                 step=dict(round=iteration+1,stage='baseline_review' if iteration==-1 else 'retrieval_review',queries=[p.model_dump() for p in pending],
                     new_candidates=len(set(pool)-before),evidence_ids=[e['id'] for e in evidence],
                     review=review.model_dump(),valid_support_ids=list(supports))
+                step['prose_gap_status'] = ('actionable' if actionable_gap else
+                    'explicit_none' if review.missing.strip() else 'empty')
                 record_positions(step, 'review_input', [e['id'] for e in evidence])
                 record_positions(step, 'model_supports', [s.source_id for s in review.supports])
                 record_positions(step, 'validated_supports', list(supports))
@@ -574,13 +589,13 @@ class MultiHop:
                     trace['stop']='query_budget'
                     break
                 if (self.group_mode in ('adjacent','combined') and not expansion_done
-                        and review.missing.strip() and hasattr(retrieve,'expand_neighbors')
+                        and actionable_gap and hasattr(retrieve,'expand_neighbors')
                         and iteration < self.rounds-1 and trace['llm_calls'] < planning_limit
                         and trace['search_calls'] < self.query_limit and remaining()>0):
                     expansion_done=True
                     phase='adjacency_expansion'
                     trace['search_calls']+=1
-                    groups=retrieve.expand_neighbors([pool[e['id']] for e in evidence],review.missing)
+                    groups=retrieve.expand_neighbors([pool[e['id']] for e in evidence],actionable_gap)
                     trace['adjacency_calls']=1
                     trace['adjacency_groups']=[[h['id'] for h in g] for g in groups]
                     trace['adjacency_new_ids']=list(dict.fromkeys(h['id'] for g in groups for h in g if h['id'] not in pool))
@@ -604,10 +619,10 @@ class MultiHop:
                 # Supplement only an actual unresolved gap. A sufficient initial
                 # review no longer pays for a generic, exception-heavy query.
                 if (not pending and self.supplemental == 'on' and
-                        not trace.get('supplemental_calls') and review.missing.strip() and
+                        not trace.get('supplemental_calls') and actionable_gap and
                         trace['search_calls'] < self.query_limit and remaining() > 0):
                     from .supplemental import supplemental_query
-                    extra = supplemental_query(payload.query, review.missing)
+                    extra = supplemental_query(payload.query, actionable_gap)
                     if extra:
                         kind, extra_query = extra
                         trace['search_calls'] += 1
@@ -687,6 +702,10 @@ class MultiHop:
                 elif TRIGGER.search(payload.query):
                     trace['rule_applicability'] = {'status': 'budget_exhausted'}
             record_positions(trace, 'pre_bundle', [h['id'] for h in ranked])
+            if self.bundler.mode == 'raw' and plan.strategy == 'chain' and getattr(planner, 'raw_chain_selection', 'legacy') == 'joint':
+                from .source_paths import candidate_paths
+                trace['raw_candidate_paths'] = [[ranked[i]['id'] for i in path]
+                    for path in candidate_paths(payload.query, ranked)]
             return self.bundler.assemble(payload.user_id, ranked, supports,
                                          trace.get('stop')=='sufficient', payload.top_k, trace)
         except (LLMError,ValueError,TypeError,TimeoutError,httpx.HTTPError) as exc:
@@ -698,12 +717,21 @@ class MultiHop:
             if baseline is None:
                 trace['search_calls']+=1
                 baseline=search(payload.query,payload.top_k)
+            if (self.bundler.mode == 'raw' and trace.get('strategy') == 'chain'
+                    and getattr(planner, 'raw_chain_selection', 'legacy') == 'joint'):
+                from .source_paths import candidate_paths
+                candidates=list(pool.values()) or baseline
+                trace['raw_candidate_paths']=[[candidates[i]['id'] for i in path]
+                    for path in candidate_paths(payload.query,candidates)]
             if self.coverage and supports and pool:
                 # A later provider failure must not erase earlier selected raw
                 # sources. These already passed retrieval scope/privacy controls.
                 preserved=sorted(pool.values(),key=lambda h:h['id'] not in supports)
                 trace['fallback_preserved_sources']=list(supports)
                 return self.bundler.assemble(payload.user_id,preserved,supports,False,payload.top_k,trace)
+            if trace.get('raw_candidate_paths'):
+                return self.bundler.assemble(payload.user_id,list(pool.values()) or baseline,
+                    supports,False,payload.top_k,trace)
             return {'data':baseline}
         finally:
             trace['seconds']=time.perf_counter()-started

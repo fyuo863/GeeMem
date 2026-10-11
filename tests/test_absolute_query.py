@@ -23,7 +23,8 @@ def test_absolute_query_used_consistently_without_mutating_request(tmp_path):
     text='I started listening to the band today.'
     memory.add(AMLAdd(user_id='u',request_id='r',session_id='s',messages=[dict(role='user',content=text,timestamp=1680220800000)]))
     body=AMLSearch(user_id='u',query='last Friday?',top_k=5,reference_time=1680652800000)
-    assert memory.search(body)['data'][0]['content']==text
+    shown=memory.search(body)['data'][0]['content']
+    assert shown.split('\n',1)[1]==text and '2023-03-31T00:00:00Z' in shown
     assert body.query=='last Friday?'
     assert e.seen[-1]==r.seen[-1]
     assert '2023-03-31 (Friday)' in e.seen[-1]
@@ -31,6 +32,6 @@ def test_absolute_query_used_consistently_without_mutating_request(tmp_path):
         client.headers['Authorization']='Bearer test'
         response=client.post('/search',json=dict(user_id='u',query='last Friday?',top_k=5))
         assert response.status_code==200
-        assert response.json()['data'][0]['content']==text
+        assert response.json()['data'][0]['content']==shown
         assert e.seen[-1]=='last Friday?'
         assert r.seen[-1]=='last Friday?'

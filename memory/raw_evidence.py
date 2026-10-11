@@ -20,6 +20,67 @@ class GapSelection(SourceSelection):
     gaps: list[RetrievalGap] = Field(default_factory=list, max_length=2)
 
 
+class SourceVote(StrictModel):
+    index: int = Field(ge=0, strict=True)
+    relevant: bool = Field(strict=True)
+
+
+class PerSourceSelection(StrictModel):
+    votes: list[SourceVote] = Field(max_length=24)
+    stop_search: bool
+    missing: str = Field(max_length=500)
+
+
+class PerSourceGaps(PerSourceSelection):
+    gaps: list[RetrievalGap] = Field(default_factory=list, max_length=2)
+
+
+class JointSourceSelection(SourceSelection):
+    selected: list[int] = Field(max_length=24)
+
+
+class JointSourceGaps(JointSourceSelection):
+    gaps: list[RetrievalGap] = Field(default_factory=list, max_length=2)
+
+
+VOTE_PROMPT = '''For EVERY supplied index return one relevant boolean; do not rank or pick a fixed number.
+Relevant means its own content supplies the requested subject's attribute, a change
+to that attribute, or an intermediate relationship needed by the question.
+For an attribute-value question, require an explicit asserted value or an explicit
+change in the target content. A question asking for that value, a conditional
+prediction, or advice about that topic alone is false. The surrounding context
+must not supply a missing value on behalf of the target. Judge each independently.
+Keep earlier AND later values, corrections and explicit updates of the same subject
+and attribute. Keep historical facts even for current questions; do not decide which
+value wins. Exclude generic advice, hypothetical conditions, unrelated attributes
+and repeated commentary without a useful fact. Context only resolves references;
+it does not make an unrelated target content relevant. Source times are message
+times, not necessarily event times. Do not answer, calculate dates or rewrite facts.
+stop_search means no useful further lookup is needed. If no concrete retrieval gap
+remains, set stop_search=true, missing="", queries=[]. Otherwise describe only the
+absent fact and propose at most 3 grounded short queries, never a tried query.
+Each query needs source_id from evidence or __question__, and bridge copied exactly
+from that source/question AND included in the query.'''
+
+
+def compact_evidence(evidence):
+    """Keep stable original indices while presenting a chronological source list."""
+    items = []
+    for index, source in enumerate(evidence):
+        item = dict(source, index=index)
+        context = item.pop('context', '')
+        # The retriever's context repeats Target message before adjacent messages.
+        if context.startswith('Target message: '):
+            pos = context.find('\nPrevious context:')
+            context = context[pos+1:] if pos >= 0 else ''
+        if context:
+            context = context.replace(source['content'], '') if source['content'] else context
+            item['context'] = context[:400]
+        items.append(item)
+    return sorted(items, key=lambda e: (e.get('created_at') is None,
+                                       e.get('created_at') or '', e['index']))
+
+
 GAP_HINTS = {
     'intermediate': 'Find the intermediate relationship or connecting passage. 查找中间关系原文。',
     'cause': 'Find an explicit explanation of the cause or reason. 查找明确解释原因的原文。',
@@ -60,20 +121,61 @@ a tried query. Return queries=[] when stopping or no grounded query is available
 Source timestamps are message times, not necessarily event times.'''
 
 
+JOINT_PROMPT = PROMPT.replace('Select at most 8 distinct indices.', '''Select up to 24 distinct indices jointly, not independently.
+First locate the starting entity in the question, then follow each requested relationship using ALL supplied original sources. Select every bridge as well as endpoints. A terminal fact about an unconnected entity is irrelevant.
+For each selected relationship that has an explicit correction, also follow the replacement entity through the remaining relationships and preserve BOTH paths, including their starting link and available endpoints. Earlier facts are useful evidence even if replaced. Do not return just the winning/current path.
+If only a partial path exists, keep it and search for its missing link, not an unrelated endpoint.''')
+
+LINKED_SOURCE_PROMPT = ''' A relationship chain may be supported by DIFFERENT sources joined
+through the same intermediate entities. Do not require a single sentence explicitly
+restating the entire nested question or the endpoint "in the context" of the start.
+Before reporting a missing link, check ALL supplied sources for that entity and
+relation, including sources not selected yet. If each requested link is present,
+set stop_search=true, missing="", queries=[]. Do not ask again for an endpoint
+already supplied. Preserve old and updated routes without choosing a winning truth.
+candidate_paths, when supplied, are program-linked indices from explicit source
+triples, not inferred answers. Read their sources together; they may connect an
+endpoint which does not mention the question's starting entity. They are candidates,
+not proof that all question conditions are satisfied. Paths may stop at an inner
+relation when the final attribute is absent; a path alone never proves sufficiency.'''
+
+
 def select(planner, question, options, strategy, evidence, history, timeout):
     from pydantic import create_model
-    from .multihop import Query, Review, Support, CollectionReview
+    from .multihop import Query, Review, RawReview, Support, CollectionReview
     coverage = getattr(planner, 'coverage', False)
-    schema = create_model('RawSourceSelection', __base__=GapSelection if coverage else SourceSelection,
+    joint = (strategy == 'chain' and getattr(planner, 'raw_chain_selection', 'legacy') == 'joint'
+             and getattr(planner, 'raw_selection', 'legacy') == 'per_source')
+    per_source = getattr(planner, 'raw_selection', 'legacy') == 'per_source' and strategy == 'direct'
+    base = ((PerSourceGaps if coverage else PerSourceSelection) if per_source else
+            (JointSourceGaps if coverage else JointSourceSelection) if joint else
+            (GapSelection if coverage else SourceSelection))
+    schema = create_model('RawSourceVotes' if per_source else 'RawSourceSelection', __base__=base,
                           queries=(list[Query], Field(default_factory=list, max_length=3)))
-    result = planner.complete(PROMPT+(GAP_PROMPT if coverage else ''), dict(question=question, options=options,
-        strategy=strategy, evidence=[dict(e, index=i) for i,e in enumerate(evidence)],
-        tried_queries=history), schema, timeout)
+    prompt = JOINT_PROMPT if joint else VOTE_PROMPT if per_source else PROMPT
+    from .source_paths import candidate_paths
+    paths = candidate_paths(question, evidence) if joint else []
+    if paths: prompt += LINKED_SOURCE_PROMPT
+    payload = dict(question=question, options=options,
+        strategy=strategy, evidence=compact_evidence(evidence) if per_source else [dict(e, index=i) for i,e in enumerate(evidence)],
+        tried_queries=history)
+    if paths: payload['candidate_paths'] = paths
+    result = planner.complete(prompt+(GAP_PROMPT if coverage else ''), payload, schema, timeout)
+    if per_source:
+        indices = [v.index for v in result.votes]
+        if len(indices) != len(set(indices)) or set(indices) != set(range(len(evidence))):
+            raise ValueError('Incomplete or duplicate source relevance votes')
+        selected = [v.index for v in result.votes if v.relevant]
+    else:
+        selected = result.selected
+    # Retain explicit candidate-path originals even if a model omits an endpoint.
+    # This does not override its sufficiency or generate facts.
+    selected = list(dict.fromkeys(selected + [i for path in paths for i in path]))
     supports = []
     # A source selected as the basis of a companion lookup is itself part of
     # the retrieval trail, even if the model omits it from `selected`.
-    indices=([g.source_index for g in result.gaps]+result.selected) if coverage else result.selected
-    for index in list(dict.fromkeys(indices))[:8]:
+    indices=([g.source_index for g in result.gaps]+selected) if coverage else selected
+    for index in list(dict.fromkeys(indices))[:24 if per_source or joint else 8]:
         if index < 0 or index >= len(evidence):
             raise ValueError('Raw evidence selection outside source set')
         source = evidence[index]
@@ -95,7 +197,7 @@ def select(planner, question, options, strategy, evidence, history, timeout):
         return CollectionReview(sufficient=result.stop_search and not queries, supports=supports,
             missing=result.missing, queries=[] if result.stop_search else result.queries,
             gap_queries=queries, gap_kinds=kinds)
-    return Review(sufficient=result.stop_search, supports=supports,
+    return (RawReview if per_source or joint else Review)(sufficient=result.stop_search, supports=supports,
                   missing=result.missing, queries=[] if result.stop_search else result.queries)
 
 
