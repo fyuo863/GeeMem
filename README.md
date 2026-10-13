@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs\architecture\brain.png" width="160" alt="GeeMem Logo"/>
+</p>
+
 # GeeMem：Agent 长期记忆与原文证据检索
 
 GeeMem 通过同步 `POST /add` 保存对话，通过 `POST /search` 返回可追溯的原文证据，供上层 Agent 生成回答。服务基于 FastAPI，入口为 `memory.aml_api:app`。
