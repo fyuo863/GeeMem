@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs\architecture\brain.png" width="160" alt="GeeMem Logo"/>
+  <img src="docs/architecture/brain.png" width="160" alt="GeeMem Logo"/>
 </p>
 
 # GeeMem：Agent 长期记忆与原文证据检索
