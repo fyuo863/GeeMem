@@ -8,6 +8,22 @@ GeeMem 通过同步 `POST /add` 保存对话，通过 `POST /search` 返回可�
 
 检索器负责召回、选择和组织证据，不生成最终答案，不裁决因果链是否成立或哪个冲突事实有效，也不将模型生成的摘要当成原文返回。
 
+## v1 版本定位
+
+最终 Full 使用的运行代码 commit 为 [`530784a0473cbdae99f40e30953ad8f0f4e6d7a6`](https://github.com/fyuo863/GeeMem/commit/530784a0473cbdae99f40e30953ad8f0f4e6d7a6)。`v1` 是在该运行代码基础上补全文档的发布 tag，不更改检索或写入逻辑。可用 `git rev-parse 'refs/tags/v1^{commit}'` 查询包含最终说明的发布提交；复现时还需使用本节对应的实际配置，tag 本身不包含私有 `.env`。
+
+2026-10-20 核对的部署版本名为 `smoke-newserver-20261019`，部署目录 `/root/CSIG`，由 systemd 管理单 worker Uvicorn 服务。接口为：
+
+| 接口 | 地址 | 鉴权 |
+| --- | --- | --- |
+| Add | `http://203.189.235.93:18092/add` | Bearer |
+| Search | `http://203.189.235.93:18092/search` | Bearer |
+| Health | `http://203.189.235.93:18092/health` | 无 |
+
+服务鉴权值通过私有 `.env` 的 `AML_API_KEY` 配置，不等同于平台发放的评测 Key。模型和主要行为配置见下文；时间窗口增强保持关闭。
+
+服务器为 1 vCPU、约 1.8 GiB 内存，无 Swap；检查时磁盘剩余约 22 GB。Add/Search 应用层并发配置均为 0，表示不额外限制准入，不代表无限容量。已完成的文本 Smoke 使用 Add/Search 并发上限各 16，得分 70.58，耗时 21 分 10 秒；这不能替代 Full 规模容量验证，也不代表 Full 成绩。
+
 ## 技术组成
 
 | 项目 | 当前值 |
@@ -223,6 +239,14 @@ python -m uvicorn memory.aml_api:app --host 0.0.0.0 --port 18092 --workers 1 --n
 - **详细检索审计**：可配置 `RAG_SEARCH_AUDIT_PATH=data/logs/search-audit.jsonl`，记录问题、每轮审查证据及最终证据包，用于定位漏召回、漏选和未交付的来源。
 
 详细审计包含原文，应限制访问并根据实际需要设置保留周期。多个实例须使用不同日志文件或关闭日志，避免滚动文件竞争。
+
+私有评测数据仅用于对应评测运行，不用于训练或对外共享；运行结束后 30 天内清理相关数据库、详细审计及备份。清理前应确认没有运行中的任务；该保留期限是运维要求，不能据此假定系统已自动定期删除。
+
+## 参考与实现说明
+
+混合检索部分参考了 [wenxiaof345-ctrl/vanilla-rag-memory](https://github.com/wenxiaof345-ctrl/vanilla-rag-memory) 的设计思路，由 GeeMem 独立实现。参考范围为向量召回与 BM25 词法召回结合、候选融合的基础检索流程；项目维护者为 `wenxiaof345-ctrl`，具体原始工作见该仓库 README。
+
+GeeMem 在此基础思路上实现了记忆类型分类与原文索引、统一分区检索、多跳查询规划与来源选择、原文证据包、来源时间展示及写入版本隔离。当前模型、接口及能力边界以本 README 和实际配置为准，不将参考项目的功能或指标作为 GeeMem 的实验结论。
 
 ## 能力边界
 
