@@ -31,6 +31,19 @@ def setup(tmp_path,**cfg):
 HEAD={'Authorization':'Bearer test-secret'}
 
 
+def test_embedding_outage_returns_safe_retryable_error():
+    from memory.embeddings import EmbeddingUnavailable
+    class Backend:
+        def add(self,payload):raise EmbeddingUnavailable('private-provider-details')
+        def search(self,payload):raise EmbeddingUnavailable('private-provider-details')
+    app=create_app(settings=dict(AML_AUTH_MODE='bearer',AML_API_KEY='test-secret'),backend=Backend())
+    with TestClient(app) as c:
+        for path,body in [('/add',payload()),('/search',dict(user_id='u',query='test',top_k=1))]:
+            r=c.post(path,headers=HEAD,json=body)
+            assert r.status_code==503 and r.headers['retry-after']=='5'
+            assert 'private' not in r.text
+
+
 def test_long_official_textual_query_reaches_backend_unchanged(tmp_path):
     class Backend:
         def search(self,payload):

@@ -7,11 +7,17 @@ All configuration is supplied by the project ``.env`` loader.
 
 import hashlib
 import json
+import logging
+import math
+import random
+import time
+from threading import BoundedSemaphore
 from pathlib import Path
 
 import numpy as np
 
 from .config import PROJECT_ROOT
+from .provider_errors import EmbeddingUnavailable
 
 
 class LocalEmbedder:
@@ -56,6 +62,17 @@ class HTTPEmbedder:
         self.prefix = cfg.get('RAG_QUERY_PREFIX', '')
         self.instruction = cfg.get('RAG_QUERY_INSTRUCTION', '')
         self.timeout = float(cfg.get('RAG_API_TIMEOUT', '120'))
+        self.retries = int(cfg.get('RAG_EMBEDDING_API_RETRIES', '3'))
+        self.retry_budget = float(cfg.get('RAG_EMBEDDING_RETRY_BUDGET', '90'))
+        self.connect_timeout = float(cfg.get('RAG_EMBEDDING_CONNECT_TIMEOUT', '10'))
+        self.read_timeout = float(cfg.get('RAG_EMBEDDING_READ_TIMEOUT', '30'))
+        self.backoff = float(cfg.get('RAG_EMBEDDING_RETRY_BACKOFF', '1'))
+        concurrency = int(cfg.get('RAG_EMBEDDING_CONCURRENCY', '4'))
+        if (not 0 <= self.retries <= 10 or concurrency < 1 or
+                any(not math.isfinite(x) or x <= 0 for x in
+                    (self.timeout, self.retry_budget, self.connect_timeout, self.read_timeout, self.backoff))):
+            raise ValueError('Invalid embedding retry/concurrency configuration')
+        self.slots = BoundedSemaphore(concurrency)
         self.batch_size = int(cfg.get('RAG_EMBEDDING_BATCH_SIZE',
                                       '10' if self.model_name == 'text-embedding-v4' else '64'))
         dimension = cfg.get('RAG_EMBEDDING_DIMENSIONS', '')
@@ -88,8 +105,7 @@ class HTTPEmbedder:
                 payload['model'] = self.model_name
             if self.dimensions is not None:
                 payload['dimensions'] = self.dimensions
-            response = self.client.post(self.url, json=payload)
-            response.raise_for_status()
+            response = self._request(payload)
             data = response.json().get('data', [])
             if (not isinstance(data, list) or any(not isinstance(item, dict) for item in data)
                     or any(type(item.get('index')) is not int for item in data)
@@ -102,6 +118,45 @@ class HTTPEmbedder:
                 raise ValueError('Embedding dimension mismatch')
             batches.append(vectors)
         return np.concatenate(batches, axis=0)
+
+    def _request(self, payload):
+        import httpx
+
+        deadline = time.monotonic() + self.retry_budget
+        for attempt in range(self.retries + 1):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not self.slots.acquire(timeout=max(0, remaining)):
+                raise EmbeddingUnavailable('Embedding provider temporarily unavailable') from None
+            delay = min(10.0, self.backoff * 2 ** attempt + random.uniform(0, self.backoff))
+            try:
+                # Four individually bounded HTTP phases stay within the remaining budget.
+                phase = (deadline - time.monotonic()) / 4
+                if phase <= 0:
+                    raise EmbeddingUnavailable('Embedding provider temporarily unavailable')
+                response = self.client.post(self.url, json=payload, timeout=httpx.Timeout(
+                    min(self.timeout, self.read_timeout, phase),
+                    connect=min(self.connect_timeout, phase), write=phase, pool=phase))
+                response.raise_for_status()
+                return response
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in (408, 429, 500, 502, 503, 504):
+                    raise EmbeddingUnavailable('Embedding provider rejected request') from None
+                try:
+                    delay = max(delay, min(10.0, max(0.0, float(exc.response.headers.get('Retry-After', '0')))))
+                except ValueError:
+                    pass
+                exc.response.close()
+                reason = 'http_' + str(exc.response.status_code)
+            except httpx.TransportError as exc:
+                reason = type(exc).__name__
+            finally:
+                self.slots.release()
+            remaining = deadline - time.monotonic()
+            if attempt == self.retries or remaining <= delay:
+                raise EmbeddingUnavailable('Embedding provider temporarily unavailable') from None
+            logging.getLogger(__name__).warning('embedding_retry attempt=%d reason=%s', attempt + 1, reason)
+            time.sleep(delay)
+        raise EmbeddingUnavailable('Embedding provider temporarily unavailable')
 
     @staticmethod
     def _vectors(value, count):

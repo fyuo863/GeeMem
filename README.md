@@ -173,6 +173,12 @@ RAG_EMBEDDING_API_MODEL=text-embedding-v4
 RAG_EMBEDDING_API_KEY=<百炼Embedding Key>
 RAG_EMBEDDING_DIMENSIONS=1024
 RAG_EMBEDDING_BATCH_SIZE=10
+RAG_EMBEDDING_API_RETRIES=3
+RAG_EMBEDDING_RETRY_BUDGET=90
+RAG_EMBEDDING_CONNECT_TIMEOUT=10
+RAG_EMBEDDING_READ_TIMEOUT=30
+RAG_EMBEDDING_RETRY_BACKOFF=1
+RAG_EMBEDDING_CONCURRENCY=4
 RAG_RERANK_MODE=local
 RAG_RERANK_API_PROTOCOL=dashscope
 RAG_RERANK_API_URL=https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank
@@ -232,6 +238,12 @@ python -m uvicorn memory.aml_api:app --host 0.0.0.0 --port 18092 --workers 1 --n
 ```
 
 服务启动后可通过 `http://127.0.0.1:18092/health` 检查存活状态。数据库位置由 `RAG_MEMORY_DB` 指定；修改 `.env` 后需要重启服务。
+
+### Embedding 网络容错（v1 后修复）
+
+HTTP Embedding 对连接超时、读取超时、连接中断及 HTTP 408/429/500/502/503/504 进行有界重试。默认每批最多 4 次尝试，共享 90 秒预算（含并发等待、请求和退避），并发上限为每个 Embedder 实例 4 个请求。默认连接/读取超时上限分别为 10/30 秒，实际阶段超时还会按剩余预算缩短；退避从 1 秒起指数增长并加入抖动，单次等待最多 10 秒，支持数值型 `Retry-After`。
+
+仅重试失败的批次，成功批次不重复请求。400/401 等非暂时性错误立即失败，非法响应索引、维度及向量校验仍会拒绝写入。上游请求失败时 Add/Search 返回不含供应商响应或密钥的 HTTP 503，并附 `Retry-After: 5`；不返回虚假的写入成功或空检索结果。请求方应保留相同 `request_id` 和原始载荷重试。该预算按批次计算，不是整个 Add 的总时限；模型、向量身份和原文格式保持一致，不需要重建数据库。`v1` tag 保留原版本，不随此修复移动。
 
 ## 日志与诊断
 

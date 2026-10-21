@@ -14,6 +14,7 @@ from .config import load_settings
 from .llm import LLM, LLMError
 from .models import StrictModel, AddRequest, SearchRequest
 from .store import Store, Conflict
+from .provider_errors import EmbeddingUnavailable
 
 
 class AMLMessage(StrictModel):
@@ -187,6 +188,11 @@ def create_app(store=None, llm=None, settings=None, backend=None):
     async def storage_error(request, exc):
         return JSONResponse(status_code=503,content={'detail':'Storage temporarily unavailable'})
 
+    @app.exception_handler(EmbeddingUnavailable)
+    async def embedding_error(request, exc):
+        return JSONResponse(status_code=503, content={'detail': 'Embedding provider temporarily unavailable'},
+                            headers={'Retry-After': '5'})
+
     @app.get('/health')
     def health():return {'status':'ok','track':'textual'}
 
@@ -203,6 +209,7 @@ def create_app(store=None, llm=None, settings=None, backend=None):
             return AMLAddResponse(request_id=payload.request_id,user_id=payload.user_id,session_id=payload.session_id)
         except Conflict as exc:raise HTTPException(409,str(exc)) from exc
         except LLMError as exc:raise HTTPException(502,'Memory extraction failed') from exc
+        except EmbeddingUnavailable:raise
         except ValueError as exc:raise HTTPException(502,'Memory write failed') from exc
 
     @app.post('/search',response_model=AMLSearchResponse,response_model_exclude_none=True,
@@ -222,6 +229,7 @@ def create_app(store=None, llm=None, settings=None, backend=None):
                 for hit in result['data']:
                     if hit.get('created_at')=='1970-01-01T00:00:00Z':hit.pop('created_at')
                 return result
+        except EmbeddingUnavailable:raise
         except (LLMError, ValueError) as exc:raise HTTPException(502,'Memory retrieval failed') from exc
 
     return app
