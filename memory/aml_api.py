@@ -15,6 +15,7 @@ from .llm import LLM, LLMError
 from .models import StrictModel, AddRequest, SearchRequest
 from .store import Store, Conflict
 from .provider_errors import EmbeddingUnavailable
+from .request_diagnostics import observe_request
 
 
 class AMLMessage(StrictModel):
@@ -197,6 +198,7 @@ def create_app(store=None, llm=None, settings=None, backend=None):
     def health():return {'status':'ok','track':'textual'}
 
     @app.post('/add',response_model=AMLAddResponse,dependencies=[Depends(authenticate)])
+    @observe_request('/add')
     def add(payload: AMLAdd):
         request=payload.internal()
         try:
@@ -214,6 +216,7 @@ def create_app(store=None, llm=None, settings=None, backend=None):
 
     @app.post('/search',response_model=AMLSearchResponse,response_model_exclude_none=True,
               dependencies=[Depends(authenticate)])
+    @observe_request('/search')
     def search(payload: AMLSearch):
         try:
             with capacity(app.state.search_slots):

@@ -13,6 +13,7 @@ from .retrieval import bm25, chunks
 from .vector_writer import VectorWriter
 from .store import Conflict
 from .position_trace import record_positions, record_returned
+from .request_diagnostics import diagnostic_stage
 
 
 class VanillaMemory:
@@ -188,21 +189,27 @@ class VanillaMemory:
         with self.lock:
             self._add_sources(payload)
             if self.temporal_index is not None:
-                self.temporal_index.write(payload)
+                with diagnostic_stage('temporal_write'):
+                    self.temporal_index.write(payload)
             if self.route_writer is not None:
-                self.route_writer.process(payload.user_id, payload.request_id)
-            self.semantic_controls.write(payload)
-            self.publications.publish(payload.user_id,payload.request_id)
+                with diagnostic_stage('typed_routes'):
+                    self.route_writer.process(payload.user_id, payload.request_id)
+            with diagnostic_stage('semantic_controls'):
+                self.semantic_controls.write(payload)
+            with diagnostic_stage('publish'):
+                self.publications.publish(payload.user_id,payload.request_id)
 
     def _add_sources(self, payload):
         with self.lock, closing(self.connect()) as db:
             if self.vector_writer.existing(db, payload):
                 return
-            decision = self.write_selector.select(payload) if self.write_selector else None
+            with diagnostic_stage('write_classifier'):
+                decision = self.write_selector.select(payload) if self.write_selector else None
             if decision is not None and decision.label not in ('valuable', 'vector_only'):
                 raise ValueError('Unknown write route')
             enrich = decision is None or decision.label == 'valuable'
-            prepared = self.vector_writer.prepare(payload)
+            with diagnostic_stage('source_embedding'):
+                prepared = self.vector_writer.prepare(payload)
             pending, matrix = prepared.chunks, prepared.vectors
             tags = self.tagger.extract([p[2] for p in pending]) if enrich and self.tag_mode != 'off' else None
             if tags is not None and len(tags) != len(pending):
@@ -221,7 +228,8 @@ class VanillaMemory:
                 db.execute('BEGIN IMMEDIATE')
                 if self.vector_writer.existing(db, payload):
                     return
-                written = self.vector_writer.persist(db, prepared)
+                with diagnostic_stage('source_persistence'):
+                    written = self.vector_writer.persist(db, prepared)
                 if decision is not None:
                     db.execute('INSERT INTO rag_write_decisions VALUES (?,?,?,?)',
                                (payload.user_id, payload.request_id, decision.label, decision.model_dump_json()))
