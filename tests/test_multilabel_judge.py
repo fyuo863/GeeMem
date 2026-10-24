@@ -24,14 +24,13 @@ class Fake:
         assert [m['index'] for m in payload['messages']]==list(range(len(payload['messages'])))
         return self.result
 
-@pytest.mark.parametrize('kind',['exclusive','range','missing','duplicate','empty','unselected'])
+@pytest.mark.parametrize('kind',['exclusive','range','missing','empty','unselected'])
 def test_multilabel_invalid_outputs_retry_and_fail(monkeypatch,kind):
     monkeypatch.setattr('memory.selector.time.sleep',lambda _:None)
     result=output({'profile':[0]})
     if kind=='exclusive': result=output({'profile':[0],'vector_only':[0]})
     if kind=='range': result=output({'profile':[1]})
     if kind=='missing': result.assessments.pop()
-    if kind=='duplicate': result=output({'profile':[0,0]})
     if kind=='empty': result=output({})
     if kind=='unselected': result=output({'profile':[0]},event={'message_indices':[0]})
     llm=Fake(result)

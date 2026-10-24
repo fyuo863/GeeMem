@@ -5,11 +5,13 @@ options for a question, but does not retrieve memories or generate a final
 answer. Credentials and model settings come exclusively from the root .env.
 """
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
+from functools import lru_cache
+import logging
 import time
 import httpx
 
-from pydantic import Field, StrictInt, StrictBool
+from pydantic import Field, StrictInt, StrictBool, create_model
 
 from .llm import LLM, LLMError
 from .models import StrictModel
@@ -214,6 +216,19 @@ class MultiLabelResult(StrictModel):
         return [item.label for item in self.assessments if item.selected]
 
 
+@lru_cache(maxsize=200)
+def indexed_result_schema(message_count):
+    """Constrain generation to original request indices without changing stored models."""
+    if not 1 <= message_count <= 200:
+        raise ValueError('Supply between 1 and 200 messages')
+    index = Annotated[StrictInt, Field(ge=0, le=message_count-1,
+                                      json_schema_extra={'enum': list(range(message_count))})]
+    assessment = create_model('IndexedLabelAssessment', __base__=LabelAssessment,
+        message_indices=(list[index], Field(default_factory=list, max_length=200)))
+    return create_model('IndexedMultiLabelResult', __base__=MultiLabelResult,
+        assessments=(list[assessment], Field(min_length=2, max_length=20)))
+
+
 class MultiLabelJudge(ConfigurableJudge):
     """Configurable multi-label routing; indices refer to program-indexed inputs."""
 
@@ -239,6 +254,7 @@ class MultiLabelJudge(ConfigurableJudge):
 
     def _judge_once(self, text, *, context, metadata, retry=False):
         labels = [label.name for label in self.config.labels]
+        message_count = len(metadata['messages'])
         instruction = (
             'Classify the indexed messages using all applicable labels. Apply the configured criteria. '
             'Return one assessment for EVERY label in the supplied order. Scores are independent '
@@ -257,6 +273,8 @@ class MultiLabelJudge(ConfigurableJudge):
             + (f' Examples: {" | ".join(label.examples)}' if label.examples else '')
             for label in self.config.labels)
         instruction += '\nExclusive labels: ' + ', '.join(self.config.exclusive_labels) + '\n'
+        instruction += (f'Original message indices are zero-based: 0 through {message_count-1}. '
+                        'Copy the index field of a supporting message; never renumber messages. ')
         if retry:
             instruction += 'Previous attempt failed: check label order, exclusivity and valid message indices. '
         result = self.llm.complete(instruction, {
@@ -264,7 +282,9 @@ class MultiLabelJudge(ConfigurableJudge):
             'labels': labels,
             'exclusive_labels': self.config.exclusive_labels,
             'messages': metadata['messages'], 'context': context,
-        }, MultiLabelResult)
+        }, indexed_result_schema(message_count))
+        # Preserve the existing persistence model and strict integer validation.
+        result = MultiLabelResult.model_validate(result.model_dump())
         returned = [item.label for item in result.assessments]
         if len(returned) != len(labels) or set(returned) != set(labels):
             raise ValueError('Multi-label judge must return every label exactly once')
@@ -279,6 +299,16 @@ class MultiLabelJudge(ConfigurableJudge):
             indices = item.message_indices
             if item.selected != bool(indices):
                 raise ValueError('Only selected labels must have nonempty source indices')
-            if len(set(indices)) != len(indices) or any(type(i) is not int or not 0 <= i < len(metadata['messages']) for i in indices):
+            if any(type(i) is not int or not 0 <= i < message_count for i in indices):
+                logging.getLogger(__name__).warning(
+                    'classifier_indices_invalid reason=out_of_range message_count=%d selected_count=%d',
+                    message_count, len(indices))
                 raise ValueError('Invalid source indices')
+            unique = sorted(set(indices))
+            if len(unique) != len(indices):
+                logging.getLogger(__name__).warning(
+                    'classifier_indices_normalized reason=duplicates message_count=%d removed_count=%d',
+                    message_count, len(indices)-len(unique))
+            # Duplicate references do not change which original messages support a label.
+            item.message_indices = unique
         return result
