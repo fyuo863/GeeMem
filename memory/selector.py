@@ -119,9 +119,10 @@ class ConfigurableJudge:
             raise ValueError('Judged text must be nonblank')
         if not isinstance(context, str) or (metadata is not None and not isinstance(metadata, dict)):
             raise ValueError('Invalid judge context or metadata')
+        needs_repair = False
         for attempt in range(self.config.max_attempts):
             try:
-                return self._judge_once(text, context=context, metadata=metadata, retry=attempt > 0)
+                return self._judge_once(text, context=context, metadata=metadata, retry=needs_repair)
             except (LLMError, ValueError) as exc:
                 cause = exc.__cause__
                 permanent = isinstance(exc, LLMError) and str(exc) == 'LLM_API_KEY is not configured'
@@ -130,6 +131,9 @@ class ConfigurableJudge:
                     permanent = status < 500 and status not in (408, 429)
                 if permanent or attempt + 1 == self.config.max_attempts:
                     raise
+                # No model output exists after a transport/HTTP failure to repair.
+                needs_repair = not (isinstance(exc, LLMError) and
+                    isinstance(cause, (httpx.TransportError, httpx.HTTPStatusError)))
                 time.sleep(0.25 * 2 ** attempt)
 
     def _judge_once(self, text, *, context, metadata, retry=False):
@@ -224,7 +228,7 @@ def indexed_result_schema(message_count):
     index = Annotated[StrictInt, Field(ge=0, le=message_count-1,
                                       json_schema_extra={'enum': list(range(message_count))})]
     assessment = create_model('IndexedLabelAssessment', __base__=LabelAssessment,
-        message_indices=(list[index], Field(default_factory=list, max_length=200)))
+        message_indices=(list[index], Field(default_factory=list, max_length=message_count)))
     return create_model('IndexedMultiLabelResult', __base__=MultiLabelResult,
         assessments=(list[assessment], Field(min_length=2, max_length=20)))
 

@@ -1,6 +1,7 @@
 import json
 from .config import load_settings
 import httpx
+from .llm_transport import StreamingJSONClient
 from .models import AddRequest, Graph, Keywords
 from .grounding import RELATION_RULES, admit_graph, merge_graphs, indexed_schema, ground_from_indices
 
@@ -36,7 +37,8 @@ class LLM:
         if not self.key:
             raise LLMError("LLM_API_KEY is not configured")
         try:
-            with httpx.Client(timeout=60, trust_env=False, proxy=self.proxy) as client:
+            with httpx.Client(timeout=60, trust_env=False, proxy=self.proxy) as raw_client:
+                client = StreamingJSONClient(raw_client)
                 for attempt in range(self.max_attempts):
                     try:
                         response = client.post(

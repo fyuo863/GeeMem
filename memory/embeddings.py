@@ -51,6 +51,26 @@ class LocalEmbedder:
         return self.documents([self.prefix + t for t in texts])
 
 
+
+def bounded_embedding_query(text):
+    """Use a conservative UTF-8 byte budget below the 33k input-token limit.
+
+    Keep verbatim beginning/end; byte slicing is decoded without broken Unicode.
+    UTF-8 bytes bound byte-level tokenizer tokens, including non-ASCII queries.
+    """
+    encoded = text.encode('utf8')
+    budget = 30000
+    if len(encoded) <= budget:
+        return text
+    marker = b"\n[Middle context omitted for query embedding only]\n"
+    sent = (encoded[:7500].decode('utf8', errors='ignore') + marker.decode() +
+            encoded[-(budget - 7500 - len(marker)):].decode('utf8', errors='ignore'))
+    logging.getLogger(__name__).warning(
+        'embedding_query_bounded original_bytes=%d sent_bytes=%d',
+        len(encoded), len(sent.encode('utf8')))
+    return sent
+
+
 class HTTPEmbedder:
     """OpenAI-compatible embedding endpoint, configured only in the project .env."""
 
@@ -139,6 +159,18 @@ class HTTPEmbedder:
                 response.raise_for_status()
                 return response
             except httpx.HTTPStatusError as exc:
+                try:
+                    body = exc.response.json()
+                    detail = body.get('error', body)
+                    code = detail.get('code', '') if isinstance(detail, dict) else ''
+                except (ValueError, AttributeError):
+                    code = ''
+                safe_codes = {'InvalidParameter', 'Arrearage', 'Throttling', 'InvalidApiKey'}
+                logging.getLogger(__name__).warning(
+                    'embedding_upstream_error status=%d code=%s inputs=%d max_input_bytes=%d',
+                    exc.response.status_code, code if code in safe_codes else 'other',
+                    len(payload.get('input', [])),
+                    max((len(t.encode('utf8')) for t in payload.get('input', [])), default=0))
                 if exc.response.status_code not in (408, 429, 500, 502, 503, 504):
                     raise EmbeddingUnavailable('Embedding provider rejected request') from None
                 try:
@@ -169,6 +201,8 @@ class HTTPEmbedder:
         return arr / norms
 
     def queries(self, texts):
-        if self.instruction:
-            return self.documents([self.prefix + self.instruction + '\nQuery: ' + t for t in texts])
-        return self.documents([self.prefix + t for t in texts])
+        # Query-only protection: do not alter document vectors or index identity.
+        header = self.prefix + (self.instruction + '\nQuery: ' if self.instruction else '')
+        return self.documents([bounded_embedding_query(header + t)
+                               if self.model_name == 'text-embedding-v4' else header + t
+                               for t in texts])

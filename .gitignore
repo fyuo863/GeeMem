@@ -9,3 +9,11 @@ data/
 .cache/
 
 /build/
+
+# Server-only state, private backups and deployment scratch files
+/shared/
+/proxy-state/
+/proxy.yaml
+/mihomo
+/.env.before-*
+/*.staged.py

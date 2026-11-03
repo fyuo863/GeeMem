@@ -85,6 +85,19 @@ class ONNXReranker:
         return np.asarray(scores,dtype=float)
 
 
+
+def bounded_rerank_query(query):
+    """Guard DashScope's 50k character limit without changing stored input.
+
+    Only oversized queries change. Keep verbatim opening context and the ending
+    (where long contextual prompts commonly put the actual question).
+    """
+    if len(query) <= 50000:
+        return query
+    marker = "\n[Middle context omitted for reranking only]\n"
+    return query[:2000] + marker + query[-(8000 - 2000 - len(marker)):]
+
+
 class HTTPReranker:
     """vLLM or DashScope native rerank, configured exclusively in .env.
 
@@ -112,6 +125,14 @@ class HTTPReranker:
         import time
         if not documents: return np.empty(0,dtype=float)
         if len(documents)>self.max_documents: raise ValueError('Rerank pool exceeds single-request limit')
+        if self.relative_scores:
+            original_length = len(query)
+            query = bounded_rerank_query(query)
+            if len(query) != original_length:
+                import logging
+                logging.getLogger(__name__).warning(
+                    'rerank_query_bounded original_chars=%d sent_chars=%d documents=%d',
+                    original_length, len(query), len(documents))
         payload = {'query': query, 'documents': list(documents)}
         if self.model_name: payload['model'] = self.model_name
         if self.protocol == 'dashscope':
@@ -125,6 +146,17 @@ class HTTPReranker:
                     except ValueError: delay=1
                     if not 0<=delay<=5: response.raise_for_status()
                     time.sleep(delay);continue
+                if response.is_error:
+                    import logging
+                    try:
+                        code = response.json().get('code', '')
+                    except (ValueError, AttributeError):
+                        code = ''
+                    safe_codes = {'InvalidParameter', 'Arrearage', 'Throttling', 'InvalidApiKey'}
+                    logging.getLogger(__name__).warning(
+                        'rerank_upstream_error status=%d code=%s query_chars=%d documents=%d max_document_chars=%d',
+                        response.status_code, code if code in safe_codes else 'other',
+                        len(query), len(documents), max(map(len, documents), default=0))
                 response.raise_for_status()
                 break
             except (httpx.TimeoutException,httpx.NetworkError):

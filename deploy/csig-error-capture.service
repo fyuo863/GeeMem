@@ -1,0 +1,28 @@
+[Unit]
+Description=GeeMem passive error capture (independent of API lifecycle)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/CSIG/shared/diagnostics/tools
+ExecStart=/root/CSIG/.venv/bin/python /root/CSIG/shared/diagnostics/tools/capture_runtime_errors.py --output /root/CSIG/shared/diagnostics/runtime-live --continuous --max-mb 16 --rotate-files 4 --heartbeat 30
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+UMask=0077
+MemoryMax=160M
+CPUQuota=10%
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_RAW
+RestrictAddressFamilies=AF_PACKET AF_INET AF_UNIX
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/root/CSIG/shared/diagnostics/runtime-live
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager, contextmanager
 import hmac
 import json
 import logging
+import math
 import sqlite3
 from threading import BoundedSemaphore
 from typing import Literal
@@ -132,9 +133,13 @@ def create_app(store=None, llm=None, settings=None, backend=None):
         add_limit=int(cfg.get('AML_ADD_CONCURRENCY','1'));search_limit=int(cfg.get('AML_SEARCH_CONCURRENCY','4'))
         if add_limit<0 or search_limit<0:
             raise ValueError('AML concurrency must be nonnegative; zero disables the admission limit')
+        capacity_wait=float(cfg.get('AML_CAPACITY_WAIT_SECONDS','0'))
+        if not math.isfinite(capacity_wait) or capacity_wait<0:
+            raise ValueError('AML_CAPACITY_WAIT_SECONDS must be finite and nonnegative')
         app.state.auth_mode=mode;app.state.api_key=key
         app.state.add_slots=BoundedSemaphore(add_limit) if add_limit else None
         app.state.search_slots=BoundedSemaphore(search_limit) if search_limit else None
+        app.state.capacity_wait_seconds=capacity_wait
         mode_backend=cfg.get('MEMORY_BACKEND','vanilla')
         if mode_backend not in ('vanilla','graph'):
             raise ValueError('Unsupported MEMORY_BACKEND')
@@ -165,7 +170,9 @@ def create_app(store=None, llm=None, settings=None, backend=None):
         if semaphore is None:
             yield
             return
-        if not semaphore.acquire(blocking=False):
+        wait=app.state.capacity_wait_seconds
+        acquired=semaphore.acquire(timeout=wait) if wait else semaphore.acquire(blocking=False)
+        if not acquired:
             raise HTTPException(429,'Capacity exhausted',headers={'Retry-After':'5'})
         try:yield
         finally:semaphore.release()

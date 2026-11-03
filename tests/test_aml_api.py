@@ -191,3 +191,78 @@ def test_negative_concurrency_is_rejected(tmp_path):
     app,_,_=setup(tmp_path,AML_ADD_CONCURRENCY='-1')
     with pytest.raises(ValueError,match='nonnegative'):
         with TestClient(app):pass
+
+
+@pytest.mark.parametrize('endpoint',['/add','/search'])
+def test_queued_admission_limits_work_and_keeps_health_available(endpoint):
+    from threading import Lock
+    from time import sleep
+    lock=Lock();release=Event();full=Event()
+    active=0;peak=0;completed=0
+    class Backend:
+        def work(self):
+            nonlocal active,peak,completed
+            with lock:
+                active+=1;peak=max(peak,active)
+                if active==4:full.set()
+            try:
+                assert release.wait(5)
+                sleep(.01)
+                with lock:completed+=1
+            finally:
+                with lock:active-=1
+        def add(self,p):self.work()
+        def search(self,p):self.work();return {'data':[]}
+    app=create_app(settings=dict(AML_AUTH_MODE='bearer',AML_API_KEY='test-secret',
+        AML_ADD_CONCURRENCY='4',AML_SEARCH_CONCURRENCY='4',
+        AML_CAPACITY_WAIT_SECONDS='5'),backend=Backend())
+    body=payload() if endpoint=='/add' else dict(user_id='u',query='q',top_k=100)
+    with TestClient(app) as client,ThreadPoolExecutor(max_workers=16) as pool:
+        futures=[pool.submit(client.post,endpoint,json=body,headers=HEAD) for _ in range(16)]
+        try:
+            assert full.wait(3)
+            assert client.get('/health').status_code==200
+            with lock:assert active==4 and peak==4
+        finally:release.set()
+        assert all(f.result(timeout=10).status_code==200 for f in futures)
+    assert completed==16 and peak==4 and active==0
+
+
+def test_queued_admission_timeout_is_retryable_and_releases_slot():
+    entered=Event();release=Event()
+    class Backend:
+        def search(self,p):entered.set();assert release.wait(5);return {'data':[]}
+    app=create_app(settings=dict(AML_AUTH_MODE='bearer',AML_API_KEY='test-secret',
+        AML_SEARCH_CONCURRENCY='1',AML_CAPACITY_WAIT_SECONDS='.05'),backend=Backend())
+    body=dict(user_id='u',query='q',top_k=100)
+    with TestClient(app) as client,ThreadPoolExecutor(max_workers=1) as pool:
+        first=pool.submit(client.post,'/search',json=body,headers=HEAD)
+        try:
+            assert entered.wait(3)
+            response=client.post('/search',json=body,headers=HEAD)
+            assert response.status_code==429 and response.headers['Retry-After']=='5'
+        finally:release.set()
+        assert first.result(timeout=5).status_code==200
+        assert client.post('/search',json=body,headers=HEAD).status_code==200
+
+
+def test_queued_admission_releases_slot_after_backend_error():
+    class Backend:
+        calls=0
+        def search(self,p):
+            self.calls+=1
+            if self.calls==1:raise LLMError('upstream')
+            return {'data':[]}
+    app=create_app(settings=dict(AML_AUTH_MODE='bearer',AML_API_KEY='test-secret',
+        AML_SEARCH_CONCURRENCY='1',AML_CAPACITY_WAIT_SECONDS='.05'),backend=Backend())
+    with TestClient(app) as client:
+        body=dict(user_id='u',query='q',top_k=100)
+        assert client.post('/search',json=body,headers=HEAD).status_code==502
+        assert client.post('/search',json=body,headers=HEAD).status_code==200
+
+
+@pytest.mark.parametrize('value',['-1','nan','inf','-inf'])
+def test_invalid_capacity_wait_is_rejected(tmp_path,value):
+    app,_,_=setup(tmp_path,AML_CAPACITY_WAIT_SECONDS=value)
+    with pytest.raises(ValueError,match='finite and nonnegative'):
+        with TestClient(app):pass

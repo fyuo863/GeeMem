@@ -17,9 +17,19 @@ def test_schema_constrains_original_indices_and_strict_types(count):
         with pytest.raises(ValueError):schema.model_validate(raw)
     wire=strict_json_schema(schema.model_json_schema())
     item=wire['$defs']['IndexedLabelAssessment']['properties']['message_indices']['items']
+    assert wire['$defs']['IndexedLabelAssessment']['properties']['message_indices']['maxItems']==count
     assert item['enum']==list(range(count)) and item['type']=='integer'
     assert wire['additionalProperties'] is False
     assert indexed_result_schema(count) is schema
+
+
+@pytest.mark.parametrize('count',[1,2,200])
+def test_schema_prevents_index_array_longer_than_message_count(count):
+    schema=indexed_result_schema(count)
+    raw=output({'profile':list(range(count))}).model_dump()
+    assert schema.model_validate(raw).assessments[0].message_indices==list(range(count))
+    raw['assessments'][0]['message_indices']=[0]*(count+1)
+    with pytest.raises(ValueError):schema.model_validate(raw)
 
 
 def test_duplicate_indices_normalize_without_another_call(caplog):
